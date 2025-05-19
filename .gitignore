@@ -1,0 +1,44 @@
+# Laravel (in app_laravel/)
+app_laravel/vendor/
+app_laravel/node_modules/
+app_laravel/public/build/
+app_laravel/public/hot
+app_laravel/public/storage
+app_laravel/storage/*.key
+app_laravel/.env
+app_laravel/.phpunit.result.cache
+app_laravel/Homestead.json
+app_laravel/Homestead.yaml
+app_laravel/npm-debug.log
+app_laravel/yarn-error.log
+app_laravel/coverage
+
+# React Native / Expo (in app_mobile/)
+app_mobile/node_modules/
+app_mobile/.expo/
+app_mobile/npm-debug.log
+app_mobile/yarn-error.log
+app_mobile/ios/Pods/
+app_mobile/ios/build/
+app_mobile/android/build/
+app_mobile/android/app/build/
+app_mobile/.idea/
+app_mobile/.vs/
+app_mobile/*.iml
+app_mobile/*.jks
+app_mobile/*.private
+
+# General
+.DS_Store
+Thumbs.db
+*.log
+desktop.ini
+
+# IDE specific
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
