@@ -152,15 +152,81 @@ NexusComply/
 - **Role-Based Access Control:** silber/bouncer
 
 ### Mobile Application (`app_mobile/`)
-- **Framework:** React Native (developed using Expo)
-- **API Integration:** RESTful API communication with the Laravel backend
+- **Framework:** React Native with Expo
+- **Navigation:** Expo Router (file-based routing)
+- **Styling:** React Native StyleSheet API
+- **Icons:** Expo Vector Icons (Ionicons)
+- **Primary User:** Outlet Managers
 
-## Project Structure
-The NexusComply project is organized into two main components:
+#### Key Features for Outlet Managers
+- **Secure Authentication:**
+  - User-friendly login interface
+  - Password recovery and reset functionality
+  - Session management
+- **Dashboard Overview:**
+  - Personalized welcome with outlet information
+  - Summary cards showing audit status counts
+  - Quick access to pending and required submissions
+  - Recent submission history with status indicators
+- **Comprehensive Audit Management:**
+  - Select from available compliance form types
+  - Fill dynamic forms with various input types:
+    - Text fields (single and multi-line)
+    - Yes/No/N/A selection fields
+    - Photo uploads with preview
+    - Document attachments
+    - Notes and comments
+    - Issue flagging for follow-up
+  - Save drafts of in-progress audits
+  - Submit completed audits for manager review
+  - Track submission status (Pending, Approved, Rejected)
+- **Records & Reporting:**
+  - View past audit records and their statuses
+  - Access detailed view of submitted audits
+  - Print preview functionality for forms
+  - Generate reports for completed audits
+- **User Profile Management:**
+  - View and edit profile information
+  - Manage notification preferences
+  - Access account settings
 
-- **`app_laravel/`** - Contains the core web application and API backend. Serves as the main interface for Managers, Admins, and External Auditors while also providing the API endpoints for the mobile application.
+#### Navigation Structure
+- **Initial Auth Flow:**
+  - Landing screen with app introduction
+  - Login screen
+  - Forgot password and reset password screens
+- **Main Application (Post-Login):**
+  - Bottom Tab Navigator with three primary sections:
+    - Dashboard: Home screen with audit overview and quick actions
+    - Audits: Main entry point for audit-related activities
+    - Profile: User profile and settings
+  - Audit Section (Stack Navigator):
+    - Audit home screen with actions
+    - Select compliance form type
+    - Perform audit (dynamic form filling)
+    - Past records viewer
+    - Report details viewer
+    - Print preview for completed forms
 
-- **`app_mobile/`** - Houses the React Native mobile application primarily designed for Outlet Staff to perform on-site tasks such as filling audit forms, viewing compliance checklists, and submitting documentation.
+#### Setup/Running Instructions
+```bash
+# Navigate to the mobile app directory
+cd app_mobile
+
+# Install dependencies
+npm install
+
+# Start the Expo development server
+npx expo start
+```
+
+After starting the development server, you can run the app on:
+- iOS Simulator (press 'i')
+- Android Emulator (press 'a')
+- Physical device using Expo Go app (scan QR code)
+- Web browser (press 'w')
+
+The mobile app connects to the Laravel backend via REST API endpoints. During development, ensure the Laravel backend is running and accessible.
 
 ## Prerequisites
 - PHP 8.2 or higher
