@@ -1,23 +1,145 @@
 # NexusComply
 
+A comprehensive compliance management system designed to streamline and automate compliance processes for multi-outlet businesses, particularly in the food and beverage industry.
+
 ## Overview
-NexusComply is a comprehensive compliance management and audit readiness system designed to streamline the adherence to multiple compliance standards for business outlets. The platform efficiently manages document submission, review, audit tracking, and reporting processes for both internal staff and external auditors, enabling businesses to maintain regulatory compliance with standards such as ISO 22000, HALAL, GMP, HACCP, OSH, and Food Safety regulations.
+
+NexusComply is a modern, full-stack application that helps businesses manage their compliance requirements across multiple locations. The system consists of two main components:
+
+1. **Web Application (Admin & Manager Portal)**: A Laravel/React-based web interface for administrators and regional managers to oversee compliance, manage users, and handle audit processes.
+2. **Mobile Application**: A React Native app for outlet staff to submit compliance documentation and handle day-to-day compliance tasks.
+
+## Architecture Overview
+
+NexusComply follows a unified backend architecture where a single Laravel application serves both the web interface and mobile application:
+
+### Backend (app_laravel/)
+- **Dual Role Architecture**:
+  1. Serves the web interface using Laravel with Inertia.js + React
+  2. Functions as a REST API backend for the mobile application
+- **Single Source of Truth**: All business logic and data management is centralized in one codebase
+- **API Integration**: Dedicated API routes (prefixed with /api/mobile/) handle mobile app communications
+- **Shared Authentication**: Unified authentication system serving both platforms
+
+### Client Applications
+- **Web Interface**: Direct integration with Laravel through Inertia.js
+- **Mobile App**: Communicates with Laravel backend via REST API endpoints
+- **Data Flow**:
+  - Admins/Regional Managers → Web Interface → Laravel Backend
+  - Outlet Staff → Mobile App → Laravel API → Laravel Backend
 
 ## Key Features
-- **Role-Based Access Control** - Customized interfaces and permissions for Outlet Staff, Managers, Admins, and External Auditors
-- **Dynamic Dashboard** - Role-specific analytics, compliance status overviews, and exportable reports
-- **Comprehensive Audit Management**
-  - Selection of compliance standards and checklists
-  - Document upload and management system
-  - Dynamic form filling with various input types (text, checkbox, radio, photo upload)
-  - Automatic compliance level verification and issue flagging
-  - Follow-up audit tracking
-  - QR code generation for quick form access
-- **User Management** - Add, edit, delete users and manage roles/permissions
-- **Compliance Framework Setup** - Tools to customize compliance categories and checklists
-- **Dynamic Form Builder** - Create and modify custom forms with various field types
-- **Document Repository** - Centralized storage with advanced filtering and search capabilities
-- **Mobile Application** - On-site form filling and document submission with offline support
+
+### Admin Portal Features
+- **Dynamic Form Builder**: Create custom compliance forms with multiple field types (text, checkbox, radio, file upload, etc.)
+- **Compliance Framework Management**: Define and manage compliance categories, requirements, and associated forms
+- **User & Role Management**: Comprehensive control over user roles, permissions, and access levels
+- **Audit Management & Oversight**: 
+  - Review and approve submitted compliance documentation
+  - Track audit progress across all outlets
+  - Generate compliance reports and analytics
+  - Share form access with external auditors
+- **System Configuration**: Manage system-wide settings and customize the platform
+
+### Regional Manager Features
+- **Regional Dashboard**: Monitor compliance metrics and activities for assigned outlets
+- **Team Management**: 
+  - Oversee outlet managers in the assigned region
+  - Track staff performance and activity
+  - Manage user access and permissions within the region
+- **Audit Review & Reporting**:
+  - Review submitted compliance forms from outlets
+  - Track audit progress and compliance status
+  - Generate regional compliance reports
+  - Share audit forms with external stakeholders
+
+### Mobile App Features (Outlet Staff)
+- Offline-capable form submission
+- Photo and document upload capabilities
+- Real-time compliance task notifications
+- Digital checklist completion
+- Instant submission of compliance documentation
+
+## User Roles
+
+### Administrator
+- Full system access and configuration capabilities
+- Manage compliance frameworks and form templates
+- Oversee all users and role assignments
+- Access system-wide analytics and reporting
+
+### Regional Manager
+- Manage and monitor multiple outlets in assigned region
+- Review and approve compliance submissions
+- Handle staff management for regional outlets
+- Generate regional compliance reports
+
+### Outlet Manager
+- Submit compliance documentation
+- Manage outlet-level staff
+- Track outlet compliance status
+- Handle day-to-day compliance tasks
+
+### External Auditor
+- Review assigned compliance documents
+- Provide feedback and approvals
+- Access specific shared forms and reports
+
+## Technology Stack
+
+### Web Application (Admin & Manager Portal)
+- **Backend**: Laravel (PHP)
+- **Frontend**: React with Inertia.js
+- **UI Framework**: Tailwind CSS
+- **State Management**: React Hooks
+- **Authentication**: Laravel Sanctum with Bouncer for roles/permissions
+- **API**: RESTful endpoints for mobile app integration
+
+### Mobile Application
+- React Native
+- Redux for state management
+- Offline storage capabilities
+- Native device feature integration
+
+## Project Structure
+
+```
+NexusComply/
+├── app_laravel/                 # Web application & API Backend
+│   ├── resources/
+│   │   └── js/
+│   │       ├── Pages/          # React components for web interface
+│   │       │   ├── Admin/      # Admin-specific pages
+│   │       │   └── Manager/    # Regional Manager pages
+│   │       ├── Components/     # Shared React components
+│   │       └── Layouts/        # Layout components
+│   ├── routes/
+│   │   ├── web.php            # Web interface routes
+│   │   └── api.php            # Mobile app API endpoints
+│   └── ...
+├── app_mobile/                 # React Native mobile application
+│   ├── src/                   # Mobile app source code
+│   ├── android/               # Android-specific files
+│   └── ios/                   # iOS-specific files
+└── ...
+```
+
+## Key Designed Pages (Admin/Manager)
+
+### Admin Portal
+- **Authentication**: Login, password reset, and account recovery
+- **Dashboard**: Key metrics, activity monitoring, and quick actions
+- **User Management**: User creation, role assignment, and activity tracking
+- **Compliance Framework**: Category setup and form template management
+- **Form Builder**: Dynamic form creation with multiple field types
+- **Audit Management**: Review submissions, track progress, generate reports
+- **Settings**: Role permissions, system configuration, and customization
+
+### Regional Manager Portal
+- **Dashboard**: Regional metrics and outlet performance overview
+- **Team Management**: Outlet manager oversight and staff activity tracking
+- **Audit Review**: Form submission review and approval workflow
+- **Reports**: Regional compliance status and audit history
 
 ## Technology Stack
 
@@ -107,30 +229,41 @@ Inside the mobile app's configuration, set the API base URL to point to your run
    ```
 2. Follow the instructions provided by Expo CLI to open the app on an emulator, simulator, or physical device using the Expo Go app.
 
-## User Management
+## Contributing
 
-NexusComply implements a role-based access control system using the silber/bouncer package. The application does not have a public registration page - all users must be created by an administrator through the application's user management interface.
+[Contribution guidelines to be added]
 
-The system supports the following user roles:
-- **Admin**: Full system access with user management capabilities
-- **Manager**: Oversees multiple outlets, reviews submissions, and generates reports
-- **Outlet Staff**: Primary users who upload compliance documents and fill forms
-- **External Auditor**: Read-only access to review submitted compliance documentation
+## License
 
-## Main User Flows
+[License information to be added]
 
-### Outlet Staff Monthly Compliance Check
-1. Outlet Staff logs into the mobile application
-2. Selects the required compliance standard (e.g., HACCP)
-3. Opens the monthly checklist form
-4. Completes all required fields, attaching photos where needed
-5. Submits the form for review
-6. Receives notification when the submission is approved or requires corrections
+## Deployment Strategy
 
-### Manager Compliance Review
-1. Manager logs into the web application
-2. Views the dashboard showing pending reviews across multiple outlets
-3. Selects a submission to review
-4. Examines all submitted documentation and form responses
-5. Approves the submission or returns it with comments for correction
-6. Generates compliance reports for their region 
+NexusComply follows a monorepo approach for simplified deployment and maintenance:
+
+### Repository Structure
+- Single Git repository containing both `app_laravel` and `app_mobile`
+- No duplication of backend code or separate repositories needed
+
+### Backend Deployment (app_laravel)
+- **Environment**: Standard PHP web server (VPS, PaaS, etc.)
+- **Single Instance**: Serves both web interface and API endpoints
+- **URLs**:
+  - Web Interface: `https://yourprojectdomain.com`
+  - Mobile API: `https://yourprojectdomain.com/api/mobile`
+- **Configuration**: Environment-specific settings via `.env` file
+
+### Mobile App Deployment (app_mobile)
+- **Build Process**: 
+  - Android: Generate signed APK/App Bundle
+  - iOS: Create signed IPA file
+- **API Configuration**: Mobile builds configured to target production API URL
+- **Distribution**:
+  - Development: Direct installation for testing
+  - Production: Distribution through app stores
+
+### Benefits
+- Single source of truth for business logic
+- Simplified maintenance and updates
+- Consistent data handling across platforms
+- Streamlined deployment process 
