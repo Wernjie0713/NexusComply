@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use Silber\Bouncer\BouncerFacade as Bouncer;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -34,6 +35,16 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
             ],
+            'abilities' => function () use ($request) {
+                if (!$request->user()) {
+                    return null;
+                }
+                
+                return [
+                    'roles' => Bouncer::role()->whereAssignedTo($request->user())->pluck('name')->toArray(),
+                    'permissions' => Bouncer::can($request->user()),
+                ];
+            },
         ];
     }
 }

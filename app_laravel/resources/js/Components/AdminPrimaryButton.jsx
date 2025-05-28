@@ -1,4 +1,4 @@
-export default function PrimaryButton({
+export default function AdminPrimaryButton({
     className = '',
     disabled,
     children,
@@ -17,4 +17,4 @@ export default function PrimaryButton({
             {children}
         </button>
     );
-}
+} 
