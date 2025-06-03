@@ -36,7 +36,7 @@ export default function EditPage({ outlet, outletUsers, managers }) {
             header={<h2 className="text-xl font-semibold text-gray-800">Edit Outlet: {outlet.name}</h2>}
         >
             <Head title={`Edit Outlet: ${outlet.name}`} />
-            <div className="max-w-3xl mx-auto bg-white p-8 rounded shadow">
+            <div className="max-w-7xl mx-auto bg-white p-8 rounded shadow">
                 <OutletForm
                     data={data}
                     setData={setData}

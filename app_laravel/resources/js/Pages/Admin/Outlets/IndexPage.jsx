@@ -161,9 +161,9 @@ export default function IndexPage({ outlets }) {
                                                     {outlet.name}
                                                 </td>
                                                 <td className="px-6 py-4 text-sm text-gray-500">
-                                                    <div>{outlet.address}</div>
+                                                    <div>{outlet.address},</div>
                                                     {outlet.city && outlet.state && (
-                                                        <div>{outlet.city}, {outlet.state} {outlet.postal_code}</div>
+                                                        <div>{outlet.postal_code} {outlet.city}, {outlet.state}. </div>
                                                     )}
                                                     {outlet.phone_number && <div>{outlet.phone_number}</div>}
                                                 </td>

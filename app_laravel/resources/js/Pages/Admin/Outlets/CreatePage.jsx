@@ -35,7 +35,7 @@ export default function CreatePage({ outletUsers, managers }) {
             header={<h2 className="text-xl font-semibold text-gray-800">Create New Outlet</h2>}
         >
             <Head title="Create Outlet" />
-            <div className="max-w-3xl mx-auto bg-white p-8 rounded shadow">
+            <div className="max-w-7xl mx-auto bg-white p-8 rounded shadow">
                 <OutletForm
                     data={data}
                     setData={setData}

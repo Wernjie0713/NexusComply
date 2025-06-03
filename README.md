@@ -41,6 +41,32 @@ NexusComply follows a unified backend architecture where a single Laravel applic
   - Share form access with external auditors
 - **System Configuration**: Manage system-wide settings and customize the platform
 
+#### Outlet Management (Admin Only)
+
+**Feature Name:** Outlet Management  
+**Accessible By:** Exclusively by users with the 'Admin' role.
+
+**Purpose:**
+> Allows Administrators to centrally create, view, edit, and manage all business outlets registered in the NexusComply system.
+
+**Core Functionalities Available to Admins:**
+- View a comprehensive list of all created outlets with key details.
+- Create new outlets, providing information such as:
+  - Outlet Name
+  - Full Address (street, city, state, postal code)
+  - Phone Number
+  - Structured Operating Hours: Define open/closed status and specific opening/closing times for each day of the week (Monday-Sunday).
+- Edit the details of existing outlets, including their operating hours.
+- Delete outlets from the system.
+- Set an outlet's operational status (e.g., Active/Inactive).
+- **Assign Key Personnel:**
+  - Assign a specific 'Outlet User' (formerly 'Outlet Manager') to be primarily responsible for an outlet. _(Constraint: An Outlet User can only be assigned to one outlet at a time.)_
+  - Assign a specific 'Manager' (formerly 'Regional Manager') to oversee an outlet. _(Constraint: A Manager can oversee multiple outlets.)_
+
+**Interface:**
+- Accessed via the Admin sidebar.
+- Utilizes dedicated pages for listing, creating, and editing outlets, providing a full-page experience for detailed data entry.
+
 ### Manager Features
 - **Regional Dashboard**: Monitor compliance metrics and activities for assigned outlets
 - **Team Management**: 
