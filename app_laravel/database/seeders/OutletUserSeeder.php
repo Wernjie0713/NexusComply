@@ -40,6 +40,7 @@ class OutletUserSeeder extends Seeder
                 'name' => 'Outlet User', // Example name
                 'password' => Hash::make('password'), // Use a secure password in real scenarios
                 'email_verified_at' => now(), // Auto-verify email for seeded user
+                'role_id' => 'O-001'
                 // You might add an 'outlet_id' or 'assigned_outlet_name' field here
                 // if your User model or a related table stores this information.
                 // For now, we'll keep it simple.

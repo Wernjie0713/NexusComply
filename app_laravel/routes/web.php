@@ -68,6 +68,23 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return Inertia::render('Admin/Settings/RolesPermissionsPage');
     })->name('settings.roles-permissions');
     
+    // Outlet Management Routes
+    Route::resource('/admin/outlets', \App\Http\Controllers\Admin\OutletController::class)
+        ->names([
+            'index' => 'admin.outlets.index',
+            'create' => 'admin.outlets.create',
+            'store' => 'admin.outlets.store',
+            'edit' => 'admin.outlets.edit',
+            'update' => 'admin.outlets.update',
+            'destroy' => 'admin.outlets.destroy',
+        ]);
+    
+    // API routes for outlet user assignment
+    Route::get('/admin/outlet-users', [\App\Http\Controllers\Admin\OutletController::class, 'getOutletUsers'])
+        ->name('admin.outlet-users');
+    Route::get('/admin/managers', [\App\Http\Controllers\Admin\OutletController::class, 'getManagers'])
+        ->name('admin.managers');
+    
     // Manager Routes
     Route::get('/manager/audits', function () {
         return Inertia::render('Manager/Audits/IndexPage');

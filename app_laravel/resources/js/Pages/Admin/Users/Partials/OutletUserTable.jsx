@@ -50,35 +50,35 @@ export default function OutletUserTable() {
                     </thead>
                     <tbody className="divide-y divide-gray-200 bg-white">
                         {outletUsers.map((user) => (
-                            <tr key={manager.id}>
+                            <tr key={user.id}>
                                 <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
-                                    {manager.name}
+                                    {user.name}
                                 </td>
                                 <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                                    {manager.email}
+                                    {user.email}
                                 </td>
                                 <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                                    {manager.outlet}
+                                    {user.outlet}
                                 </td>
                                 <td className="whitespace-nowrap px-6 py-4 text-sm">
                                     <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
-                                        manager.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                                        user.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                                     }`}>
-                                        {manager.status}
+                                        {user.status}
                                     </span>
                                 </td>
                                 <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                                    {manager.lastLogin}
+                                    {user.lastLogin}
                                 </td>
                                 <td className="whitespace-nowrap px-6 py-4 text-sm font-medium">
                                     <button
-                                        onClick={() => handleEditClick(manager)}
+                                        onClick={() => handleEditClick(user)}
                                         className="mr-2 rounded bg-green-50 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-100"
                                     >
                                         Edit
                                     </button>
                                     <Link
-                                        href={route('users.activity-log', manager.id)}
+                                        href={route('users.activity-log', user.id)}
                                         className="rounded bg-gray-50 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100"
                                     >
                                         View Activity Log

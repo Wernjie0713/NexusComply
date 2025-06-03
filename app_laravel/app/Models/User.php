@@ -22,6 +22,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'role_id'
     ];
 
     /**
@@ -45,5 +46,13 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Get the outlets managed by this user (if manager).
+     */
+    public function managedOutlets()
+    {
+        return $this->hasMany(\App\Models\Outlet::class, 'manager_id');
     }
 }

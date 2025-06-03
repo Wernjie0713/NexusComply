@@ -39,6 +39,7 @@ class ManagerSeeder extends Seeder
                 'name' => 'Manager One',
                 'password' => Hash::make('password'), //  Use a secure password in real scenarios
                 'email_verified_at' => now(), // Auto-verify email for seeded user
+                'role_id' => 'M-001'
             ]
         );
 
