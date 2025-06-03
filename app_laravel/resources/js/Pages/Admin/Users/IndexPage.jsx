@@ -4,8 +4,8 @@ import { Head } from '@inertiajs/react';
 import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
 import Modal from '@/Components/Modal';
 import CreateUserForm from './Partials/CreateUserForm';
-import RegionalManagerTable from './Partials/RegionalManagerTable';
-import OutletManagerTable from './Partials/OutletManagerTable';
+import ManagerTable from './Partials/ManagerTable';
+import OutletUserTable from './Partials/OutletUserTable';
 
 export default function IndexPage() {
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -25,16 +25,16 @@ export default function IndexPage() {
 
             <div className="py-0">
                 <div className="mx-auto max-w-7xl sm:px-6 lg:px-0">
-                    {/* Regional Managers Section */}
+                    {/* Managers Section */}
                     <div className="mb-8 overflow-hidden bg-white px-6 py-6 shadow-sm sm:rounded-lg">
-                        <h3 className="mb-4 text-lg font-semibold text-gray-800">Regional Managers</h3>
-                        <RegionalManagerTable />
+                        <h3 className="mb-4 text-lg font-semibold text-gray-800">Managers</h3>
+                        <ManagerTable />
                     </div>
 
-                    {/* Outlet Managers Section */}
+                    {/* Outlet Users Section */}
                     <div className="mb-8 overflow-hidden bg-white px-6 py-6 shadow-sm sm:rounded-lg">
-                        <h3 className="mb-4 text-lg font-semibold text-gray-800">Outlet Managers</h3>
-                        <OutletManagerTable />
+                        <h3 className="mb-4 text-lg font-semibold text-gray-800">Outlet Users</h3>
+                        <OutletUserTable />
                     </div>
                 </div>
             </div>
@@ -48,4 +48,4 @@ export default function IndexPage() {
             </Modal>
         </AuthenticatedLayout>
     );
-} 
+}

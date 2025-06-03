@@ -7,7 +7,7 @@ export default function CreateUserForm({ onClose }) {
     const [data, setData] = useState({
         name: '',
         email: '',
-        role: 'outlet_manager',
+        role: 'outlet_user',
         outlet: '',
         region: '',
     });
@@ -61,31 +61,31 @@ export default function CreateUserForm({ onClose }) {
                         <input
                             type="radio"
                             name="role"
-                            value="regional_manager"
-                            checked={data.role === 'regional_manager'}
+                            value="manager"
+                            checked={data.role === 'manager'}
                             onChange={handleChange}
                             className="text-green-600 focus:ring-green-500"
                         />
-                        <span className="ml-2 text-sm text-gray-700">Regional Manager</span>
+                        <span className="ml-2 text-sm text-gray-700">Manager</span>
                     </label>
                     <div className="block">
                         <label className="inline-flex items-center">
                             <input
                                 type="radio"
                                 name="role"
-                                value="outlet_manager"
-                                checked={data.role === 'outlet_manager'}
+                                value="outlet_user"
+                                checked={data.role === 'outlet_user'}
                                 onChange={handleChange}
                                 className="text-green-600 focus:ring-green-500"
                             />
-                            <span className="ml-2 text-sm text-gray-700">Outlet Manager</span>
+                            <span className="ml-2 text-sm text-gray-700">Outlet User</span>
                         </label>
                     </div>
                 </div>
             </div>
 
             {/* Conditional fields based on role selection */}
-            {data.role === 'regional_manager' && (
+            {data.role === 'manager' && (
                 <div className="mb-4">
                     <InputLabel htmlFor="region" value="Region" />
                     <select
@@ -141,4 +141,4 @@ export default function CreateUserForm({ onClose }) {
             </div>
         </form>
     );
-} 
+}

@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules;
 use Illuminate\Validation\ValidationException;
+use Silber\Bouncer\BouncerFacade as Bouncer;
 
 class MobileAuthController extends Controller
 {
@@ -32,12 +33,27 @@ class MobileAuthController extends Controller
             // For API, we don't use sessions but tokens
             $user = $request->user();
             
+            // Check if the user has the outlet-user role
+            if (!Bouncer::is($user)->an('outlet-user')) {
+                // Logout the user since they don't have the correct role
+                Auth::logout();
+                
+                return response()->json([
+                    'message' => 'Access denied. This application is for Outlet Users only.',
+                ], 403);
+            }
+            
             // Revoke previous tokens and create a new one
             $user->tokens()->delete();
             $token = $user->createToken('mobile-app')->plainTextToken;
             
             return response()->json([
-                'user' => $user,
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role' => 'outlet-user',
+                ],
                 'token' => $token,
                 'message' => 'Login successful'
             ]);
@@ -133,4 +149,4 @@ class MobileAuthController extends Controller
             'errors' => ['email' => [trans($status)]]
         ], 422);
     }
-} 
+}

@@ -59,7 +59,7 @@ export default function FormReviewModal({ form, onClose }) {
         const newComment = {
             id: comments.length + 1,
             user: 'Sarah Johnson',
-            role: 'Regional Manager',
+            role: 'Manager',
             text: comment,
             timestamp: new Date().toLocaleString(),
         };
@@ -309,4 +309,4 @@ export default function FormReviewModal({ form, onClose }) {
             </div>
         </div>
     );
-} 
+}

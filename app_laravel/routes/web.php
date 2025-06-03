@@ -68,7 +68,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return Inertia::render('Admin/Settings/RolesPermissionsPage');
     })->name('settings.roles-permissions');
     
-    // Regional Manager Routes
+    // Manager Routes
     Route::get('/manager/audits', function () {
         return Inertia::render('Manager/Audits/IndexPage');
     })->name('manager.audits');
@@ -79,7 +79,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ]);
     })->name('manager.audits.share-form');
     
-    // User Management Routes for Regional Manager
+    // User Management Routes for Manager
     Route::get('/manager/users', function () {
         return Inertia::render('Manager/Users/IndexPage');
     })->name('manager.users');

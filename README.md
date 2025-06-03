@@ -6,7 +6,7 @@ A comprehensive compliance management system designed to streamline and automate
 
 NexusComply is a modern, full-stack application that helps businesses manage their compliance requirements across multiple locations. The system consists of two main components:
 
-1. **Web Application (Admin & Manager Portal)**: A Laravel/React-based web interface for administrators and regional managers to oversee compliance, manage users, and handle audit processes.
+1. **Web Application (Admin & Manager Portal)**: A Laravel/React-based web interface for administrators and managers to oversee compliance, manage users, and handle audit processes.
 2. **Mobile Application**: A React Native app for outlet staff to submit compliance documentation and handle day-to-day compliance tasks.
 
 ## Architecture Overview
@@ -25,7 +25,7 @@ NexusComply follows a unified backend architecture where a single Laravel applic
 - **Web Interface**: Direct integration with Laravel through Inertia.js
 - **Mobile App**: Communicates with Laravel backend via REST API endpoints
 - **Data Flow**:
-  - Admins/Regional Managers → Web Interface → Laravel Backend
+  - Admins/Managers → Web Interface → Laravel Backend
   - Outlet Staff → Mobile App → Laravel API → Laravel Backend
 
 ## Key Features
@@ -41,10 +41,10 @@ NexusComply follows a unified backend architecture where a single Laravel applic
   - Share form access with external auditors
 - **System Configuration**: Manage system-wide settings and customize the platform
 
-### Regional Manager Features
+### Manager Features
 - **Regional Dashboard**: Monitor compliance metrics and activities for assigned outlets
 - **Team Management**: 
-  - Oversee outlet managers in the assigned region
+  - Oversee outlet users in the assigned region
   - Track staff performance and activity
   - Manage user access and permissions within the region
 - **Audit Review & Reporting**:
@@ -68,13 +68,13 @@ NexusComply follows a unified backend architecture where a single Laravel applic
 - Oversee all users and role assignments
 - Access system-wide analytics and reporting
 
-### Regional Manager
+### Manager
 - Manage and monitor multiple outlets in assigned region
 - Review and approve compliance submissions
 - Handle staff management for regional outlets
 - Generate regional compliance reports
 
-### Outlet Manager
+### Outlet User
 - Submit compliance documentation
 - Manage outlet-level staff
 - Track outlet compliance status
@@ -110,7 +110,7 @@ NexusComply/
 │   │   └── js/
 │   │       ├── Pages/          # React components for web interface
 │   │       │   ├── Admin/      # Admin-specific pages
-│   │       │   └── Manager/    # Regional Manager pages
+│   │       │   └── Manager/    # Manager pages
 │   │       ├── Components/     # Shared React components
 │   │       └── Layouts/        # Layout components
 │   ├── routes/
@@ -135,9 +135,9 @@ NexusComply/
 - **Audit Management**: Review submissions, track progress, generate reports
 - **Settings**: Role permissions, system configuration, and customization
 
-### Regional Manager Portal
+### Manager Portal
 - **Dashboard**: Regional metrics and outlet performance overview
-- **Team Management**: Outlet manager oversight and staff activity tracking
+- **Team Management**: Outlet user oversight and staff activity tracking
 - **Audit Review**: Form submission review and approval workflow
 - **Reports**: Regional compliance status and audit history
 
@@ -156,9 +156,9 @@ NexusComply/
 - **Navigation:** Expo Router (file-based routing)
 - **Styling:** React Native StyleSheet API
 - **Icons:** Expo Vector Icons (Ionicons)
-- **Primary User:** Outlet Managers
+- **Primary User:** Outlet Users
 
-#### Key Features for Outlet Managers
+#### Key Features for Outlet Users
 - **Secure Authentication:**
   - User-friendly login interface
   - Password recovery and reset functionality
@@ -332,4 +332,4 @@ NexusComply follows a monorepo approach for simplified deployment and maintenanc
 - Single source of truth for business logic
 - Simplified maintenance and updates
 - Consistent data handling across platforms
-- Streamlined deployment process 
+- Streamlined deployment process

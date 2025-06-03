@@ -10,14 +10,14 @@ export default function FormReviewModal({ form, onClose }) {
         {
             id: 1,
             user: 'Sarah Johnson',
-            role: 'Regional Manager',
+            role: 'Manager',
             text: 'All items have been verified. Photos provided for safety measures are adequate.',
             timestamp: '2023-06-14 10:45 AM',
         },
         {
             id: 2,
             user: form.submittedBy,
-            role: 'Outlet Manager',
+            role: 'Outlet User',
             text: 'Submitted all required documentation as requested.',
             timestamp: form.submissionDate + ' 09:30 AM',
         },
@@ -253,4 +253,4 @@ export default function FormReviewModal({ form, onClose }) {
             </div>
         </div>
     );
-} 
+}

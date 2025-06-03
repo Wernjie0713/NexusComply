@@ -17,13 +17,13 @@ export function useAuth() {
             if (!abilities || !abilities.roles) return false;
             return abilities.roles.includes('admin');
         },
-        isRegionalManager: () => {
+        isManager: () => {
             if (!abilities || !abilities.roles) return false;
-            return abilities.roles.includes('regional-manager');
+            return abilities.roles.includes('manager');
         },
-        isOutletManager: () => {
+        isOutletUser: () => {
             if (!abilities || !abilities.roles) return false;
-            return abilities.roles.includes('outlet-manager');
+            return abilities.roles.includes('outlet-user');
         },
         // Check if user has a specific ability/permission
         can: (ability) => {
@@ -43,4 +43,4 @@ export function useAuth() {
             return roles.every(role => abilities.roles.includes(role));
         }
     };
-} 
+}

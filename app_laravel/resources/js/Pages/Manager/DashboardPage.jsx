@@ -27,13 +27,13 @@ export default function DashboardPage() {
 
     return (
         <AuthenticatedLayout>
-            <Head title="Regional Manager Dashboard" />
+            <Head title="Manager Dashboard" />
 
             <div className="py-0">
                 <div className="mx-auto max-w-7xl sm:px-6 lg:px-0 px-0">
                     {/* Welcome Section */}
                     <div className="mb-6 overflow-hidden bg-white px-6 py-6 shadow-sm sm:rounded-lg">
-                        <h1 className="text-2xl font-bold text-gray-900">Regional Overview</h1>
+                        <h1 className="text-2xl font-bold text-gray-900">Manager Overview</h1>
                         <p className="mt-1 text-gray-600">Here's the current status of outlets in your region.</p>
                     </div>
 
@@ -264,4 +264,4 @@ export default function DashboardPage() {
             </div>
         </AuthenticatedLayout>
     );
-} 
+}

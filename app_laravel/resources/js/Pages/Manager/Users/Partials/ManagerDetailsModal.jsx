@@ -19,7 +19,7 @@ export default function ManagerDetailsModal({ manager, onClose }) {
     return (
         <div className="p-6">
             <h2 className="mb-4 text-lg font-semibold text-gray-800">
-                Outlet Manager Details: {manager.name}
+                Outlet User Details: {manager.name}
             </h2>
             
             <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -86,7 +86,7 @@ export default function ManagerDetailsModal({ manager, onClose }) {
                 </div>
             </div>
 
-            {/* Outlet Manager Activity Summary */}
+            {/* Outlet User Activity Summary */}
             <div className="mb-6">
                 <h3 className="mb-2 text-md font-medium text-gray-800">Recent Activity Summary</h3>
                 <div className="rounded-lg border border-gray-200">
@@ -129,4 +129,4 @@ export default function ManagerDetailsModal({ manager, onClose }) {
             </div>
         </div>
     );
-} 
+}

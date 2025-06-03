@@ -10,7 +10,7 @@ export default function IndexPage() {
     const [statusFilter, setStatusFilter] = useState('All');
     
     // Dummy data for demonstration
-    const outletManagers = [
+    const outletUsers = [
         { id: 1, name: 'David Lee', email: 'david.lee@nexuscomply.com', outlet: 'Central Shopping Mall', status: 'Active', lastLogin: '2023-06-15 08:12 AM', phone: '+1 (555) 123-4567', dateJoined: '2022-03-15' },
         { id: 2, name: 'Jessica Taylor', email: 'jessica.taylor@nexuscomply.com', outlet: 'Downtown Plaza', status: 'Active', lastLogin: '2023-06-14 04:30 PM', phone: '+1 (555) 234-5678', dateJoined: '2022-04-20' },
         { id: 3, name: 'Robert Chen', email: 'robert.chen@nexuscomply.com', outlet: 'Riverside Complex', status: 'Active', lastLogin: '2023-06-13 11:45 AM', phone: '+1 (555) 345-6789', dateJoined: '2022-05-10' },
@@ -18,19 +18,20 @@ export default function IndexPage() {
         { id: 5, name: 'Kevin Williams', email: 'kevin.williams@nexuscomply.com', outlet: 'Harbor Center', status: 'Needs Onboarding', lastLogin: 'Never', phone: '+1 (555) 567-8901', dateJoined: '2023-06-01' },
     ];
 
-    // Filter managers based on search query and status filter
-    const filteredManagers = outletManagers.filter(manager => {
+    // Filter users based on search query and status filter
+    const filteredUsers = outletUsers.filter(user => {
         const matchesSearch = 
-            manager.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-            manager.outlet.toLowerCase().includes(searchQuery.toLowerCase());
+            user.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+            user.outlet.toLowerCase().includes(searchQuery.toLowerCase());
         
-        const matchesStatus = statusFilter === 'All' || manager.status === statusFilter;
+        const matchesStatus = statusFilter === 'All' || user.status === statusFilter;
         
         return matchesSearch && matchesStatus;
     });
 
-    const handleViewDetails = (manager) => {
-        setSelectedManager(manager);
+
+    const handleViewDetails = (user) => {
+        setSelectedManager(user);
         setShowDetailsModal(true);
     };
 
@@ -52,9 +53,9 @@ export default function IndexPage() {
 
             <div className="py-0">
                 <div className="mx-auto max-w-7xl sm:px-6 lg:px-0">
-                    {/* Outlet Managers Section */}
+                    {/* Outlet Users Section */}
                     <div className="mb-8 overflow-hidden bg-white px-6 py-6 shadow-sm sm:rounded-lg">
-                        <h3 className="mb-4 text-lg font-semibold text-gray-800">Outlet Managers in Your Region</h3>
+                        <h3 className="mb-4 text-lg font-semibold text-gray-800">Outlet Users in Your Region</h3>
                         
                         {/* Search and Filter */}
                         <div className="mb-4 flex flex-col space-y-2 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
@@ -112,34 +113,34 @@ export default function IndexPage() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200 bg-white">
-                                    {filteredManagers.map((manager) => (
-                                        <tr key={manager.id}>
+                                    {filteredUsers.map((user) => (
+                                        <tr key={user.id}>
                                             <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
-                                                {manager.name}
+                                                {user.name}
                                             </td>
                                             <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                                                {manager.email}
+                                                {user.email}
                                             </td>
                                             <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                                                {manager.outlet}
+                                                {user.outlet}
                                             </td>
                                             <td className="whitespace-nowrap px-6 py-4 text-sm">
-                                                <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${manager.status === 'Active' ? 'bg-green-100 text-green-800' : manager.status === 'Inactive' ? 'bg-gray-100 text-gray-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                                    {manager.status}
+                                                <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${user.status === 'Active' ? 'bg-green-100 text-green-800' : user.status === 'Inactive' ? 'bg-gray-100 text-gray-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                    {user.status}
                                                 </span>
                                             </td>
                                             <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                                                {manager.lastLogin}
+                                                {user.lastLogin}
                                             </td>
                                             <td className="whitespace-nowrap px-6 py-4 text-sm font-medium">
                                                 <button
-                                                    onClick={() => handleViewDetails(manager)}
+                                                    onClick={() => handleViewDetails(user)}
                                                     className="mr-2 rounded bg-green-50 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-100"
                                                 >
                                                     View Details
                                                 </button>
                                                 <Link
-                                                    href={route('manager.users.activity-log', manager.id)}
+                                                    href={route('manager.users.activity-log', user.id)}
                                                     className="rounded bg-gray-50 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100"
                                                 >
                                                     View Activity Log
@@ -160,7 +161,7 @@ export default function IndexPage() {
                     {selectedManager && (
                         <>
                             <h2 className="mb-4 text-lg font-semibold text-gray-800">
-                                Outlet Manager Details: {selectedManager.name}
+                                Outlet User Details: {selectedManager.name}
                             </h2>
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                 <div>
@@ -173,7 +174,7 @@ export default function IndexPage() {
                                 </div>
                                 <div>
                                     <p className="text-sm font-medium text-gray-500">Role</p>
-                                    <p className="text-sm text-gray-900">Outlet Manager</p>
+                                    <p className="text-sm text-gray-900">Outlet User</p>
                                 </div>
                                 <div>
                                     <p className="text-sm font-medium text-gray-500">Assigned Outlet</p>

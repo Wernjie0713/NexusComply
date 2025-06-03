@@ -4,7 +4,7 @@ import ApplicationLogo from '@/Components/ApplicationLogo';
 import { useAuth } from '@/Hooks/useAuth';
 
 export default function Sidebar({ onClose }) {
-    const { user, isAdmin, isRegionalManager } = useAuth();
+    const { user, isAdmin, isManager } = useAuth();
     const isActive = (routeName) => route().current(routeName);
     const isActiveGroup = (routeNames) => routeNames.some(name => route().current(name));
     
@@ -61,8 +61,8 @@ export default function Sidebar({ onClose }) {
         },
     ];
     
-    // Regional Manager-specific navigation items
-    const regionalManagerNavigation = [
+    // Manager-specific navigation items
+    const managerNavigation = [
         {
             heading: 'MANAGEMENT',
             items: [
@@ -72,7 +72,7 @@ export default function Sidebar({ onClose }) {
                     icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01'
                 },
                 { 
-                    name: 'Outlet Manager Management', 
+                    name: 'Outlet User Management', 
                     route: 'manager.users', 
                     icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z'
                 },
@@ -102,7 +102,7 @@ export default function Sidebar({ onClose }) {
     const navigationItems = [
         ...commonNavigation,
         ...(isAdmin() ? adminNavigation : []),
-        ...(isRegionalManager() ? regionalManagerNavigation : []),
+        ...(isManager() ? managerNavigation : []),
         userSettings
     ];
 
@@ -208,4 +208,4 @@ export default function Sidebar({ onClose }) {
             </nav>
         </div>
     );
-} 
+}

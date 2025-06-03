@@ -17,7 +17,7 @@ export default function ActivityLogPage({ userId }) {
                 id: userId || 1, // Default to 1 if not provided
                 name: userId >= 5 ? 'David Lee' : 'John Smith', // Rough simulation
                 email: userId >= 5 ? 'david.lee@nexuscomply.com' : 'john.smith@nexuscomply.com',
-                role: userId >= 5 ? 'Outlet Manager' : 'Regional Manager',
+                role: userId >= 5 ? 'Outlet User' : 'Manager',
                 location: userId >= 5 ? 'Central Shopping Mall' : 'North Region',
             };
 
@@ -84,7 +84,7 @@ export default function ActivityLogPage({ userId }) {
                                     </div>
                                     <div>
                                         <p className="text-sm font-medium text-gray-600">
-                                            {user.role === 'Regional Manager' ? 'Region' : 'Outlet'}
+                                            {user.role === 'Manager' ? 'Region' : 'Outlet'}
                                         </p>
                                         <p className="text-gray-900">{user.location}</p>
                                     </div>
@@ -127,4 +127,4 @@ export default function ActivityLogPage({ userId }) {
             </div>
         </AuthenticatedLayout>
     );
-} 
+}

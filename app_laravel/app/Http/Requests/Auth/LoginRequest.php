@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Silber\Bouncer\BouncerFacade as Bouncer;
 
 class LoginRequest extends FormRequest
 {
@@ -44,6 +45,21 @@ class LoginRequest extends FormRequest
         if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
             RateLimiter::hit($this->throttleKey());
 
+            throw ValidationException::withMessages([
+                'email' => trans('auth.failed'),
+            ]);
+        }
+
+        // Check if the authenticated user has the required roles
+        $user = Auth::user();
+        if (!(Bouncer::is($user)->an('admin') || Bouncer::is($user)->a('manager'))) {
+            // Log the user out immediately
+            Auth::logout();
+            
+            // Hit rate limiter to be consistent with failed login attempts
+            RateLimiter::hit($this->throttleKey());
+            
+            // Return the same generic error message as invalid credentials
             throw ValidationException::withMessages([
                 'email' => trans('auth.failed'),
             ]);

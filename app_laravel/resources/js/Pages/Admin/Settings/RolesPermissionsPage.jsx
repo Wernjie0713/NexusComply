@@ -23,16 +23,16 @@ export default function RolesPermissionsPage() {
         },
         {
             id: 2,
-            name: 'regional_manager',
-            title: 'Regional Manager',
+            name: 'manager',
+            title: 'Manager',
             description: 'Manages a region of outlets and their compliance',
             userCount: 12,
             isSystem: false,
         },
         {
             id: 3,
-            name: 'outlet_manager',
-            title: 'Outlet Manager',
+            name: 'outlet_user',
+            title: 'Outlet User',
             description: 'Manages a single outlet and submits compliance documentation',
             userCount: 45,
             isSystem: false,
@@ -94,9 +94,9 @@ export default function RolesPermissionsPage() {
     const [rolePermissions, setRolePermissions] = useState({
         // Admin has all permissions
         1: permissionModules.flatMap(module => module.permissions.map(p => p.id)),
-        // Regional Manager permissions
+        // Manager permissions
         2: [101, 201, 202, 203, 204, 301],
-        // Outlet Manager permissions
+        // Outlet User permissions
         3: [101, 201],
         // External Auditor permissions
         4: [202]
@@ -426,7 +426,7 @@ export default function RolesPermissionsPage() {
                                 className="mt-1 block w-full"
                                 value={editingRole?.title || ''}
                                 onChange={(e) => setEditingRole({...editingRole, title: e.target.value})}
-                                placeholder="e.g., Regional Manager"
+                                placeholder="e.g., Manager"
                             />
                             <p className="mt-1 text-xs text-gray-500">
                                 Human-readable name displayed in the interface.
@@ -466,4 +466,4 @@ export default function RolesPermissionsPage() {
             </Modal>
         </AuthenticatedLayout>
     );
-} 
+}

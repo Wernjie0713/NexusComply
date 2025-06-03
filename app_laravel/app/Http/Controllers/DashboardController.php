@@ -23,8 +23,8 @@ class DashboardController extends Controller
             return Inertia::render('Admin/DashboardPage');
         }
         
-        // Check if user has regional manager role
-        if (Bouncer::is($user)->a('regional-manager')) {
+        // Check if user has manager role
+        if (Bouncer::is($user)->a('manager')) {
             return Inertia::render('Manager/DashboardPage');
         }
         

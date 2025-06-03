@@ -283,7 +283,7 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                                 </div>
                                 <h3 className="text-xl font-semibold text-gray-900 mb-2">Role-Based Access</h3>
                                 <p className="text-gray-600">
-                                    Secure and specific access for Admins, Regional Managers, Outlet Staff, and External Auditors.
+                                    Secure and specific access for Admins, Managers, Outlet Staff, and External Auditors.
                                 </p>
                             </motion.div>
                         </motion.div>

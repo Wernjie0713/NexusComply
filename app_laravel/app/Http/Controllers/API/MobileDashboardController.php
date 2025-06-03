@@ -20,9 +20,9 @@ class MobileDashboardController extends Controller
     {
         $user = $request->user();
         
-        // Check if user has outlet manager role
-        if (Bouncer::is($user)->an('outlet-manager')) {
-            return $this->getOutletManagerData($user);
+        // Check if user has outlet user role
+        if (Bouncer::is($user)->an('outlet-user')) {
+            return $this->getOutletUserData($user);
         }
         
         // If role not supported in mobile app, return error
@@ -32,12 +32,12 @@ class MobileDashboardController extends Controller
     }
     
     /**
-     * Get dashboard data specifically for outlet managers.
+     * Get dashboard data specifically for outlet users.
      *
      * @param  \App\Models\User  $user
      * @return \Illuminate\Http\JsonResponse
      */
-    private function getOutletManagerData($user): JsonResponse
+    private function getOutletUserData($user): JsonResponse
     {
         // In a real implementation, you would:
         // 1. Fetch tasks pending for the outlet
@@ -50,7 +50,7 @@ class MobileDashboardController extends Controller
             'user' => [
                 'name' => $user->name,
                 'email' => $user->email,
-                'role' => 'outlet-manager',
+                'role' => 'outlet-user',
             ],
             'metrics' => [
                 [
@@ -117,4 +117,4 @@ class MobileDashboardController extends Controller
             ]
         ]);
     }
-} 
+}

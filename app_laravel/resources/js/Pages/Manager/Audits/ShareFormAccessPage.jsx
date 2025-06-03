@@ -14,7 +14,7 @@ You have been granted access to review the compliance form: Monthly HACCP Checkl
 You can access the form directly by scanning the QR code (if attached/displayed) or by visiting the secure link: https://nexuscomply.test/view/form/HC-2023-${formId}.
 
 Thank you.
-Regional Manager - Northern Region`
+Manager - Northern Region`
     );
 
     // Dummy form data - in a real app this would come from API/props
@@ -206,4 +206,4 @@ Regional Manager - Northern Region`
             </div>
         </AuthenticatedLayout>
     );
-} 
+}
