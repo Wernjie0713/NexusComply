@@ -359,3 +359,92 @@ NexusComply follows a monorepo approach for simplified deployment and maintenanc
 - Simplified maintenance and updates
 - Consistent data handling across platforms
 - Streamlined deployment process
+
+## Admin Features
+
+### User Management
+
+The Admin User Management module provides comprehensive control over user accounts, with specific focus on Managers and Outlet Users.
+
+#### User Roles
+
+- **Admin**: Full system access and user management capabilities
+- **Manager**: Oversees multiple outlets and their compliance activities
+- **Outlet User**: Manages compliance for a single assigned outlet
+
+#### User Management Features
+
+1. **User Listing**
+   - Separate tables for Managers and Outlet Users
+   - Display of key information including name, email, role ID, and outlet assignments
+   - Quick access to edit and delete actions
+
+2. **User Creation**
+   - Streamlined user creation with role selection
+   - Automatic generation of role-specific IDs (e.g., "M-001" for Managers, "O-001" for Outlet Users)
+   - Default password set to "password" with simulated email invitation
+   - Role-specific outlet assignment:
+     - Managers: Multiple outlet assignment via searchable checkbox list
+     - Outlet Users: Single outlet assignment via searchable dropdown
+
+3. **User Editing**
+   - Modification of user details (name, email)
+   - Role reassignment capabilities
+   - Dynamic outlet assignment interface based on role:
+     - Managers can be assigned to multiple outlets
+     - Outlet Users can be assigned to a single outlet
+   - Pre-filled form with current user data and assignments
+
+4. **User Deletion**
+   - Safe removal of users with automatic cleanup of outlet assignments
+   - Protection against deletion of the primary admin account
+
+#### Role ID System
+
+The system uses a structured role ID format:
+- Managers: "M-XXX" (e.g., M-001, M-002)
+- Outlet Users: "O-XXX" (e.g., O-001, O-002)
+- IDs are automatically generated and incremented
+
+#### Initial Setup & Seeding
+
+The system includes comprehensive seeders for initial data population:
+- `AdminUserSeeder`: Creates the admin role and default admin user
+- `ManagerSeeder`: Sets up the manager role and initial manager account
+- `OutletUserSeeder`: Establishes the outlet-user role and sample account
+- `DemoDataSeeder`: Generates realistic Malaysian-themed demo data including:
+  - 20 outlets with Malaysian addresses and operating hours
+  - 2 managers with Malaysian names
+  - 20 outlet users with Malaysian names and proper role assignments
+
+#### Security & Authorization
+
+- Built on Laravel's authentication system
+- Uses Bouncer for role-based access control
+- Secure password handling and email verification
+- Protected routes and role-specific access controls
+
+#### UI/UX Features
+
+- Modern, responsive interface using Tailwind CSS
+- Enhanced searchable select components for outlet assignment
+- Intuitive user creation and editing forms
+- Clear visual distinction between user roles
+- Efficient bulk outlet assignment for managers
+- Real-time form validation and error handling
+
+## Getting Started
+
+[Installation and setup instructions...]
+
+## Development
+
+[Development guidelines...]
+
+## Testing
+
+[Testing instructions...]
+
+## License
+
+[License information...]
