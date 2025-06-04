@@ -23,8 +23,8 @@ class Outlet extends Model
         'postal_code',
         'phone_number',
         'operating_hours_info',
-        'outlet_user_id',
-        'manager_id',
+        'outlet_user_role_id',
+        'manager_role_id',
         'is_active',
     ];
 
@@ -43,7 +43,7 @@ class Outlet extends Model
      */
     public function outletUser(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'outlet_user_id');
+        return $this->belongsTo(User::class, 'outlet_user_role_id', 'role_id');
     }
 
     /**
@@ -51,6 +51,6 @@ class Outlet extends Model
      */
     public function manager(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'manager_id');
+        return $this->belongsTo(User::class, 'manager_role_id', 'role_id');
     }
 }

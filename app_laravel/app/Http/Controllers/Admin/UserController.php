@@ -110,7 +110,7 @@ class UserController extends Controller
         if ($validated['role'] === 'outlet-user' && !empty($validated['outlet_id'])) {
             $assignedOutlet = Outlet::find($validated['outlet_id']);
             if ($assignedOutlet) {
-                $assignedOutlet->outlet_user_id = $user->id;
+                $assignedOutlet->outlet_user_role_id = $user->role_id;
                 $assignedOutlet->save();
             }
         }
@@ -133,7 +133,7 @@ class UserController extends Controller
         $user->load('roles', 'outletUserOutlet');
         $role = $user->roles->first() ? $user->roles->first()->name : null;
         $assignedOutlet = $user->outletUserOutlet;
-        $availableOutlets = Outlet::whereNull('outlet_user_id')
+        $availableOutlets = Outlet::whereNull('outlet_user_role_id')
             ->orWhere('id', $assignedOutlet ? $assignedOutlet->id : 0)
             ->orderBy('name')
             ->get(['id', 'name']);
@@ -177,18 +177,18 @@ class UserController extends Controller
         // Handle outlet assignment
         if ($validated['role'] === 'outlet-user') {
             // Remove user from any previous outlet
-            Outlet::where('outlet_user_id', $user->id)->update(['outlet_user_id' => null]);
+            Outlet::where('outlet_user_role_id', $user->role_id)->update(['outlet_user_role_id' => null]);
             // Assign to new outlet
             if (!empty($validated['outlet_id'])) {
                 $outlet = Outlet::find($validated['outlet_id']);
                 if ($outlet) {
-                    $outlet->outlet_user_id = $user->id;
+                    $outlet->outlet_user_role_id = $user->role_id;
                     $outlet->save();
                 }
             }
         } else {
             // If not outlet-user, clear any outlet assignment
-            Outlet::where('outlet_user_id', $user->id)->update(['outlet_user_id' => null]);
+            Outlet::where('outlet_user_role_id', $user->role_id)->update(['outlet_user_role_id' => null]);
         }
         return redirect()->route('admin.users.index')->with('success', 'User updated successfully.');
     }
@@ -202,8 +202,13 @@ class UserController extends Controller
         if ($user->email === 'admin@example.com') {
             return redirect()->route('admin.users.index')->with('error', 'Cannot delete the primary admin user.');
         }
-        // If outlet-user, clear outlet assignment
-        Outlet::where('outlet_user_id', $user->id)->update(['outlet_user_id' => null]);
+        // Clear outlet assignments
+        Outlet::where('outlet_user_role_id', $user->role_id)
+            ->orWhere('manager_role_id', $user->role_id)
+            ->update([
+                'outlet_user_role_id' => null,
+                'manager_role_id' => null
+            ]);
         $user->roles()->detach();
         $user->delete();
         return redirect()->route('admin.users.index')->with('success', 'User deleted successfully.');

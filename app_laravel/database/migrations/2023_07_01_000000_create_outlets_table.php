@@ -27,8 +27,10 @@ return new class extends Migration
             } else {
                 $table->text('operating_hours_info')->nullable()->comment('Outlet operating hours as serialized text');
             }
-            $table->foreignId('outlet_user_id')->nullable()->constrained('users')->onDelete('set null');
-            $table->foreignId('manager_id')->nullable()->constrained('users')->onDelete('set null');
+            $table->string('outlet_user_role_id')->nullable();
+            $table->string('manager_role_id')->nullable();
+            $table->foreign('outlet_user_role_id')->references('role_id')->on('users')->onDelete('set null');
+            $table->foreign('manager_role_id')->references('role_id')->on('users')->onDelete('set null');
             $table->boolean('is_active')->default(true);
             $table->timestamps();
         });

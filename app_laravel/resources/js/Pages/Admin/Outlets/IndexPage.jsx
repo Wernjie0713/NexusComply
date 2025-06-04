@@ -161,8 +161,8 @@ export default function IndexPage({ outlets }) {
                     <h2 className="text-xl font-semibold text-gray-800">Outlet Management</h2>
                     <Link href={route('admin.outlets.create')}>
                         <AdminPrimaryButton>
-                            Create New Outlet
-                        </AdminPrimaryButton>
+                        Create New Outlet
+                    </AdminPrimaryButton>
                     </Link>
                 </div>
             }
@@ -243,11 +243,11 @@ export default function IndexPage({ outlets }) {
                                                 </td>
                                                 <td className="whitespace-nowrap px-6 py-4 text-sm font-medium">
                                                     <Link href={route('admin.outlets.edit', outlet.id)}>
-                                                        <button
-                                                            className="mr-2 rounded bg-green-50 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-100"
-                                                        >
-                                                            Edit
-                                                        </button>
+                                                    <button
+                                                        className="mr-2 rounded bg-green-50 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-100"
+                                                    >
+                                                        Edit
+                                                    </button>
                                                     </Link>
                                                     <button
                                                         onClick={() => handleDeleteClick(outlet)}

@@ -53,14 +53,14 @@ class User extends Authenticatable
      */
     public function managedOutlets()
     {
-        return $this->hasMany(\App\Models\Outlet::class, 'manager_id');
+        return $this->hasMany(\App\Models\Outlet::class, 'manager_role_id', 'role_id');
     }
 
     /**
-     * Get the outlet where this user is assigned as outlet_user_id.
+     * Get the outlet where this user is assigned as outlet_user.
      */
     public function outletUserOutlet()
     {
-        return $this->hasOne(\App\Models\Outlet::class, 'outlet_user_id');
+        return $this->hasOne(\App\Models\Outlet::class, 'outlet_user_role_id', 'role_id');
     }
 }

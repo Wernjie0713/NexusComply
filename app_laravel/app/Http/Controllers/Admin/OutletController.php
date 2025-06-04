@@ -20,7 +20,7 @@ class OutletController extends Controller
      */
     public function index()
     {
-        $outlets = Outlet::with(['outletUser:id,name,email', 'manager:id,name,email'])
+        $outlets = Outlet::with(['outletUser:id,name,email,role_id', 'manager:id,name,email,role_id'])
             ->orderBy('name')
             ->get()
             ->map(function ($outlet) {
@@ -34,7 +34,9 @@ class OutletController extends Controller
                     'phone_number' => $outlet->phone_number,
                     'operating_hours_info' => $outlet->operating_hours_info,
                     'outlet_user' => $outlet->outletUser,
+                    'outlet_user_role_id' => $outlet->outlet_user_role_id,
                     'manager' => $outlet->manager,
+                    'manager_role_id' => $outlet->manager_role_id,
                     'is_active' => $outlet->is_active,
                 ];
             });
@@ -52,11 +54,11 @@ class OutletController extends Controller
     public function create()
     {
         $outletUsers = User::whereIs('outlet-user')
-            ->select('id', 'name', 'email')
+            ->select('id', 'name', 'email', 'role_id')
             ->orderBy('name')
             ->get();
         $managers = User::whereIs('manager')
-            ->select('id', 'name', 'email')
+            ->select('id', 'name', 'email', 'role_id')
             ->orderBy('name')
             ->get();
         return Inertia::render('Admin/Outlets/CreatePage', [
@@ -75,28 +77,29 @@ class OutletController extends Controller
     {
         Log::info('Outlet Store Request Data:', $request->all());
         try {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'address' => ['required', 'string'],
-            'city' => ['nullable', 'string', 'max:100'],
-            'state' => ['nullable', 'string', 'max:100'],
-            'postal_code' => ['nullable', 'string', 'max:20'],
-            'phone_number' => ['nullable', 'string', 'max:20'],
-            'operating_hours_info' => ['nullable', 'array'],
-            'operating_hours_info.*.day' => ['required_with:operating_hours_info', 'string'],
-            'operating_hours_info.*.isOpen' => ['required_with:operating_hours_info', 'boolean'],
+            $validated = $request->validate([
+                'name' => ['required', 'string', 'max:255'],
+                'address' => ['required', 'string'],
+                'city' => ['nullable', 'string', 'max:100'],
+                'state' => ['nullable', 'string', 'max:100'],
+                'postal_code' => ['nullable', 'string', 'max:20'],
+                'phone_number' => ['nullable', 'string', 'max:20'],
+                'operating_hours_info' => ['nullable', 'array'],
+                'operating_hours_info.*.day' => ['required_with:operating_hours_info', 'string'],
+                'operating_hours_info.*.isOpen' => ['required_with:operating_hours_info', 'boolean'],
                 'operating_hours_info.*.openTime' => ['nullable', 'required_if:operating_hours_info.*.isOpen,true', 'string', 'date_format:H:i'],
                 'operating_hours_info.*.closeTime' => ['nullable', 'required_if:operating_hours_info.*.isOpen,true', 'string', 'date_format:H:i', 'after:operating_hours_info.*.openTime'],
-                'outlet_user_id' => [
+                'outlet_user_role_id' => [
                     'nullable',
-                    'exists:users,id',
-                    Rule::unique('outlets', 'outlet_user_id')->whereNotNull('outlet_user_id'),
+                    'exists:users,role_id',
+                    Rule::unique('outlets', 'outlet_user_role_id')->whereNotNull('outlet_user_role_id'),
                 ],
-            'manager_id' => ['nullable', 'exists:users,id'],
-            'is_active' => ['boolean'],
+                'manager_role_id' => ['nullable', 'exists:users,role_id'],
+                'is_active' => ['boolean'],
             ], [
-                'outlet_user_id.unique' => 'This Outlet User is already assigned to another outlet.'
+                'outlet_user_role_id.unique' => 'This Outlet User is already assigned to another outlet.'
             ]);
+
             Log::info('Data before Outlet::create():', $validated);
             $outlet = Outlet::create($validated);
             Log::info('Outlet created successfully:', $outlet->toArray());
@@ -117,11 +120,11 @@ class OutletController extends Controller
     public function edit(Outlet $outlet)
     {
         $outletUsers = User::whereIs('outlet-user')
-            ->select('id', 'name', 'email')
+            ->select('id', 'name', 'email', 'role_id')
             ->orderBy('name')
             ->get();
         $managers = User::whereIs('manager')
-            ->select('id', 'name', 'email')
+            ->select('id', 'name', 'email', 'role_id')
             ->orderBy('name')
             ->get();
         return Inertia::render('Admin/Outlets/EditPage', [
@@ -134,8 +137,8 @@ class OutletController extends Controller
                 'postal_code' => $outlet->postal_code,
                 'phone_number' => $outlet->phone_number,
                 'operating_hours_info' => $outlet->operating_hours_info,
-                'outlet_user_id' => $outlet->outlet_user_id,
-                'manager_id' => $outlet->manager_id,
+                'outlet_user_role_id' => $outlet->outlet_user_role_id,
+                'manager_role_id' => $outlet->manager_role_id,
                 'is_active' => $outlet->is_active,
             ],
             'outletUsers' => $outletUsers,
@@ -154,30 +157,31 @@ class OutletController extends Controller
     {
         Log::info('Outlet Update Request Data for Outlet ID ' . $outlet->id . ':', $request->all());
         try {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'address' => ['required', 'string'],
-            'city' => ['nullable', 'string', 'max:100'],
-            'state' => ['nullable', 'string', 'max:100'],
-            'postal_code' => ['nullable', 'string', 'max:20'],
-            'phone_number' => ['nullable', 'string', 'max:20'],
-            'operating_hours_info' => ['nullable', 'array'],
-            'operating_hours_info.*.day' => ['required_with:operating_hours_info', 'string'],
-            'operating_hours_info.*.isOpen' => ['required_with:operating_hours_info', 'boolean'],
+            $validated = $request->validate([
+                'name' => ['required', 'string', 'max:255'],
+                'address' => ['required', 'string'],
+                'city' => ['nullable', 'string', 'max:100'],
+                'state' => ['nullable', 'string', 'max:100'],
+                'postal_code' => ['nullable', 'string', 'max:20'],
+                'phone_number' => ['nullable', 'string', 'max:20'],
+                'operating_hours_info' => ['nullable', 'array'],
+                'operating_hours_info.*.day' => ['required_with:operating_hours_info', 'string'],
+                'operating_hours_info.*.isOpen' => ['required_with:operating_hours_info', 'boolean'],
                 'operating_hours_info.*.openTime' => ['nullable', 'required_if:operating_hours_info.*.isOpen,true', 'string', 'date_format:H:i'],
                 'operating_hours_info.*.closeTime' => ['nullable', 'required_if:operating_hours_info.*.isOpen,true', 'string', 'date_format:H:i', 'after:operating_hours_info.*.openTime'],
-                'outlet_user_id' => [
+                'outlet_user_role_id' => [
                     'nullable',
-                    'exists:users,id',
-                    Rule::unique('outlets', 'outlet_user_id')->whereNotNull('outlet_user_id')->ignore($outlet->id),
+                    'exists:users,role_id',
+                    Rule::unique('outlets', 'outlet_user_role_id')->whereNotNull('outlet_user_role_id')->ignore($outlet->id),
                 ],
-            'manager_id' => ['nullable', 'exists:users,id'],
-            'is_active' => ['boolean'],
+                'manager_role_id' => ['nullable', 'exists:users,role_id'],
+                'is_active' => ['boolean'],
             ], [
-                'outlet_user_id.unique' => 'This Outlet User is already assigned to another outlet.'
-        ]);
+                'outlet_user_role_id.unique' => 'This Outlet User is already assigned to another outlet.'
+            ]);
+
             Log::info('Data before $outlet->update():', $validated);
-        $outlet->update($validated);
+            $outlet->update($validated);
             Log::info('Outlet updated successfully:', $outlet->toArray());
         } catch (\Illuminate\Validation\ValidationException $e) {
             Log::error('Outlet Update Validation Failed:', $e->errors());
@@ -209,7 +213,7 @@ class OutletController extends Controller
     public function getOutletUsers()
     {
         $outletUsers = User::whereIs('outlet-user')
-            ->select('id', 'name', 'email')
+            ->select('id', 'name', 'email', 'role_id')
             ->orderBy('name')
             ->get();
 
@@ -224,7 +228,7 @@ class OutletController extends Controller
     public function getManagers()
     {
         $managers = User::whereIs('manager')
-            ->select('id', 'name', 'email')
+            ->select('id', 'name', 'email', 'role_id')
             ->orderBy('name')
             ->get();
 
@@ -237,7 +241,7 @@ class OutletController extends Controller
      */
     public function availableOutlets()
     {
-        $outlets = Outlet::whereNull('outlet_user_id')
+        $outlets = Outlet::whereNull('outlet_user_role_id')
             ->orderBy('name')
             ->get(['id', 'name']);
         return response()->json($outlets);
