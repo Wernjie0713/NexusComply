@@ -12,10 +12,12 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        // Run the admin seeder first to ensure roles exist
         $this->call([
             AdminUserSeeder::class,
             ManagerSeeder::class,
             OutletUserSeeder::class,
+            DemoDataSeeder::class,
         ]);
     }
 }

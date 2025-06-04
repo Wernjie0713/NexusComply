@@ -4,6 +4,7 @@ import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
 import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
 import axios from 'axios';
+import SearchableSelect from '@/Components/SearchableSelect';
 
 export default function OutletForm({ data, setData, errors, processing, onSubmit, onCancel, outletUsers: propOutletUsers, managers: propManagers }) {
     const [outletUsers, setOutletUsers] = useState(propOutletUsers || []);
@@ -212,40 +213,32 @@ export default function OutletForm({ data, setData, errors, processing, onSubmit
                 {/* Outlet User Assignment */}
                 <div>
                     <InputLabel htmlFor="outlet_user_id" value="Assign Outlet User" />
-                    <select
-                        id="outlet_user_id"
-                        name="outlet_user_id"
+                    <SearchableSelect
+                        options={outletUsers}
                         value={data.outlet_user_id}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-                        onChange={handleChange}
-                    >
-                        <option value="">Select Outlet User</option>
-                        {outletUsers.map((user) => (
-                            <option key={user.id} value={user.id}>
-                                {user.name} ({user.email})
-                            </option>
-                        ))}
-                    </select>
+                        onChange={(value) => setData('outlet_user_id', value)}
+                        placeholder="Select Outlet User"
+                        className="mt-1"
+                        getOptionLabel={(user) => user.name}
+                        getOptionValue={(user) => user.id}
+                        getOptionDescription={(user) => user.email}
+                    />
                     <InputError message={errors.outlet_user_id} className="mt-2" />
                 </div>
 
                 {/* Manager Assignment */}
                 <div>
                     <InputLabel htmlFor="manager_id" value="Assign Manager" />
-                    <select
-                        id="manager_id"
-                        name="manager_id"
+                    <SearchableSelect
+                        options={managers}
                         value={data.manager_id}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-                        onChange={handleChange}
-                    >
-                        <option value="">Select Manager</option>
-                        {managers.map((manager) => (
-                            <option key={manager.id} value={manager.id}>
-                                {manager.name} ({manager.email})
-                            </option>
-                        ))}
-                    </select>
+                        onChange={(value) => setData('manager_id', value)}
+                        placeholder="Select Manager"
+                        className="mt-1"
+                        getOptionLabel={(user) => user.name}
+                        getOptionValue={(user) => user.id}
+                        getOptionDescription={(user) => user.email}
+                    />
                     <InputError message={errors.manager_id} className="mt-2" />
                 </div>
 

@@ -4,7 +4,9 @@ import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
 import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
+import OutletSelector from './OutletSelector';
 import axios from 'axios';
+import SearchableSelect from '@/Components/SearchableSelect';
 
 export default function CreateUserForm({ onClose }) {
     const { data, setData, post, processing, errors, reset } = useForm({
@@ -12,18 +14,17 @@ export default function CreateUserForm({ onClose }) {
         email: '',
         role: 'manager',
         outlet_id: '',
+        outlet_ids: [],
     });
     const [availableOutlets, setAvailableOutlets] = useState([]);
     const [loadingOutlets, setLoadingOutlets] = useState(false);
 
     useEffect(() => {
-        if (data.role === 'outlet-user') {
-            setLoadingOutlets(true);
-            axios.get(route('admin.available-outlets'))
-                .then(res => setAvailableOutlets(res.data))
-                .finally(() => setLoadingOutlets(false));
-        }
-    }, [data.role]);
+        setLoadingOutlets(true);
+        axios.get(route('admin.available-outlets'))
+            .then(res => setAvailableOutlets(res.data))
+            .finally(() => setLoadingOutlets(false));
+    }, []);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -99,27 +100,29 @@ export default function CreateUserForm({ onClose }) {
                 <InputError message={errors.role} className="mt-2" />
             </div>
 
-            {/* Conditional Outlet Assignment Dropdown */}
-            {data.role === 'outlet-user' && (
+            {/* Conditional Outlet Assignment */}
+            {data.role === 'outlet-user' ? (
                 <div className="mb-4">
                     <InputLabel htmlFor="outlet_id" value="Assign to Outlet" />
-                    <select
-                        id="outlet_id"
-                        name="outlet_id"
+                    <SearchableSelect
+                        options={availableOutlets}
                         value={data.outlet_id}
-                        onChange={handleChange}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-                        required
+                        onChange={(value) => setData('outlet_id', value)}
+                        placeholder="Select an outlet"
                         disabled={loadingOutlets}
-                    >
-                        <option value="">Select an outlet</option>
-                        {availableOutlets.map((outlet) => (
-                            <option key={outlet.id} value={outlet.id}>{outlet.name}</option>
-                        ))}
-                    </select>
+                        className="mt-1"
+                    />
                     {loadingOutlets && <div className="text-xs text-gray-500 mt-1">Loading outlets...</div>}
                     <InputError message={errors.outlet_id} className="mt-2" />
                 </div>
+            ) : (
+                <OutletSelector
+                    outlets={availableOutlets}
+                    selectedIds={data.outlet_ids}
+                    onSelectionChange={(ids) => setData('outlet_ids', ids)}
+                    disabled={loadingOutlets}
+                    error={errors.outlet_ids}
+                />
             )}
 
             <div className="mt-6 flex justify-end space-x-3">

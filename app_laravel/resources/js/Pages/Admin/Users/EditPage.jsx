@@ -4,6 +4,8 @@ import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
 import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
 import InputError from '@/Components/InputError';
+import OutletSelector from './Partials/OutletSelector';
+import SearchableSelect from '@/Components/SearchableSelect';
 
 export default function EditPage({ user, availableOutlets, assignableRoles }) {
     const { data, setData, put, processing, errors, reset } = useForm({
@@ -11,6 +13,7 @@ export default function EditPage({ user, availableOutlets, assignableRoles }) {
         email: user.email || '',
         role: user.role || 'manager',
         outlet_id: user.assigned_outlet_id || '',
+        outlet_ids: user.managed_outlet_ids || [],
     });
 
     const handleChange = (e) => {
@@ -60,40 +63,52 @@ export default function EditPage({ user, availableOutlets, assignableRoles }) {
                     <div className="mb-4">
                         <InputLabel value="Role" />
                         <div className="mt-2 space-y-2">
-                            {assignableRoles.map((role) => (
-                                <label key={role.value} className="inline-flex items-center">
+                            <label className="inline-flex items-center">
+                                <input
+                                    type="radio"
+                                    name="role"
+                                    value="manager"
+                                    checked={data.role === 'manager'}
+                                    onChange={handleChange}
+                                    className="text-green-600 focus:ring-green-500"
+                                />
+                                <span className="ml-2 text-sm text-gray-700">Manager</span>
+                            </label>
+                            <div className="block">
+                                <label className="inline-flex items-center">
                                     <input
                                         type="radio"
                                         name="role"
-                                        value={role.value}
-                                        checked={data.role === role.value}
+                                        value="outlet-user"
+                                        checked={data.role === 'outlet-user'}
                                         onChange={handleChange}
                                         className="text-green-600 focus:ring-green-500"
                                     />
-                                    <span className="ml-2 text-sm text-gray-700">{role.label}</span>
+                                    <span className="ml-2 text-sm text-gray-700">Outlet User</span>
                                 </label>
-                            ))}
+                            </div>
                         </div>
                         <InputError message={errors.role} className="mt-2" />
                     </div>
-                    {data.role === 'outlet-user' && (
+                    {data.role === 'outlet-user' ? (
                         <div className="mb-4">
                             <InputLabel htmlFor="outlet_id" value="Assign to Outlet" />
-                            <select
-                                id="outlet_id"
-                                name="outlet_id"
+                            <SearchableSelect
+                                options={availableOutlets}
                                 value={data.outlet_id}
-                                onChange={handleChange}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-                                required
-                            >
-                                <option value="">Select an outlet</option>
-                                {availableOutlets.map((outlet) => (
-                                    <option key={outlet.id} value={outlet.id}>{outlet.name}</option>
-                                ))}
-                            </select>
+                                onChange={(value) => setData('outlet_id', value)}
+                                placeholder="Select an outlet"
+                                className="mt-1"
+                            />
                             <InputError message={errors.outlet_id} className="mt-2" />
                         </div>
+                    ) : (
+                        <OutletSelector
+                            outlets={availableOutlets}
+                            selectedIds={data.outlet_ids}
+                            onSelectionChange={(ids) => setData('outlet_ids', ids)}
+                            error={errors.outlet_ids}
+                        />
                     )}
                     <div className="mt-6 flex justify-end space-x-3">
                         <button
