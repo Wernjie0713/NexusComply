@@ -1,14 +1,26 @@
 import { useState } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head } from '@inertiajs/react';
+import { Head, useForm } from '@inertiajs/react';
 import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
 import Modal from '@/Components/Modal';
 import CreateUserForm from './Partials/CreateUserForm';
 import ManagerTable from './Partials/ManagerTable';
 import OutletUserTable from './Partials/OutletUserTable';
 
-export default function IndexPage() {
+export default function IndexPage({ managers, outletUsers }) {
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const { delete: deleteUser } = useForm();
+    const [deletingUserId, setDeletingUserId] = useState(null);
+
+    const handleDelete = (user) => {
+        if (confirm(`Are you sure you want to delete user '${user.name}'?`)) {
+            setDeletingUserId(user.id);
+            deleteUser(route('admin.users.destroy', user.id), {
+                onSuccess: () => setDeletingUserId(null),
+                onError: () => setDeletingUserId(null),
+            });
+        }
+    };
 
     return (
         <AuthenticatedLayout
@@ -22,23 +34,18 @@ export default function IndexPage() {
             }
         >
             <Head title="User Management" />
-
             <div className="py-0">
                 <div className="mx-auto max-w-7xl sm:px-6 lg:px-0">
-                    {/* Managers Section */}
                     <div className="mb-8 overflow-hidden bg-white px-6 py-6 shadow-sm sm:rounded-lg">
                         <h3 className="mb-4 text-lg font-semibold text-gray-800">Managers</h3>
-                        <ManagerTable />
+                        <ManagerTable managers={managers} onDelete={handleDelete} />
                     </div>
-
-                    {/* Outlet Users Section */}
                     <div className="mb-8 overflow-hidden bg-white px-6 py-6 shadow-sm sm:rounded-lg">
                         <h3 className="mb-4 text-lg font-semibold text-gray-800">Outlet Users</h3>
-                        <OutletUserTable />
+                        <OutletUserTable outletUsers={outletUsers} onDelete={handleDelete} />
                     </div>
                 </div>
             </div>
-
             {/* Create User Modal */}
             <Modal show={showCreateModal} onClose={() => setShowCreateModal(false)} maxWidth="md">
                 <div className="p-6">

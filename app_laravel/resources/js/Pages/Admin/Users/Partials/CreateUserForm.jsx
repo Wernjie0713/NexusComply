@@ -1,30 +1,42 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useForm } from '@inertiajs/react';
 import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
 import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
+import InputError from '@/Components/InputError';
+import axios from 'axios';
 
 export default function CreateUserForm({ onClose }) {
-    const [data, setData] = useState({
+    const { data, setData, post, processing, errors, reset } = useForm({
         name: '',
         email: '',
-        role: 'outlet_user',
-        outlet: '',
-        region: '',
+        role: 'manager',
+        outlet_id: '',
     });
+    const [availableOutlets, setAvailableOutlets] = useState([]);
+    const [loadingOutlets, setLoadingOutlets] = useState(false);
+
+    useEffect(() => {
+        if (data.role === 'outlet-user') {
+            setLoadingOutlets(true);
+            axios.get(route('admin.available-outlets'))
+                .then(res => setAvailableOutlets(res.data))
+                .finally(() => setLoadingOutlets(false));
+        }
+    }, [data.role]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setData(prevData => ({
-            ...prevData,
-            [name]: value,
-        }));
+        setData(name, value);
     };
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        // In a real implementation, this would send the data to the server
-        console.log('Form submitted:', data);
-        onClose();
+        console.log('Submitting user form:', data);
+        post(route('admin.users.store'), {
+            onSuccess: () => { reset(); onClose(); },
+            onError: (err) => console.error('User create error:', err),
+        });
     };
 
     return (
@@ -39,6 +51,7 @@ export default function CreateUserForm({ onClose }) {
                     onChange={handleChange}
                     required
                 />
+                <InputError message={errors.name} className="mt-2" />
             </div>
 
             <div className="mb-4">
@@ -52,6 +65,7 @@ export default function CreateUserForm({ onClose }) {
                     onChange={handleChange}
                     required
                 />
+                <InputError message={errors.email} className="mt-2" />
             </div>
 
             <div className="mb-4">
@@ -73,8 +87,8 @@ export default function CreateUserForm({ onClose }) {
                             <input
                                 type="radio"
                                 name="role"
-                                value="outlet_user"
-                                checked={data.role === 'outlet_user'}
+                                value="outlet-user"
+                                checked={data.role === 'outlet-user'}
                                 onChange={handleChange}
                                 className="text-green-600 focus:ring-green-500"
                             />
@@ -82,48 +96,29 @@ export default function CreateUserForm({ onClose }) {
                         </label>
                     </div>
                 </div>
+                <InputError message={errors.role} className="mt-2" />
             </div>
 
-            {/* Conditional fields based on role selection */}
-            {data.role === 'manager' && (
+            {/* Conditional Outlet Assignment Dropdown */}
+            {data.role === 'outlet-user' && (
                 <div className="mb-4">
-                    <InputLabel htmlFor="region" value="Region" />
+                    <InputLabel htmlFor="outlet_id" value="Assign to Outlet" />
                     <select
-                        id="region"
-                        name="region"
-                        value={data.region}
+                        id="outlet_id"
+                        name="outlet_id"
+                        value={data.outlet_id}
                         onChange={handleChange}
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
                         required
-                    >
-                        <option value="">Select a region</option>
-                        <option value="north">North Region</option>
-                        <option value="east">East Region</option>
-                        <option value="south">South Region</option>
-                        <option value="west">West Region</option>
-                    </select>
-                </div>
-            )}
-
-            {data.role === 'outlet_manager' && (
-                <div className="mb-4">
-                    <InputLabel htmlFor="outlet" value="Outlet" />
-                    <select
-                        id="outlet"
-                        name="outlet"
-                        value={data.outlet}
-                        onChange={handleChange}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-                        required
+                        disabled={loadingOutlets}
                     >
                         <option value="">Select an outlet</option>
-                        <option value="central">Central Shopping Mall</option>
-                        <option value="downtown">Downtown Plaza</option>
-                        <option value="riverside">Riverside Complex</option>
-                        <option value="sunset">Sunset Boulevard</option>
-                        <option value="harbor">Harbor Center</option>
-                        <option value="greenfield">Greenfield Mall</option>
+                        {availableOutlets.map((outlet) => (
+                            <option key={outlet.id} value={outlet.id}>{outlet.name}</option>
+                        ))}
                     </select>
+                    {loadingOutlets && <div className="text-xs text-gray-500 mt-1">Loading outlets...</div>}
+                    <InputError message={errors.outlet_id} className="mt-2" />
                 </div>
             )}
 
@@ -135,7 +130,7 @@ export default function CreateUserForm({ onClose }) {
                 >
                     Cancel
                 </button>
-                <AdminPrimaryButton type="submit">
+                <AdminPrimaryButton type="submit" disabled={processing}>
                     Send Invitation & Create User
                 </AdminPrimaryButton>
             </div>

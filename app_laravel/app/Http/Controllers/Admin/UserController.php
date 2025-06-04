@@ -6,17 +6,51 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
+use App\Models\User;
+use App\Models\Outlet;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\UserInvitationEmail;
 
 class UserController extends Controller
 {
     /**
-     * Display the user management index page.
+     * Display the user management index page with all users and their roles/outlets.
      *
      * @return \Inertia\Response
      */
     public function index()
     {
-        return Inertia::render('Admin/Users/IndexPage');
+        $allUsers = User::with(['roles', 'outletUserOutlet'])->get();
+        $managers = $allUsers->filter(function ($user) {
+            return $user->roles->pluck('name')->contains('manager');
+        })->map(function ($user) {
+            return [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role_id' => $user->role_id,
+                'role' => 'Manager',
+            ];
+        })->values();
+        $outletUsers = $allUsers->filter(function ($user) {
+            return $user->roles->pluck('name')->contains('outlet-user');
+        })->map(function ($user) {
+            return [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role_id' => $user->role_id,
+                'role' => 'Outlet User',
+                'assigned_outlet' => $user->outletUserOutlet ? $user->outletUserOutlet->name : null,
+            ];
+        })->values();
+        return Inertia::render('Admin/Users/IndexPage', [
+            'managers' => $managers,
+            'outletUsers' => $outletUsers,
+        ]);
     }
 
     /**
@@ -30,5 +64,148 @@ class UserController extends Controller
         return Inertia::render('Admin/Users/ActivityLogPage', [
             'userId' => $userId,
         ]);
+    }
+
+    /**
+     * Store a newly created user (Manager or Outlet User) from the Admin panel.
+     */
+    public function store(Request $request)
+    {
+        Log::info('Admin User Create Request:', $request->all());
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'role' => ['required', Rule::in(['manager', 'outlet-user'])],
+            'outlet_id' => ['nullable', 'required_if:role,outlet-user', 'exists:outlets,id'],
+        ]);
+
+        // Generate next role_id
+        $rolePrefix = $validated['role'] === 'manager' ? 'M' : 'O';
+        $maxRoleId = User::where('role_id', 'like', $rolePrefix . '-%')
+            ->orderByRaw("CAST(SUBSTRING(role_id, 3) AS INTEGER) DESC")
+            ->value('role_id');
+        $nextNumber = 1;
+        if ($maxRoleId) {
+            $parts = explode('-', $maxRoleId);
+            if (isset($parts[1]) && is_numeric($parts[1])) {
+                $nextNumber = intval($parts[1]) + 1;
+            }
+        }
+        $newRoleId = sprintf('%s-%03d', $rolePrefix, $nextNumber);
+
+        // Create the user
+        $user = User::create([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => Hash::make('password'),
+            'email_verified_at' => now(),
+            'role_id' => $newRoleId,
+        ]);
+
+        // Assign Bouncer role
+        $user->assign($validated['role']);
+
+        // If Outlet User, assign to outlet
+        $assignedOutlet = null;
+        if ($validated['role'] === 'outlet-user' && !empty($validated['outlet_id'])) {
+            $assignedOutlet = Outlet::find($validated['outlet_id']);
+            if ($assignedOutlet) {
+                $assignedOutlet->outlet_user_id = $user->id;
+                $assignedOutlet->save();
+            }
+        }
+
+        // Send invitation email
+        $roleTitle = $validated['role'] === 'manager' ? 'Manager' : 'Outlet User';
+        $outletName = $assignedOutlet ? $assignedOutlet->name : null;
+        $defaultPassword = 'password';
+        Mail::to($user->email)->send(new UserInvitationEmail($user, $roleTitle, $defaultPassword, $outletName));
+
+        return redirect()->route('admin.users.index')
+            ->with('success', 'User created and invitation email sent.');
+    }
+
+    /**
+     * Show the form for editing a user.
+     */
+    public function edit(User $user)
+    {
+        $user->load('roles', 'outletUserOutlet');
+        $role = $user->roles->first() ? $user->roles->first()->name : null;
+        $assignedOutlet = $user->outletUserOutlet;
+        $availableOutlets = Outlet::whereNull('outlet_user_id')
+            ->orWhere('id', $assignedOutlet ? $assignedOutlet->id : 0)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+        $assignableRoles = [
+            ['value' => 'manager', 'label' => 'Manager'],
+            ['value' => 'outlet-user', 'label' => 'Outlet User'],
+        ];
+        return Inertia::render('Admin/Users/EditPage', [
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role_id' => $user->role_id,
+                'role' => $role,
+                'assigned_outlet_id' => $assignedOutlet ? $assignedOutlet->id : null,
+                'is_active' => $user->is_active ?? true,
+            ],
+            'availableOutlets' => $availableOutlets,
+            'assignableRoles' => $assignableRoles,
+        ]);
+    }
+
+    /**
+     * Update a user (Admin action).
+     */
+    public function update(Request $request, User $user)
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
+            'role' => ['required', Rule::in(['manager', 'outlet-user'])],
+            'outlet_id' => ['nullable', 'required_if:role,outlet-user', 'exists:outlets,id'],
+        ]);
+        // Update user info
+        $user->name = $validated['name'];
+        $user->email = $validated['email'];
+        $user->save();
+        // Update Bouncer role
+        $user->roles()->detach();
+        $user->assign($validated['role']);
+        // Handle outlet assignment
+        if ($validated['role'] === 'outlet-user') {
+            // Remove user from any previous outlet
+            Outlet::where('outlet_user_id', $user->id)->update(['outlet_user_id' => null]);
+            // Assign to new outlet
+            if (!empty($validated['outlet_id'])) {
+                $outlet = Outlet::find($validated['outlet_id']);
+                if ($outlet) {
+                    $outlet->outlet_user_id = $user->id;
+                    $outlet->save();
+                }
+            }
+        } else {
+            // If not outlet-user, clear any outlet assignment
+            Outlet::where('outlet_user_id', $user->id)->update(['outlet_user_id' => null]);
+        }
+        return redirect()->route('admin.users.index')->with('success', 'User updated successfully.');
+    }
+
+    /**
+     * Delete a user (Admin action).
+     */
+    public function destroy(User $user)
+    {
+        // Prevent deletion of primary admin
+        if ($user->email === 'admin@example.com') {
+            return redirect()->route('admin.users.index')->with('error', 'Cannot delete the primary admin user.');
+        }
+        // If outlet-user, clear outlet assignment
+        Outlet::where('outlet_user_id', $user->id)->update(['outlet_user_id' => null]);
+        $user->roles()->detach();
+        $user->delete();
+        return redirect()->route('admin.users.index')->with('success', 'User deleted successfully.');
     }
 } 

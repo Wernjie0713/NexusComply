@@ -76,6 +76,8 @@ const formatDayRange = (days) => {
 };
 
 export default function IndexPage({ outlets }) {
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [currentOutlet, setCurrentOutlet] = useState(null);
     
@@ -93,9 +95,53 @@ export default function IndexPage({ outlets }) {
         is_active: true,
     });
 
+    const handleCreateClick = () => {
+        reset();
+        setShowCreateModal(true);
+    };
+
+    const handleEditClick = (outlet) => {
+        setData({
+            id: outlet.id,
+            name: outlet.name,
+            address: outlet.address,
+            city: outlet.city || '',
+            state: outlet.state || '',
+            postal_code: outlet.postal_code || '',
+            phone_number: outlet.phone_number || '',
+            operating_hours_info: outlet.operating_hours_info || '',
+            outlet_user_id: outlet.outlet_user_id || '',
+            manager_id: outlet.manager_id || '',
+            is_active: outlet.is_active,
+        });
+        setCurrentOutlet(outlet);
+        setShowEditModal(true);
+    };
+
     const handleDeleteClick = (outlet) => {
         setCurrentOutlet(outlet);
         setShowDeleteModal(true);
+    };
+
+    const handleCreateSubmit = (e) => {
+        e.preventDefault();
+        post(route('admin.outlets.store'), {
+            onSuccess: () => {
+                setShowCreateModal(false);
+                reset();
+            },
+        });
+    };
+
+    const handleEditSubmit = (e) => {
+        e.preventDefault();
+        post(route('admin.outlets.update', data.id), {
+            _method: 'PUT',
+            onSuccess: () => {
+                setShowEditModal(false);
+                reset();
+            },
+        });
     };
 
     const handleDeleteSubmit = () => {
@@ -161,9 +207,9 @@ export default function IndexPage({ outlets }) {
                                                     {outlet.name}
                                                 </td>
                                                 <td className="px-6 py-4 text-sm text-gray-500">
-                                                    <div>{outlet.address},</div>
+                                                    <div>{outlet.address}</div>
                                                     {outlet.city && outlet.state && (
-                                                        <div>{outlet.postal_code} {outlet.city}, {outlet.state}. </div>
+                                                        <div>{outlet.city}, {outlet.state} {outlet.postal_code}</div>
                                                     )}
                                                     {outlet.phone_number && <div>{outlet.phone_number}</div>}
                                                 </td>

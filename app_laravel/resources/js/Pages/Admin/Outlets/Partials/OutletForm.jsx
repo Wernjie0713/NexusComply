@@ -17,24 +17,24 @@ export default function OutletForm({ data, setData, errors, processing, onSubmit
         }
         // Only fetch users if not provided
         if (!(propOutletUsers && propManagers)) {
-            const fetchUsers = async () => {
-                try {
-                    const [outletUsersResponse, managersResponse] = await Promise.all([
-                        axios.get(route('admin.outlet-users')),
-                        axios.get(route('admin.managers'))
-                    ]);
-                    setOutletUsers(outletUsersResponse.data);
-                    setManagers(managersResponse.data);
-                } catch (error) {
-                    console.error('Error fetching users:', error);
-                } finally {
-                    setLoading(false);
-                }
-            };
-            fetchUsers();
+        const fetchUsers = async () => {
+            try {
+                const [outletUsersResponse, managersResponse] = await Promise.all([
+                    axios.get(route('admin.outlet-users')),
+                    axios.get(route('admin.managers'))
+                ]);
+                setOutletUsers(outletUsersResponse.data);
+                setManagers(managersResponse.data);
+            } catch (error) {
+                console.error('Error fetching users:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchUsers();
         }
         // Always initialize operating_hours_info if not a valid array of 7 days
-        const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+            const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
         let valid = Array.isArray(data.operating_hours_info) && data.operating_hours_info.length === 7 && data.operating_hours_info.every((d, i) => d.day === daysOfWeek[i]);
         if (!valid) {
             const initialOperatingHours = daysOfWeek.map(day => ({
@@ -165,43 +165,43 @@ export default function OutletForm({ data, setData, errors, processing, onSubmit
                                 <div key={dayHours.day} className="grid grid-cols-12 items-center gap-2 md:gap-4 py-1 border-b last:border-b-0">
                                     <div className="col-span-2 font-medium">{dayHours.day}</div>
                                     <div className="col-span-2 flex items-center">
-                                        <input
-                                            id={`is-open-${index}`}
-                                            type="checkbox"
-                                            checked={dayHours.isOpen}
-                                            onChange={(e) => handleOperatingHoursChange(index, 'isOpen', e.target.checked)}
-                                            className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
-                                        />
-                                        <label htmlFor={`is-open-${index}`} className="ml-2 block text-sm text-gray-900">
+                                            <input
+                                                id={`is-open-${index}`}
+                                                type="checkbox"
+                                                checked={dayHours.isOpen}
+                                                onChange={(e) => handleOperatingHoursChange(index, 'isOpen', e.target.checked)}
+                                                className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                                            />
+                                            <label htmlFor={`is-open-${index}`} className="ml-2 block text-sm text-gray-900">
                                             Open
-                                        </label>
+                                            </label>
                                     </div>
                                     <div className="col-span-4 flex flex-col">
-                                        <label htmlFor={`open-time-${index}`} className="mb-1 block text-xs text-gray-700">
-                                            Opening Time
-                                        </label>
-                                        <input
-                                            id={`open-time-${index}`}
-                                            type="time"
-                                            value={dayHours.openTime}
-                                            onChange={(e) => handleOperatingHoursChange(index, 'openTime', e.target.value)}
-                                            className="rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+                                                    <label htmlFor={`open-time-${index}`} className="mb-1 block text-xs text-gray-700">
+                                                        Opening Time
+                                                    </label>
+                                                    <input
+                                                        id={`open-time-${index}`}
+                                                        type="time"
+                                                        value={dayHours.openTime}
+                                                        onChange={(e) => handleOperatingHoursChange(index, 'openTime', e.target.value)}
+                                                        className="rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
                                             disabled={!dayHours.isOpen}
-                                        />
-                                    </div>
+                                                    />
+                                                </div>
                                     <div className="col-span-4 flex flex-col">
-                                        <label htmlFor={`close-time-${index}`} className="mb-1 block text-xs text-gray-700">
-                                            Closing Time
-                                        </label>
-                                        <input
-                                            id={`close-time-${index}`}
-                                            type="time"
-                                            value={dayHours.closeTime}
-                                            onChange={(e) => handleOperatingHoursChange(index, 'closeTime', e.target.value)}
-                                            className="rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+                                                    <label htmlFor={`close-time-${index}`} className="mb-1 block text-xs text-gray-700">
+                                                        Closing Time
+                                                    </label>
+                                                    <input
+                                                        id={`close-time-${index}`}
+                                                        type="time"
+                                                        value={dayHours.closeTime}
+                                                        onChange={(e) => handleOperatingHoursChange(index, 'closeTime', e.target.value)}
+                                                        className="rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
                                             disabled={!dayHours.isOpen}
-                                        />
-                                    </div>
+                                                    />
+                                                </div>
                                 </div>
                             ))}
                         </div>

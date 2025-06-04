@@ -55,4 +55,12 @@ class User extends Authenticatable
     {
         return $this->hasMany(\App\Models\Outlet::class, 'manager_id');
     }
+
+    /**
+     * Get the outlet where this user is assigned as outlet_user_id.
+     */
+    public function outletUserOutlet()
+    {
+        return $this->hasOne(\App\Models\Outlet::class, 'outlet_user_id');
+    }
 }

@@ -79,11 +79,25 @@ Route::middleware(['auth', 'verified'])->group(function () {
             'destroy' => 'admin.outlets.destroy',
         ]);
     
+    // User Management Routes
+    Route::resource('/admin/users', \App\Http\Controllers\Admin\UserController::class)
+        ->names([
+            'index' => 'admin.users.index',
+            'create' => 'admin.users.create',
+            'store' => 'admin.users.store',
+            'edit' => 'admin.users.edit',
+            'update' => 'admin.users.update',
+            'destroy' => 'admin.users.destroy',
+        ]);
+    
     // API routes for outlet user assignment
     Route::get('/admin/outlet-users', [\App\Http\Controllers\Admin\OutletController::class, 'getOutletUsers'])
         ->name('admin.outlet-users');
     Route::get('/admin/managers', [\App\Http\Controllers\Admin\OutletController::class, 'getManagers'])
         ->name('admin.managers');
+    // API route for available outlets for user creation
+    Route::get('/admin/available-outlets', [\App\Http\Controllers\Admin\OutletController::class, 'availableOutlets'])
+        ->name('admin.available-outlets');
     
     // Manager Routes
     Route::get('/manager/audits', function () {
