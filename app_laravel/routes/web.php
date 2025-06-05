@@ -3,6 +3,7 @@
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\FormTemplateController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -48,20 +49,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return Inertia::render('Admin/ComplianceFramework/SetupPage');
     })->name('compliance-frameworks.setup');
     
-    // Form Builder routes
-    Route::get('/admin/forms/builder/new', function () {
-        return Inertia::render('Admin/Forms/BuilderPage', [
-            'mode' => 'create',
-            'formId' => null
+    // Form Template routes
+    Route::resource('/admin/form-templates', FormTemplateController::class)
+        ->names([
+            'index' => 'admin.form-templates.index',
+            'create' => 'admin.form-templates.create',
+            'store' => 'admin.form-templates.store',
+            'edit' => 'admin.form-templates.edit',
+            'update' => 'admin.form-templates.update',
+            'destroy' => 'admin.form-templates.destroy',
         ]);
-    })->name('forms.builder.new');
-    
-    Route::get('/admin/forms/builder/{formId}', function ($formId) {
-        return Inertia::render('Admin/Forms/BuilderPage', [
-            'mode' => 'edit',
-            'formId' => $formId
-        ]);
-    })->name('forms.builder.edit');
     
     // Settings - Roles & Permissions page
     Route::get('/admin/settings/roles-permissions', function () {

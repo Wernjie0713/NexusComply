@@ -1,42 +1,23 @@
-import React, { useState } from 'react';
-import { Head } from '@inertiajs/react';
+import React, { useState, useEffect } from 'react';
+import { Head, useForm } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
 import TextInput from '@/Components/TextInput';
+import FormPreviewModal from '@/Components/FormPreviewModal';
+import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { v4 as uuidv4 } from 'uuid';
 
-export default function BuilderPage({ mode = 'create', formId = null }) {
-    // Sample form data (for edit mode)
-    const [formName, setFormName] = useState(mode === 'edit' ? 'Monthly Hygiene Checklist' : '');
-    const [formDescription, setFormDescription] = useState(mode === 'edit' ? 'A comprehensive checklist for monthly hygiene inspections at all food service locations.' : '');
-    const [formStatus, setFormStatus] = useState(mode === 'edit' ? 'Published (Version 3)' : 'Draft');
-    const [enableOfflineSupport, setEnableOfflineSupport] = useState(true);
+export default function BuilderPage({ mode = 'create', formTemplate = null }) {
+    // Form data using Inertia's useForm hook
+    const { data, setData, post, put, processing, errors } = useForm({
+        name: formTemplate?.name || '',
+        description: formTemplate?.description || '',
+        structure: formTemplate?.structure || [],
+        status: formTemplate?.status || 'draft',
+    });
     
-    // Sample form fields (dummy data)
-    const [formFields, setFormFields] = useState([
-        {
-            id: 1,
-            type: 'section',
-            label: 'General Information',
-            required: false,
-        },
-        {
-            id: 2,
-            type: 'text',
-            label: 'Inspector Name',
-            placeholder: 'Enter your full name',
-            required: true,
-        },
-        {
-            id: 3,
-            type: 'radio',
-            label: 'Have all food storage areas been cleaned?',
-            options: ['Yes', 'No', 'N/A'],
-            required: true,
-        }
-    ]);
-    
-    // Currently selected field for editing properties
-    const [selectedFieldId, setSelectedFieldId] = useState(null);
+    // State for preview modal
+    const [previewModalOpen, setPreviewModalOpen] = useState(false);
     
     // Field types available in the palette
     const fieldTypes = [
@@ -52,47 +33,199 @@ export default function BuilderPage({ mode = 'create', formId = null }) {
         { id: 'text-block', name: 'Info Text Block', icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
     ];
 
+    // Currently selected field for editing properties
+    const [selectedFieldId, setSelectedFieldId] = useState(null);
+    const [enableOfflineSupport, setEnableOfflineSupport] = useState(true);
+
+    // Add a new field to the form structure
     const addField = (fieldType) => {
-        // For the demo, this would add a new field to the form
-        console.log(`Adding field type: ${fieldType}`);
+        const fieldTypeInfo = fieldTypes.find(type => type.id === fieldType);
+        if (!fieldTypeInfo) return;
+
+        const newField = {
+            id: uuidv4(),
+            type: fieldType,
+            label: `New ${fieldTypeInfo.name}`,
+            required: false,
+            order: data.structure.length + 1
+        };
+
+        // Add specific properties based on field type
+        if (fieldType === 'text' || fieldType === 'textarea') {
+            newField.placeholder = '';
+        } else if (fieldType === 'radio' || fieldType === 'checkbox-group' || fieldType === 'select') {
+            newField.options = ['Option 1', 'Option 2', 'Option 3'];
+        }
+
+        const updatedStructure = [...data.structure, newField];
+        setData('structure', updatedStructure);
+        setSelectedFieldId(newField.id);
     };
 
+    // Select a field for editing its properties
     const selectField = (fieldId) => {
         setSelectedFieldId(fieldId);
     };
 
+    // Delete a field from the form structure
     const handleDeleteField = (fieldId) => {
-        setFormFields(formFields.filter(field => field.id !== fieldId));
+        const updatedStructure = data.structure.filter(field => field.id !== fieldId);
+        setData('structure', updatedStructure);
+        
         if (selectedFieldId === fieldId) {
             setSelectedFieldId(null);
         }
     };
 
-    const handleMoveField = (fieldId, direction) => {
-        // For the demo, this would move a field up or down
-        console.log(`Moving field ${fieldId} ${direction}`);
+    // Handle drag end event for reordering fields
+    const handleDragEnd = (result) => {
+        // If dropped outside the list or no destination
+        if (!result.destination) {
+            return;
+        }
+        
+        // If dropped in the same position
+        if (result.destination.index === result.source.index) {
+            return;
+        }
+        
+        // Clone the structure array
+        const newStructure = Array.from(data.structure);
+        
+        // Remove the dragged item from the array
+        const [movedItem] = newStructure.splice(result.source.index, 1);
+        
+        // Insert the item at the destination index
+        newStructure.splice(result.destination.index, 0, movedItem);
+        
+        // Update the order property for each field
+        newStructure.forEach((field, index) => {
+            field.order = index + 1;
+        });
+        
+        // Update the form data
+        setData('structure', newStructure);
+    };
+
+    // Update a field's properties
+    const updateFieldProperty = (fieldId, property, value) => {
+        const updatedStructure = data.structure.map(field => {
+            if (field.id === fieldId) {
+                return { ...field, [property]: value };
+            }
+            return field;
+        });
+        
+        setData('structure', updatedStructure);
+    };
+
+    // Add a new option to a field with options (radio, checkbox group, select)
+    const addFieldOption = (fieldId) => {
+        const field = data.structure.find(f => f.id === fieldId);
+        if (!field || !field.options) return;
+        
+        const updatedStructure = data.structure.map(f => {
+            if (f.id === fieldId) {
+                return { 
+                    ...f, 
+                    options: [...f.options, `Option ${f.options.length + 1}`] 
+                };
+            }
+            return f;
+        });
+        
+        setData('structure', updatedStructure);
+    };
+
+    // Update an option's text for a field with options
+    const updateFieldOption = (fieldId, optionIndex, newValue) => {
+        const updatedStructure = data.structure.map(field => {
+            if (field.id === fieldId && field.options) {
+                const updatedOptions = [...field.options];
+                updatedOptions[optionIndex] = newValue;
+                return { ...field, options: updatedOptions };
+            }
+            return field;
+        });
+        
+        setData('structure', updatedStructure);
+    };
+
+    // Remove an option from a field with options
+    const removeFieldOption = (fieldId, optionIndex) => {
+        const updatedStructure = data.structure.map(field => {
+            if (field.id === fieldId && field.options) {
+                const updatedOptions = field.options.filter((_, index) => index !== optionIndex);
+                return { ...field, options: updatedOptions };
+            }
+            return field;
+        });
+        
+        setData('structure', updatedStructure);
+    };
+
+    // Handle form submission
+    const handleSubmit = (publishStatus = null) => {
+        // If publishStatus is provided, update the status
+        if (publishStatus) {
+            setData('status', publishStatus);
+            
+            // Create a copy of the form data with the updated status
+            const submissionData = {
+                ...data,
+                status: publishStatus
+            };
+            
+            console.log('Submitting form with status:', publishStatus, submissionData);
+            
+            // Use the updated data directly for immediate submission
+            if (mode === 'create') {
+                post(route('admin.form-templates.store'), submissionData);
+            } else {
+                put(route('admin.form-templates.update', formTemplate.id), submissionData);
+            }
+            
+            return; // Exit early after submission
+        }
+        
+        // Regular submission (no status override)
+        console.log('Submitting form with current status:', data.status, data);
+        
+        if (mode === 'create') {
+            post(route('admin.form-templates.store'));
+        } else {
+            put(route('admin.form-templates.update', formTemplate.id));
+        }
+    };
+
+    // Show form preview
+    const handlePreviewForm = () => {
+        setPreviewModalOpen(true);
     };
 
     // Get the currently selected field
-    const selectedField = formFields.find(field => field.id === selectedFieldId);
+    const selectedField = data.structure.find(field => field.id === selectedFieldId);
 
     return (
         <AuthenticatedLayout
             header={
                 <div className="flex items-center justify-between">
                     <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                        {mode === 'edit' ? `Editing: ${formName}` : 'Create New Form'}
+                        {mode === 'edit' ? `Editing: ${data.name}` : 'Create New Form'}
                     </h2>
                     <div className="flex space-x-2">
                         <button
                             type="button"
                             className="inline-flex items-center rounded-md border border-green-600 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-widest text-green-700 transition duration-150 ease-in-out hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                            onClick={() => handleSubmit('draft')}
+                            disabled={processing}
                         >
                             Save Draft
                         </button>
                         <button
                             type="button"
                             className="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-widest text-gray-700 transition duration-150 ease-in-out hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                            onClick={handlePreviewForm}
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" className="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -100,14 +233,26 @@ export default function BuilderPage({ mode = 'create', formId = null }) {
                             </svg>
                             Preview Form
                         </button>
-                        <AdminPrimaryButton>
+                        <AdminPrimaryButton
+                            onClick={() => handleSubmit('published')}
+                            disabled={processing}
+                        >
                             Publish Form
                         </AdminPrimaryButton>
                     </div>
                 </div>
             }
         >
-            <Head title={mode === 'edit' ? `Edit Form: ${formName}` : 'Create New Form'} />
+            <Head title={mode === 'edit' ? `Edit Form: ${data.name}` : 'Create New Form'} />
+            
+            {/* Form Preview Modal */}
+            <FormPreviewModal
+                isOpen={previewModalOpen}
+                onClose={() => setPreviewModalOpen(false)}
+                formName={data.name || 'Untitled Form'}
+                formDescription={data.description || ''}
+                structure={data.structure}
+            />
 
             <div className="py-0">
                 <div className="mx-auto max-w-7xl sm:px-6 lg:px-0">
@@ -128,10 +273,13 @@ export default function BuilderPage({ mode = 'create', formId = null }) {
                                             id="formName"
                                             type="text"
                                             className="mt-1 block w-full"
-                                            value={formName}
-                                            onChange={(e) => setFormName(e.target.value)}
+                                            value={data.name}
+                                            onChange={(e) => setData('name', e.target.value)}
                                             placeholder="Enter form name..."
                                         />
+                                        {errors.name && (
+                                            <div className="mt-1 text-sm text-red-600">{errors.name}</div>
+                                        )}
                                     </div>
                                     
                                     <div>
@@ -142,10 +290,13 @@ export default function BuilderPage({ mode = 'create', formId = null }) {
                                             id="formDescription"
                                             rows={3}
                                             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-                                            value={formDescription}
-                                            onChange={(e) => setFormDescription(e.target.value)}
+                                            value={data.description}
+                                            onChange={(e) => setData('description', e.target.value)}
                                             placeholder="Describe the purpose of this form..."
                                         />
+                                        {errors.description && (
+                                            <div className="mt-1 text-sm text-red-600">{errors.description}</div>
+                                        )}
                                     </div>
                                     
                                     <div>
@@ -153,7 +304,7 @@ export default function BuilderPage({ mode = 'create', formId = null }) {
                                             Status
                                         </label>
                                         <div className="mt-1 rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-900">
-                                            {formStatus}
+                                            {data.status.charAt(0).toUpperCase() + data.status.slice(1)}
                                         </div>
                                     </div>
                                     
@@ -215,7 +366,7 @@ export default function BuilderPage({ mode = 'create', formId = null }) {
                                     <h3 className="text-sm font-medium text-gray-900">Form Canvas</h3>
                                 </div>
                                 <div className="p-4">
-                                    {formFields.length === 0 ? (
+                                    {data.structure.length === 0 ? (
                                         <div className="flex h-64 flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 p-6 text-center">
                                             <svg xmlns="http://www.w3.org/2000/svg" className="mb-2 h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -225,90 +376,106 @@ export default function BuilderPage({ mode = 'create', formId = null }) {
                                             </p>
                                         </div>
                                     ) : (
-                                        <div className="space-y-4">
-                                            {formFields.map((field) => (
-                                                <div
-                                                    key={field.id}
-                                                    className={`relative rounded-lg border p-4 ${
-                                                        selectedFieldId === field.id
-                                                            ? 'border-green-500 bg-green-50'
-                                                            : 'border-gray-200 bg-white hover:border-gray-300'
-                                                    }`}
-                                                    onClick={() => selectField(field.id)}
-                                                >
-                                                    {/* Field Controls */}
-                                                    <div className="absolute right-2 top-2 flex space-x-1">
-                                                        <button
-                                                            type="button"
-                                                            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
-                                                            onClick={() => handleMoveField(field.id, 'up')}
-                                                        >
-                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                                                            </svg>
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
-                                                            onClick={() => handleMoveField(field.id, 'down')}
-                                                        >
-                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                                            </svg>
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            className="rounded p-1 text-gray-400 hover:bg-red-100 hover:text-red-500"
-                                                            onClick={() => handleDeleteField(field.id)}
-                                                        >
-                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                            </svg>
-                                                        </button>
-                                                    </div>
+                                        <DragDropContext onDragEnd={handleDragEnd}>
+                                            <Droppable droppableId="form-fields">
+                                                {(provided) => (
+                                                    <div 
+                                                        className="space-y-4"
+                                                        {...provided.droppableProps}
+                                                        ref={provided.innerRef}
+                                                    >
+                                                        {data.structure.map((field, index) => (
+                                                            <Draggable 
+                                                                key={field.id} 
+                                                                draggableId={field.id.toString()} 
+                                                                index={index}
+                                                            >
+                                                                {(provided, snapshot) => (
+                                                                    <div
+                                                                        ref={provided.innerRef}
+                                                                        {...provided.draggableProps}
+                                                                        className={`relative rounded-lg border p-4 
+                                                                            ${snapshot.isDragging ? 'border-green-500 bg-green-50 shadow-lg' : ''}
+                                                                            ${selectedFieldId === field.id
+                                                                                ? 'border-green-500 bg-green-50'
+                                                                                : 'border-gray-200 bg-white hover:border-gray-300'
+                                                                            }`}
+                                                                        onClick={() => selectField(field.id)}
+                                                                    >
+                                                                        {/* Drag Handle */}
+                                                                        <div
+                                                                            {...provided.dragHandleProps}
+                                                                            className="absolute left-2 top-1 cursor-move rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
+                                                                        >
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                                                                            </svg>
+                                                                        </div>
+                                                                        
+                                                                        {/* Field Controls */}
+                                                                        <div className="absolute right-2 top-2 flex space-x-1">
+                                                                            <button
+                                                                                type="button"
+                                                                                className="rounded p-1 text-gray-400 hover:bg-red-100 hover:text-red-500"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    handleDeleteField(field.id);
+                                                                                }}
+                                                                            >
+                                                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                                </svg>
+                                                                            </button>
+                                                                        </div>
 
-                                                    {/* Field Content */}
-                                                    <div className="pt-2">
-                                                        {field.type === 'section' ? (
-                                                            <h4 className="font-medium text-gray-900">{field.label}</h4>
-                                                        ) : (
-                                                            <>
-                                                                <label className="mb-1 block text-sm font-medium text-gray-700">
-                                                                    {field.label}
-                                                                    {field.required && <span className="ml-1 text-red-500">*</span>}
-                                                                </label>
-                                                                
-                                                                {field.type === 'text' && (
-                                                                    <TextInput
-                                                                        type="text"
-                                                                        className="mt-1 block w-full"
-                                                                        placeholder={field.placeholder}
-                                                                        disabled
-                                                                    />
-                                                                )}
-                                                                
-                                                                {field.type === 'radio' && (
-                                                                    <div className="mt-2 space-y-2">
-                                                                        {field.options.map((option, index) => (
-                                                                            <div key={index} className="flex items-center">
-                                                                                <input
-                                                                                    type="radio"
-                                                                                    disabled
-                                                                                    className="h-4 w-4 border-gray-300 text-green-600 focus:ring-green-500"
-                                                                                />
-                                                                                <label className="ml-3 block text-sm text-gray-700">
-                                                                                    {option}
-                                                                                </label>
-                                                                            </div>
-                                                                        ))}
+                                                                        {/* Field Content */}
+                                                                        <div className="pt-2">
+                                                                            {field.type === 'section' ? (
+                                                                                <h4 className="font-medium text-gray-900">{field.label}</h4>
+                                                                            ) : (
+                                                                                <>
+                                                                                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                                                                                        {field.label}
+                                                                                        {field.required && <span className="ml-1 text-red-500">*</span>}
+                                                                                    </label>
+                                                                                    
+                                                                                    {field.type === 'text' && (
+                                                                                        <TextInput
+                                                                                            type="text"
+                                                                                            className="mt-1 block w-full"
+                                                                                            placeholder={field.placeholder}
+                                                                                            disabled
+                                                                                        />
+                                                                                    )}
+                                                                                    
+                                                                                    {field.type === 'radio' && (
+                                                                                        <div className="mt-2 space-y-2">
+                                                                                            {field.options.map((option, index) => (
+                                                                                                <div key={index} className="flex items-center">
+                                                                                                    <input
+                                                                                                        type="radio"
+                                                                                                        disabled
+                                                                                                        className="h-4 w-4 border-gray-300 text-green-600 focus:ring-green-500"
+                                                                                                    />
+                                                                                                    <label className="ml-3 block text-sm text-gray-700">
+                                                                                                        {option}
+                                                                                                    </label>
+                                                                                                </div>
+                                                                                            ))}
+                                                                                        </div>
+                                                                                    )}
+                                                                                </>
+                                                                            )}
+                                                                        </div>
                                                                     </div>
                                                                 )}
-                                                            </>
-                                                        )}
+                                                            </Draggable>
+                                                        ))}
+                                                        {provided.placeholder}
                                                     </div>
-                                                </div>
-                                            ))}
-                                        </div>
+                                                )}
+                                            </Droppable>
+                                        </DragDropContext>
                                     )}
                                 </div>
                             </div>
@@ -333,6 +500,7 @@ export default function BuilderPage({ mode = 'create', formId = null }) {
                                                     className="mt-1 block w-full"
                                                     value={selectedField.label}
                                                     placeholder="Enter field label..."
+                                                    onChange={(e) => updateFieldProperty(selectedField.id, 'label', e.target.value)}
                                                 />
                                             </div>
                                             
@@ -347,6 +515,7 @@ export default function BuilderPage({ mode = 'create', formId = null }) {
                                                         className="mt-1 block w-full"
                                                         value={selectedField.placeholder || ''}
                                                         placeholder="Enter placeholder text..."
+                                                        onChange={(e) => updateFieldProperty(selectedField.id, 'placeholder', e.target.value)}
                                                     />
                                                 </div>
                                             )}
@@ -363,10 +532,15 @@ export default function BuilderPage({ mode = 'create', formId = null }) {
                                                                     type="text"
                                                                     className="block w-full"
                                                                     value={option}
+                                                                    onChange={(e) => updateFieldOption(selectedField.id, index, e.target.value)}
                                                                 />
                                                                 <button
                                                                     type="button"
                                                                     className="ml-2 rounded p-1 text-gray-400 hover:bg-red-100 hover:text-red-500"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        removeFieldOption(selectedField.id, index);
+                                                                    }}
                                                                 >
                                                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -377,6 +551,10 @@ export default function BuilderPage({ mode = 'create', formId = null }) {
                                                         <button
                                                             type="button"
                                                             className="mt-1 inline-flex items-center rounded border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                addFieldOption(selectedField.id);
+                                                            }}
                                                         >
                                                             <svg xmlns="http://www.w3.org/2000/svg" className="-ml-1 mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -394,6 +572,7 @@ export default function BuilderPage({ mode = 'create', formId = null }) {
                                                         type="checkbox"
                                                         className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
                                                         checked={selectedField.required || false}
+                                                        onChange={(e) => updateFieldProperty(selectedField.id, 'required', e.target.checked)}
                                                     />
                                                     <label htmlFor="fieldRequired" className="ml-2 block text-sm text-gray-700">
                                                         Required Field
