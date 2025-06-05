@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\FormTemplate;
+use App\Models\ComplianceRequirement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -20,8 +21,14 @@ class FormTemplateController extends Controller
             ->orderBy('updated_at', 'desc')
             ->get();
 
-        return Inertia::render('Admin/Forms/IndexPage', [
+        // Fetch any compliance requirements to pass to the SetupPage
+        $complianceRequirements = ComplianceRequirement::with(['formTemplate:id,name', 'creator:id,name'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return Inertia::render('Admin/ComplianceFramework/SetupPage', [
             'formTemplates' => $formTemplates,
+            'complianceRequirements' => $complianceRequirements,
         ]);
     }
 
@@ -33,6 +40,7 @@ class FormTemplateController extends Controller
         return Inertia::render('Admin/Forms/BuilderPage', [
             'mode' => 'create',
             'formTemplate' => null,
+            'fromCompliance' => request()->has('from_compliance'),
         ]);
     }
 
@@ -60,6 +68,13 @@ class FormTemplateController extends Controller
 
         Log::info('Form Template Saved with Status:', ['id' => $formTemplate->id, 'status' => $formTemplate->status]);
 
+        // If the form is being published, redirect to compliance requirements page
+        if ($validated['status'] === 'published') {
+            return redirect()->route('admin.compliance-requirements.index')
+                ->with('success', 'Form template published successfully.');
+        }
+
+        // Otherwise redirect to edit page
         return redirect()->route('admin.form-templates.edit', $formTemplate)
             ->with('success', 'Form template created successfully.');
     }
@@ -72,6 +87,7 @@ class FormTemplateController extends Controller
         return Inertia::render('Admin/Forms/BuilderPage', [
             'mode' => 'edit',
             'formTemplate' => $formTemplate,
+            'fromCompliance' => request()->has('from_compliance'),
         ]);
     }
 
@@ -98,6 +114,13 @@ class FormTemplateController extends Controller
 
         Log::info('Form Template Updated with Status:', ['id' => $formTemplate->id, 'status' => $formTemplate->status]);
 
+        // If the form is being published, redirect to compliance requirements page
+        if ($validated['status'] === 'published') {
+            return redirect()->route('admin.compliance-requirements.index')
+                ->with('success', 'Form template published successfully.');
+        }
+
+        // Otherwise redirect back to edit page
         return redirect()->route('admin.form-templates.edit', $formTemplate)
             ->with('success', 'Form template updated successfully.');
     }
@@ -107,9 +130,17 @@ class FormTemplateController extends Controller
      */
     public function destroy(FormTemplate $formTemplate)
     {
+        // Check if the form template is being used by any compliance requirements
+        $usedByComplianceRequirements = ComplianceRequirement::where('form_template_id', $formTemplate->id)->exists();
+        
+        if ($usedByComplianceRequirements) {
+            return redirect()->route('admin.compliance-requirements.index')
+                ->with('error', 'Form template cannot be deleted because it is being used by one or more compliance requirements.');
+        }
+        
         $formTemplate->delete();
 
-        return redirect()->route('admin.form-templates.index')
+        return redirect()->route('admin.compliance-requirements.index')
             ->with('success', 'Form template deleted successfully.');
     }
 }

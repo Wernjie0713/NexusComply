@@ -4,6 +4,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\FormTemplateController;
+use App\Http\Controllers\Admin\ComplianceRequirementController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -44,10 +45,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ]);
     })->name('audits.share-form');
     
-    // Compliance Framework Setup page
-    Route::get('/admin/compliance-frameworks', function () {
-        return Inertia::render('Admin/ComplianceFramework/SetupPage');
-    })->name('compliance-frameworks.setup');
+    // Compliance Requirements routes
+    Route::resource('/admin/compliance-requirements', ComplianceRequirementController::class)
+        ->names([
+            'index' => 'admin.compliance-requirements.index',
+            'store' => 'admin.compliance-requirements.store',
+            'update' => 'admin.compliance-requirements.update',
+            'destroy' => 'admin.compliance-requirements.destroy',
+        ])
+        ->except(['create', 'edit', 'show']); // Not needed for inline form handling
     
     // Form Template routes
     Route::resource('/admin/form-templates', FormTemplateController::class)

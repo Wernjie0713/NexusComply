@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Head, useForm } from '@inertiajs/react';
+import { Head, useForm, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
 import TextInput from '@/Components/TextInput';
@@ -7,7 +7,7 @@ import FormPreviewModal from '@/Components/FormPreviewModal';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { v4 as uuidv4 } from 'uuid';
 
-export default function BuilderPage({ mode = 'create', formTemplate = null }) {
+export default function BuilderPage({ mode = 'create', formTemplate = null, fromCompliance = false }) {
     // Form data using Inertia's useForm hook
     const { data, setData, post, put, processing, errors } = useForm({
         name: formTemplate?.name || '',
@@ -210,9 +210,22 @@ export default function BuilderPage({ mode = 'create', formTemplate = null }) {
         <AuthenticatedLayout
             header={
                 <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                        {mode === 'edit' ? `Editing: ${data.name}` : 'Create New Form'}
-                    </h2>
+                    <div className="flex items-center space-x-4">
+                        {fromCompliance && (
+                            <Link 
+                                href={route('admin.compliance-requirements.index')}
+                                className="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-widest text-gray-700 transition duration-150 ease-in-out hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                                </svg>
+                                Back
+                            </Link>
+                        )}
+                        <h2 className="text-xl font-semibold leading-tight text-gray-800">
+                            {mode === 'edit' ? `Editing: ${data.name}` : 'Create New Form'}
+                        </h2>
+                    </div>
                     <div className="flex space-x-2">
                         <button
                             type="button"
