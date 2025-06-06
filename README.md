@@ -433,6 +433,93 @@ The system includes comprehensive seeders for initial data population:
 - Efficient bulk outlet assignment for managers
 - Real-time form validation and error handling
 
+### Dynamic Form Builder
+
+The Dynamic Form Builder is a powerful, user-friendly tool designed for Admins to create customizable form templates without writing code. These templates can be used for various compliance tasks throughout the application.
+
+#### Purpose
+The Form Builder enables Admins to design and maintain a library of reusable form templates that define the structure and fields for compliance submissions. Once created, these templates can be assigned to specific compliance requirements.
+
+#### Key Features
+
+1. **Visual Form Design Interface**
+   - Intuitive drag-and-drop functionality for adding, configuring, and reordering form fields
+   - Real-time preview of the form being built
+   - Support for various field types:
+     - Text inputs (single-line and multi-line)
+     - Checkbox fields (single and grouped)
+     - Radio button groups
+     - Dropdown selects
+     - Date pickers
+     - File upload fields
+     - Section headers and text blocks for better organization
+
+2. **Field Configuration**
+   - Detailed customization for each field:
+     - Custom labels and placeholder text
+     - Required field status toggling
+     - Field-specific options (for radio buttons, checkboxes, dropdowns)
+     - Help text and instructions
+
+3. **Form Management**
+   - Form templates can be saved as drafts during development
+   - Templates can be published when ready for use in compliance requirements
+   - Existing templates can be edited, previewed, and deleted
+   - Protection against deleting templates that are currently in use
+
+4. **Technical Implementation**
+   - Form structures are stored as flexible JSON objects in the database
+   - Frontend interface built with React and the react-beautiful-dnd library
+   - Each form field has a unique ID and configurable properties
+   - Forms are rendered dynamically using a dedicated FormRenderer component
+
+### Compliance Requirements Setup
+
+The Compliance Requirements Setup module allows Admins to define and manage the specific compliance tasks that need to be completed by outlets.
+
+#### Purpose
+This module serves as the central place for Admins to establish what compliance documentation must be submitted, how frequently, and in what format (form or document upload).
+
+#### Key Features
+
+1. **Compliance Category Management**
+   - Create, edit, and delete compliance categories (e.g., "Food Safety", "Fire Safety", "Employee Training")
+   - For each category, define:
+     - Title and description
+     - Submission frequency (Daily, Weekly, Monthly, Quarterly, Bi-annually, Annually)
+     - Active/Inactive status to control visibility
+
+2. **Flexible Submission Types**
+   - Two primary submission methods available:
+     - **Form Template**: Assign a custom form created with the Dynamic Form Builder
+     - **Document Upload Only**: Specify instructions for what documents need to be uploaded
+
+3. **Conditional UI**
+   - The interface intelligently adapts based on the selected submission type:
+     - When "Form Template" is selected, shows a dropdown of available published form templates
+     - When "Document Upload Only" is selected, provides a text area for document upload instructions
+
+4. **Form Template Integration**
+   - Seamless connection to the Dynamic Form Builder
+   - Only published form templates are available for selection
+   - Quick access to form template management directly from the compliance setup page
+   - Preview capability for selected form templates
+
+5. **Technical Implementation**
+   - Database design with clear relationships between compliance requirements and form templates
+   - Validation rules ensure proper data entry and relationships
+   - Frontend modal interface for efficient creation and editing
+   - Conditional form fields based on submission type
+
+### Workflow Overview
+
+The core setup workflow for an Admin using these features is:
+
+1. **Form Builder**: First, use the Dynamic Form Builder to create reusable Form Templates for common checklists and audits.
+2. **Compliance Requirements**: Next, in the Compliance Requirements Setup, create specific tasks and assign either a created Form Template or a simple document upload requirement to each task.
+
+This two-step process defines what tasks Outlet Users will see and need to complete on their mobile app. The system allows for a flexible, adaptable compliance framework that can be easily modified as requirements change over time.
+
 ## Getting Started
 
 [Installation and setup instructions...]
