@@ -7,6 +7,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Database\Eloquent\Collection;
 
 class UserInvitationEmail extends Mailable
 {
@@ -16,16 +17,18 @@ class UserInvitationEmail extends Mailable
     public $roleTitle;
     public $defaultPassword;
     public $outletName;
+    public $assignedOutlets;
 
     /**
      * Create a new message instance.
      */
-    public function __construct(User $user, $roleTitle, $defaultPassword, $outletName = null)
+    public function __construct(User $user, $roleTitle, $defaultPassword, $outletName = null, $assignedOutlets = null)
     {
         $this->user = $user;
         $this->roleTitle = $roleTitle;
         $this->defaultPassword = $defaultPassword;
         $this->outletName = $outletName;
+        $this->assignedOutlets = $assignedOutlets;
     }
 
     /**
@@ -40,6 +43,7 @@ class UserInvitationEmail extends Mailable
                 'roleTitle' => $this->roleTitle,
                 'defaultPassword' => $this->defaultPassword,
                 'outletName' => $this->outletName,
+                'assignedOutlets' => $this->assignedOutlets,
             ]);
     }
 } 

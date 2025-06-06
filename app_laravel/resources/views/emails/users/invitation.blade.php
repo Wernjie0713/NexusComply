@@ -11,6 +11,20 @@ An account has been created for you with the following details:
 @endif
 - **Temporary Password:** {{ $defaultPassword }}
 
+@if($roleTitle === 'Manager' && !empty($assignedOutlets) && count($assignedOutlets) > 0)
+@component('mail::panel')
+## You have been assigned to oversee the following outlets:
+
+@component('mail::table')
+| Outlet Name |
+| ----------- |
+@foreach($assignedOutlets as $outlet)
+| {{ $outlet->name }} |
+@endforeach
+@endcomponent
+@endcomponent
+@endif
+
 @component('mail::panel')
 **Important:** Please change your password immediately after your first login for security.
 @endcomponent

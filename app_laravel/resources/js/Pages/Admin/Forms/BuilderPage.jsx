@@ -222,9 +222,9 @@ export default function BuilderPage({ mode = 'create', formTemplate = null, from
                                 Back
                             </Link>
                         )}
-                        <h2 className="text-xl font-semibold leading-tight text-gray-800">
+                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
                             {mode === 'edit' ? `Editing: ${data.name}` : 'Create New Form'}
-                        </h2>
+                    </h2>
                     </div>
                     <div className="flex space-x-2">
                         <button
@@ -399,7 +399,7 @@ export default function BuilderPage({ mode = 'create', formTemplate = null, from
                                                     >
                                                         {data.structure.map((field, index) => (
                                                             <Draggable 
-                                                                key={field.id} 
+                                                    key={field.id}
                                                                 draggableId={field.id.toString()} 
                                                                 index={index}
                                                             >
@@ -410,11 +410,11 @@ export default function BuilderPage({ mode = 'create', formTemplate = null, from
                                                                         className={`relative rounded-lg border p-4 
                                                                             ${snapshot.isDragging ? 'border-green-500 bg-green-50 shadow-lg' : ''}
                                                                             ${selectedFieldId === field.id
-                                                                                ? 'border-green-500 bg-green-50'
-                                                                                : 'border-gray-200 bg-white hover:border-gray-300'
-                                                                            }`}
-                                                                        onClick={() => selectField(field.id)}
-                                                                    >
+                                                            ? 'border-green-500 bg-green-50'
+                                                            : 'border-gray-200 bg-white hover:border-gray-300'
+                                                    }`}
+                                                    onClick={() => selectField(field.id)}
+                                                >
                                                                         {/* Drag Handle */}
                                                                         <div
                                                                             {...provided.dragHandleProps}
@@ -425,67 +425,67 @@ export default function BuilderPage({ mode = 'create', formTemplate = null, from
                                                                             </svg>
                                                                         </div>
                                                                         
-                                                                        {/* Field Controls */}
-                                                                        <div className="absolute right-2 top-2 flex space-x-1">
-                                                                            <button
-                                                                                type="button"
-                                                                                className="rounded p-1 text-gray-400 hover:bg-red-100 hover:text-red-500"
+                                                    {/* Field Controls */}
+                                                    <div className="absolute right-2 top-2 flex space-x-1">
+                                                        <button
+                                                            type="button"
+                                                            className="rounded p-1 text-gray-400 hover:bg-red-100 hover:text-red-500"
                                                                                 onClick={(e) => {
                                                                                     e.stopPropagation();
                                                                                     handleDeleteField(field.id);
                                                                                 }}
-                                                                            >
-                                                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                                                </svg>
-                                                                            </button>
-                                                                        </div>
+                                                        >
+                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                            </svg>
+                                                        </button>
+                                                    </div>
 
-                                                                        {/* Field Content */}
-                                                                        <div className="pt-2">
-                                                                            {field.type === 'section' ? (
-                                                                                <h4 className="font-medium text-gray-900">{field.label}</h4>
-                                                                            ) : (
-                                                                                <>
-                                                                                    <label className="mb-1 block text-sm font-medium text-gray-700">
-                                                                                        {field.label}
-                                                                                        {field.required && <span className="ml-1 text-red-500">*</span>}
-                                                                                    </label>
-                                                                                    
-                                                                                    {field.type === 'text' && (
-                                                                                        <TextInput
-                                                                                            type="text"
-                                                                                            className="mt-1 block w-full"
-                                                                                            placeholder={field.placeholder}
-                                                                                            disabled
-                                                                                        />
-                                                                                    )}
-                                                                                    
-                                                                                    {field.type === 'radio' && (
-                                                                                        <div className="mt-2 space-y-2">
-                                                                                            {field.options.map((option, index) => (
-                                                                                                <div key={index} className="flex items-center">
-                                                                                                    <input
-                                                                                                        type="radio"
-                                                                                                        disabled
-                                                                                                        className="h-4 w-4 border-gray-300 text-green-600 focus:ring-green-500"
-                                                                                                    />
-                                                                                                    <label className="ml-3 block text-sm text-gray-700">
-                                                                                                        {option}
-                                                                                                    </label>
-                                                                                                </div>
-                                                                                            ))}
-                                                                                        </div>
-                                                                                    )}
-                                                                                </>
-                                                                            )}
-                                                                        </div>
+                                                    {/* Field Content */}
+                                                    <div className="pt-2">
+                                                        {field.type === 'section' ? (
+                                                            <h4 className="font-medium text-gray-900">{field.label}</h4>
+                                                        ) : (
+                                                            <>
+                                                                <label className="mb-1 block text-sm font-medium text-gray-700">
+                                                                    {field.label}
+                                                                    {field.required && <span className="ml-1 text-red-500">*</span>}
+                                                                </label>
+                                                                
+                                                                {field.type === 'text' && (
+                                                                    <TextInput
+                                                                        type="text"
+                                                                        className="mt-1 block w-full"
+                                                                        placeholder={field.placeholder}
+                                                                        disabled
+                                                                    />
+                                                                )}
+                                                                
+                                                                {field.type === 'radio' && (
+                                                                    <div className="mt-2 space-y-2">
+                                                                        {field.options.map((option, index) => (
+                                                                            <div key={index} className="flex items-center">
+                                                                                <input
+                                                                                    type="radio"
+                                                                                    disabled
+                                                                                    className="h-4 w-4 border-gray-300 text-green-600 focus:ring-green-500"
+                                                                                />
+                                                                                <label className="ml-3 block text-sm text-gray-700">
+                                                                                    {option}
+                                                                                </label>
+                                                                            </div>
+                                                                        ))}
                                                                     </div>
                                                                 )}
-                                                            </Draggable>
-                                                        ))}
-                                                        {provided.placeholder}
+                                                            </>
+                                                        )}
                                                     </div>
+                                                </div>
+                                                                )}
+                                                            </Draggable>
+                                            ))}
+                                                        {provided.placeholder}
+                                        </div>
                                                 )}
                                             </Droppable>
                                         </DragDropContext>

@@ -21,10 +21,17 @@ export default function CreateUserForm({ onClose }) {
 
     useEffect(() => {
         setLoadingOutlets(true);
-        axios.get(route('admin.available-outlets'))
+        const params = new URLSearchParams();
+        
+        // Add parameters based on selected role
+        if (data.role) {
+            params.append('for_role', data.role);
+        }
+        
+        axios.get(`${route('admin.available-outlets')}?${params.toString()}`)
             .then(res => setAvailableOutlets(res.data))
             .finally(() => setLoadingOutlets(false));
-    }, []);
+    }, [data.role]); // Re-fetch when role changes
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -111,6 +118,9 @@ export default function CreateUserForm({ onClose }) {
                         placeholder="Select an outlet"
                         disabled={loadingOutlets}
                         className="mt-1"
+                        getOptionLabel={(option) => option.name}
+                        getOptionValue={(option) => option.id}
+                        getOptionDescription={() => ''}
                     />
                     {loadingOutlets && <div className="text-xs text-gray-500 mt-1">Loading outlets...</div>}
                     <InputError message={errors.outlet_id} className="mt-2" />

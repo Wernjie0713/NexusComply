@@ -11,7 +11,24 @@ export default function OutletForm({ data, setData, errors, processing, onSubmit
     const [managers, setManagers] = useState(propManagers || []);
     const [loading, setLoading] = useState(!(propOutletUsers && propManagers));
 
+    console.log('OutletForm initial data:', { 
+        data, 
+        outletUsers, 
+        managers,
+        outlet_user_role_id: data.outlet_user_role_id,
+        manager_role_id: data.manager_role_id
+    });
+
     useEffect(() => {
+        console.log('OutletForm useEffect running with:', {
+            propOutletUsers: propOutletUsers?.length,
+            propManagers: propManagers?.length,
+            data: {
+                outlet_user_role_id: data.outlet_user_role_id,
+                manager_role_id: data.manager_role_id
+            }
+        });
+        
         if (propOutletUsers && propManagers) {
             setLoading(false);
             // continue to check operating_hours_info
@@ -212,34 +229,34 @@ export default function OutletForm({ data, setData, errors, processing, onSubmit
 
                 {/* Outlet User Assignment */}
                 <div>
-                    <InputLabel htmlFor="outlet_user_id" value="Assign Outlet User" />
+                    <InputLabel htmlFor="outlet_user_role_id" value="Assign Outlet User" />
                     <SearchableSelect
                         options={outletUsers}
-                        value={data.outlet_user_id}
-                        onChange={(value) => setData('outlet_user_id', value)}
+                        value={data.outlet_user_role_id}
+                        onChange={(value) => setData('outlet_user_role_id', value)}
                         placeholder="Select Outlet User"
                         className="mt-1"
                         getOptionLabel={(user) => user.name}
-                        getOptionValue={(user) => user.id}
+                        getOptionValue={(user) => user.role_id}
                         getOptionDescription={(user) => user.email}
                     />
-                    <InputError message={errors.outlet_user_id} className="mt-2" />
+                    <InputError message={errors.outlet_user_role_id} className="mt-2" />
                 </div>
 
                 {/* Manager Assignment */}
                 <div>
-                    <InputLabel htmlFor="manager_id" value="Assign Manager" />
+                    <InputLabel htmlFor="manager_role_id" value="Assign Manager" />
                     <SearchableSelect
                         options={managers}
-                        value={data.manager_id}
-                        onChange={(value) => setData('manager_id', value)}
+                        value={data.manager_role_id}
+                        onChange={(value) => setData('manager_role_id', value)}
                         placeholder="Select Manager"
                         className="mt-1"
                         getOptionLabel={(user) => user.name}
-                        getOptionValue={(user) => user.id}
+                        getOptionValue={(user) => user.role_id}
                         getOptionDescription={(user) => user.email}
                     />
-                    <InputError message={errors.manager_id} className="mt-2" />
+                    <InputError message={errors.manager_role_id} className="mt-2" />
                 </div>
 
                 {/* Status */}

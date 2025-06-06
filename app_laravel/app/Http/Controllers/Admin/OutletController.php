@@ -53,14 +53,28 @@ class OutletController extends Controller
      */
     public function create()
     {
+        // Get only outlet users who are not already assigned to any outlet
         $outletUsers = User::whereIs('outlet-user')
             ->select('id', 'name', 'email', 'role_id')
+            ->whereNotIn('role_id', function($query) {
+                $query->select('outlet_user_role_id')
+                      ->from('outlets')
+                      ->whereNotNull('outlet_user_role_id');
+            })
             ->orderBy('name')
             ->get();
+            
+        // Get all managers
         $managers = User::whereIs('manager')
             ->select('id', 'name', 'email', 'role_id')
             ->orderBy('name')
             ->get();
+            
+        Log::info('Create Outlet - Available Users:', [
+            'outletUsers_count' => $outletUsers->count(),
+            'managers_count' => $managers->count(),
+        ]);
+            
         return Inertia::render('Admin/Outlets/CreatePage', [
             'outletUsers' => $outletUsers,
             'managers' => $managers,
@@ -119,28 +133,55 @@ class OutletController extends Controller
      */
     public function edit(Outlet $outlet)
     {
+        // Load relationships to get full user objects
+        $outlet->load(['outletUser', 'manager']);
+        
+        // Get outlet users that are either:
+        // 1. Not assigned to any outlet
+        // 2. Currently assigned to this outlet
         $outletUsers = User::whereIs('outlet-user')
             ->select('id', 'name', 'email', 'role_id')
+            ->where(function($query) use ($outlet) {
+                $query->whereNotIn('role_id', function($subquery) {
+                        $subquery->select('outlet_user_role_id')
+                                ->from('outlets')
+                                ->whereNotNull('outlet_user_role_id');
+                    })
+                    ->orWhere('role_id', $outlet->outlet_user_role_id);
+            })
             ->orderBy('name')
             ->get();
+        
+        // Get all managers, including the one assigned to this outlet
         $managers = User::whereIs('manager')
             ->select('id', 'name', 'email', 'role_id')
             ->orderBy('name')
             ->get();
+            
+        $outletData = [
+            'id' => $outlet->id,
+            'name' => $outlet->name,
+            'address' => $outlet->address,
+            'city' => $outlet->city,
+            'state' => $outlet->state,
+            'postal_code' => $outlet->postal_code,
+            'phone_number' => $outlet->phone_number,
+            'operating_hours_info' => $outlet->operating_hours_info,
+            'outlet_user_role_id' => $outlet->outlet_user_role_id,
+            'manager_role_id' => $outlet->manager_role_id,
+            'is_active' => $outlet->is_active,
+        ];
+        
+        Log::info('Edit Outlet - Available Users:', [
+            'outlet' => $outletData,
+            'outlet_user_role_id' => $outlet->outlet_user_role_id,
+            'manager_role_id' => $outlet->manager_role_id,
+            'outletUsers_count' => $outletUsers->count(),
+            'managers_count' => $managers->count(),
+        ]);
+        
         return Inertia::render('Admin/Outlets/EditPage', [
-            'outlet' => [
-                'id' => $outlet->id,
-                'name' => $outlet->name,
-                'address' => $outlet->address,
-                'city' => $outlet->city,
-                'state' => $outlet->state,
-                'postal_code' => $outlet->postal_code,
-                'phone_number' => $outlet->phone_number,
-                'operating_hours_info' => $outlet->operating_hours_info,
-                'outlet_user_role_id' => $outlet->outlet_user_role_id,
-                'manager_role_id' => $outlet->manager_role_id,
-                'is_active' => $outlet->is_active,
-            ],
+            'outlet' => $outletData,
             'outletUsers' => $outletUsers,
             'managers' => $managers,
         ]);
@@ -239,11 +280,38 @@ class OutletController extends Controller
      * Get outlets that do not have an assigned Outlet User.
      * Used for the Create User form.
      */
-    public function availableOutlets()
+    public function availableOutlets(Request $request)
     {
-        $outlets = Outlet::whereNull('outlet_user_role_id')
-            ->orderBy('name')
-            ->get(['id', 'name']);
+        // If a manager_id is provided, we include outlets already assigned to this manager
+        $managerId = $request->input('manager_id');
+        
+        $query = Outlet::orderBy('name');
+        
+        if ($request->has('for_role') && $request->input('for_role') === 'manager') {
+            // For managers, we want outlets that are:
+            // 1. Not assigned to any manager (manager_role_id is null)
+            // 2. Already assigned to this manager (if editing)
+            if ($managerId) {
+                $query->where(function($q) use ($managerId) {
+                    $q->whereNull('manager_role_id')
+                      ->orWhere('manager_role_id', $managerId);
+                });
+            } else {
+                $query->whereNull('manager_role_id');
+            }
+        } else {
+            // For outlet users, we want outlets without an assigned user
+            $query->whereNull('outlet_user_role_id');
+            
+            // If editing an outlet user, include their current outlet
+            if ($request->has('current_outlet_id')) {
+                $currentOutletId = $request->input('current_outlet_id');
+                $query->orWhere('id', $currentOutletId);
+            }
+        }
+        
+        $outlets = $query->get(['id', 'name']);
+        
         return response()->json($outlets);
     }
 }

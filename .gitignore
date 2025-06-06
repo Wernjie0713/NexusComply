@@ -5,7 +5,7 @@ app_laravel/public/build/
 app_laravel/public/hot
 app_laravel/public/storage
 app_laravel/storage/*.key
-app_laravel/.env
+app_laravel/.env 
 app_laravel/.phpunit.result.cache
 app_laravel/Homestead.json
 app_laravel/Homestead.yaml

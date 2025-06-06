@@ -4,6 +4,8 @@ import OutletForm from './Partials/OutletForm';
 import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
 
 export default function EditPage({ outlet, outletUsers, managers }) {
+    console.log('Props received on EditPage:', { outlet, outletUsers, managers });
+    
     const { data, setData, put, processing, errors, reset } = useForm({
         id: outlet.id,
         name: outlet.name || '',
@@ -13,8 +15,8 @@ export default function EditPage({ outlet, outletUsers, managers }) {
         postal_code: outlet.postal_code || '',
         phone_number: outlet.phone_number || '',
         operating_hours_info: outlet.operating_hours_info || '',
-        outlet_user_id: outlet.outlet_user_id || '',
-        manager_id: outlet.manager_id || '',
+        outlet_user_role_id: outlet.outlet_user_role_id || '',
+        manager_role_id: outlet.manager_role_id || '',
         is_active: outlet.is_active,
     });
 

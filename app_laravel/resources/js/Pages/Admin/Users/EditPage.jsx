@@ -99,6 +99,9 @@ export default function EditPage({ user, availableOutlets, assignableRoles }) {
                                 onChange={(value) => setData('outlet_id', value)}
                                 placeholder="Select an outlet"
                                 className="mt-1"
+                                getOptionLabel={(option) => option.name}
+                                getOptionValue={(option) => option.id}
+                                getOptionDescription={() => ''}
                             />
                             <InputError message={errors.outlet_id} className="mt-2" />
                         </div>
