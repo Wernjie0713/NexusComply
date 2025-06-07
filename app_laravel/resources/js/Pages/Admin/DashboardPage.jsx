@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react'; 
 import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
 
 export default function DashboardPage() {
@@ -221,18 +221,26 @@ export default function DashboardPage() {
                             <div className="overflow-hidden bg-white px-6 py-6 shadow-sm sm:rounded-lg">
                                 <h2 className="mb-4 text-lg font-semibold text-gray-800">Quick Management Links</h2>
                                 <div className="flex flex-col space-y-3">
-                                    <AdminPrimaryButton className="justify-center">
-                                        Manage Users
-                                    </AdminPrimaryButton>
-                                    <AdminPrimaryButton className="justify-center">
-                                        Setup Compliance Frameworks
-                                    </AdminPrimaryButton>
-                                    <AdminPrimaryButton className="justify-center">
-                                        View System Settings
-                                    </AdminPrimaryButton>
-                                    <AdminPrimaryButton className="justify-center">
-                                        Build New Form
-                                    </AdminPrimaryButton>
+                                    <Link href={route('admin.users.index')}>
+                                        <AdminPrimaryButton className="w-full justify-center">
+                                            Manage Users
+                                        </AdminPrimaryButton>
+                                    </Link>
+                                    <Link href={route('admin.compliance-requirements.index')}>
+                                        <AdminPrimaryButton className="w-full justify-center">
+                                            Setup Compliance Frameworks
+                                        </AdminPrimaryButton>
+                                    </Link>
+                                    <Link href={route('settings.roles-permissions')}>
+                                        <AdminPrimaryButton className="w-full justify-center">
+                                            View System Settings
+                                        </AdminPrimaryButton>
+                                    </Link>
+                                    <Link href={route('admin.form-templates.create')}>
+                                        <AdminPrimaryButton className="w-full justify-center">
+                                            Build New Form
+                                        </AdminPrimaryButton>
+                                    </Link>
                                 </div>
                             </div>
 
