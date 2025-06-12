@@ -2,19 +2,8 @@ import React from 'react';
 import { Link } from '@inertiajs/react';
 import Pagination from '@/Components/Pagination';
 
-export default function AuditProgressSection({ audits: receivedAudits, onReviewForm }) {
+export default function AuditProgressSection({ audits: receivedAudits, onReviewForm, perPage, setPerPage, summaryData }) {
     const audits = receivedAudits || { data: [], links: [] };
-
-    // Calculate summary data
-    const summaryData = {
-        totalActive: audits.data.filter(a => a.status?.name === 'In Progress').length,
-        pendingReview: audits.data.filter(a => a.status?.name === 'Pending Review').length,
-        overdueTasks: audits.data.filter(a => {
-            const dueDate = new Date(a.end_time);
-            const today = new Date();
-            return dueDate < today && a.status?.name !== 'Completed';
-        }).length,
-    };
 
     // Function to get the correct status badge styling
     const getStatusBadgeClass = (status) => {
@@ -147,7 +136,23 @@ export default function AuditProgressSection({ audits: receivedAudits, onReviewF
             </div>
 
             {/* Pagination */}
-            <div className="mt-6">
+            <div className="mt-6 flex items-center justify-between">
+                <div className="flex items-center space-x-2 text-sm text-gray-700">
+                    <span>Show</span>
+                    <select
+                        value={perPage}
+                        onChange={(e) => {
+                            setPerPage(e.target.value);
+                        }}
+                        className="rounded-md border-gray-300 text-sm shadow-sm focus:border-green-500 focus:ring-green-500"
+                    >
+                        <option value="5">5</option>
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                    </select>
+                    <span>entries</span>
+                </div>
                 <Pagination links={audits.links} />
             </div>
         </div>
