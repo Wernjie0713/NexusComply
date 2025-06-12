@@ -15,9 +15,26 @@ class AuditController extends Controller
     public function index(Request $request)
     {
         $query = Audit::with(['user', 'outlet', 'status']);
+        $perPage = $request->input('perPage', 5); // Default to 5 if not provided
+
+        // Calculate summary data across all audits (using optimized database queries)
+        $summaryData = [
+            'totalActive' => Audit::whereHas('status', function ($q) {
+                $q->where('name', 'In Progress');
+            })->count(),
+            'pendingReview' => Audit::whereHas('status', function ($q) {
+                $q->where('name', 'Pending Review');
+            })->count(),
+            'overdueTasks' => Audit::where(function ($q) {
+                $q->where('end_time', '<', now());
+                $q->whereDoesntHave('status', function ($sq) {
+                    $sq->where('name', 'Completed');
+                });
+            })->count(),
+        ];
 
         // Apply date range filter
-        if ($request->has('dateFilter')) {
+        if ($request->has('dateFilter') && $request->dateFilter !== 'all') {
             $today = now();
             switch ($request->dateFilter) {
                 case 'last7':
@@ -41,14 +58,15 @@ class AuditController extends Controller
                 $q->where('name', $request->statusFilter);
             });
         }
-
+        
         $audits = $query->orderBy('start_time', 'desc')
-            ->paginate(10)
+            ->paginate($perPage)
             ->withQueryString();
 
         return Inertia::render('Admin/Audits/IndexPage', [
             'audits' => $audits,
-            'filters' => $request->only(['dateFilter', 'statusFilter'])
+            'filters' => $request->only(['dateFilter', 'statusFilter', 'perPage']),
+            'summaryData' => $summaryData,
         ]);
     }
 } 
