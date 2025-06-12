@@ -29,9 +29,9 @@ app_mobile/*.jks
 app_mobile/*.private
 
 # Project root
-node_modules/
-package-lock.json
-package.json
+/node_modules/
+/package-lock.json
+/package.json
 
 # General
 .DS_Store
