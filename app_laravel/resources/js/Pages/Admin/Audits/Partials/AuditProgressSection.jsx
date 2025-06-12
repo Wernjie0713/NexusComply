@@ -1,48 +1,20 @@
 import React from 'react';
+import { Link } from '@inertiajs/react';
+import Pagination from '@/Components/Pagination';
 
-export default function AuditProgressSection({ onReviewForm }) {
-    // Dummy data for the audit summary cards
+export default function AuditProgressSection({ audits: receivedAudits, onReviewForm }) {
+    const audits = receivedAudits || { data: [], links: [] };
+
+    // Calculate summary data
     const summaryData = {
-        totalActive: 25,
-        pendingReview: 10,
-        overdueTasks: 3,
+        totalActive: audits.data.filter(a => a.status?.name === 'In Progress').length,
+        pendingReview: audits.data.filter(a => a.status?.name === 'Pending Review').length,
+        overdueTasks: audits.data.filter(a => {
+            const dueDate = new Date(a.end_time);
+            const today = new Date();
+            return dueDate < today && a.status?.name !== 'Completed';
+        }).length,
     };
-
-    // Dummy data for the audit cycles table
-    const auditCycles = [
-        {
-            id: 1,
-            name: 'Monthly Outlet Safety Q2',
-            manager: 'John Smith',
-            progress: 75,
-            status: 'In Progress',
-            dueDate: '2023-06-30',
-        },
-        {
-            id: 2,
-            name: 'HALAL Certification Renewal',
-            manager: 'Sarah Johnson',
-            progress: 90,
-            status: 'Pending Review',
-            dueDate: '2023-07-15',
-        },
-        {
-            id: 3,
-            name: 'ISO 22000 Annual Compliance',
-            manager: 'Michael Wong',
-            progress: 45,
-            status: 'In Progress',
-            dueDate: '2023-08-22',
-        },
-        {
-            id: 4,
-            name: 'Food Safety Monthly Check',
-            manager: 'Emily Davis',
-            progress: 30,
-            status: 'Requires Attention',
-            dueDate: '2023-06-25',
-        },
-    ];
 
     // Function to get the correct status badge styling
     const getStatusBadgeClass = (status) => {
@@ -66,11 +38,12 @@ export default function AuditProgressSection({ onReviewForm }) {
             
             {/* Summary Cards */}
             <div className="mb-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {/* Active Audits Card */}
                 <div className="overflow-hidden rounded-lg bg-white px-4 py-5 shadow">
                     <div className="flex items-center">
                         <div className="mr-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                         </div>
                         <div>
@@ -80,6 +53,7 @@ export default function AuditProgressSection({ onReviewForm }) {
                     </div>
                 </div>
 
+                {/* Pending Review Card */}
                 <div className="overflow-hidden rounded-lg bg-white px-4 py-5 shadow">
                     <div className="flex items-center">
                         <div className="mr-4 flex h-12 w-12 items-center justify-center rounded-full bg-yellow-100">
@@ -94,6 +68,7 @@ export default function AuditProgressSection({ onReviewForm }) {
                     </div>
                 </div>
 
+                {/* Overdue Tasks Card */}
                 <div className="overflow-hidden rounded-lg bg-white px-4 py-5 shadow">
                     <div className="flex items-center">
                         <div className="mr-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
@@ -109,71 +84,56 @@ export default function AuditProgressSection({ onReviewForm }) {
                 </div>
             </div>
 
-            {/* Audit Cycles Table */}
+            {/* Current Audit Cycles Table */}
             <div className="mt-8">
-                <h4 className="mb-4 text-md font-medium text-gray-700">Current Audit Cycles</h4>
-                <div className="overflow-x-auto">
+                <h3 className="mb-4 text-lg font-semibold text-gray-800">Current Audit Cycles</h3>
+                <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow">
                     <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-green-50">
+                        <thead className="bg-gray-50">
                             <tr>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">
-                                    Audit Name/Type
-                                </th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">
-                                    Assigned Manager
-                                </th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">
-                                    Overall Progress
-                                </th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">
-                                    Status
-                                </th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">
-                                    Due Date
-                                </th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">
-                                    Actions
-                                </th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Outlet</th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Assigned To</th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Overall Progress</th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Start Date</th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Due Date</th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Status</th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200 bg-white">
-                            {auditCycles.map((audit) => (
-                                <tr key={audit.id}>
+                            {audits.data.map((audit) => (
+                                <tr key={audit.id} className="hover:bg-gray-50">
                                     <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
-                                        {audit.name}
+                                        {audit.outlet?.name || 'Unknown Outlet'}
                                     </td>
                                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                                        {audit.manager}
+                                        {audit.user?.name || 'Unassigned'}
                                     </td>
                                     <td className="px-6 py-4 text-sm text-gray-500">
                                         <div className="flex items-center">
                                             <div className="mr-4 h-2 w-full rounded-full bg-gray-200">
                                                 <div 
                                                     className="h-2 rounded-full bg-green-500" 
-                                                    style={{ width: `${audit.progress}%` }}
+                                                    style={{ width: `${audit.progress || 0}%` }}
                                                 ></div>
                                             </div>
-                                            <span className="text-xs font-medium">{audit.progress}%</span>
+                                            <span className="text-xs font-medium">{audit.progress || 0}%</span>
                                         </div>
                                     </td>
-                                    <td className="whitespace-nowrap px-6 py-4 text-sm">
-                                        <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${getStatusBadgeClass(audit.status)}`}>
-                                            {audit.status}
-                                        </span>
+                                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+                                        {new Date(audit.start_time).toLocaleDateString()}
                                     </td>
                                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                                        {audit.dueDate}
+                                        {audit.end_time ? new Date(audit.end_time).toLocaleDateString() : 'Not set'}
+                                    </td>
+                                    <td className="whitespace-nowrap px-6 py-4 text-sm">
+                                        <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${getStatusBadgeClass(audit.status?.name)}`}>
+                                            {audit.status?.name || 'Unknown'}
+                                        </span>
                                     </td>
                                     <td className="whitespace-nowrap px-6 py-4 text-sm font-medium">
                                         <button
-                                            onClick={() => onReviewForm({
-                                                id: audit.id,
-                                                name: audit.name,
-                                                type: 'audit',
-                                                outlet: 'Multiple Outlets',
-                                                submittedBy: audit.manager,
-                                                submissionDate: '2023-06-10',
-                                            })}
+                                            onClick={() => onReviewForm(audit)}
                                             className="rounded bg-green-50 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-100"
                                         >
                                             View Details
@@ -184,6 +144,11 @@ export default function AuditProgressSection({ onReviewForm }) {
                         </tbody>
                     </table>
                 </div>
+            </div>
+
+            {/* Pagination */}
+            <div className="mt-6">
+                <Pagination links={audits.links} />
             </div>
         </div>
     );
