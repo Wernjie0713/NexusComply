@@ -127,6 +127,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/manager/reports', function () {
         return Inertia::render('Manager/ReportsPage');
     })->name('manager.reports');
+
+    // Audit routes
+    Route::get('/admin/audits', [AuditController::class, 'index'])->name('admin.audits.index');
 });
 
 Route::middleware('auth')->group(function () {
