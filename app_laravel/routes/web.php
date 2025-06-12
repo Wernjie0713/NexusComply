@@ -5,6 +5,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\FormTemplateController;
 use App\Http\Controllers\Admin\ComplianceRequirementController;
+use App\Http\Controllers\Admin\AuditController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -34,9 +35,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('users.activity-log');
     
     // Audit management pages
-    Route::get('/audits', function () {
-        return Inertia::render('Admin/Audits/IndexPage');
-    })->name('audits.index');
+    Route::get('/admin/audits', [AuditController::class, 'index'])
+        ->name('admin.audits.index');
     
     // Share form access page
     Route::get('/audits/share-form/{formId}', function ($formId) {
