@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Head, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
@@ -8,27 +8,39 @@ import SubmittedFormsSection from './Partials/SubmittedFormsSection';
 import AuditReportingSection from './Partials/AuditReportingSection';
 import FormReviewModal from './Partials/FormReviewModal';
 
-export default function IndexPage({ audits, filters }) {
+export default function IndexPage({ audits, filters, summaryData }) {
     const [activeTab, setActiveTab] = useState('progress');
-    const [dateFilter, setDateFilter] = useState(filters.dateFilter || 'last30');
+    const [dateFilter, setDateFilter] = useState(filters.dateFilter || 'all');
     const [statusFilter, setStatusFilter] = useState(filters.statusFilter || 'all');
     const [showReviewModal, setShowReviewModal] = useState(false);
     const [selectedForm, setSelectedForm] = useState(null);
+    const [perPage, setPerPage] = useState(filters.perPage || 5);
+
+    // Ref to track if it's the initial render
+    const initialRender = useRef(true);
 
     const handleFormReview = (form) => {
         setSelectedForm(form);
         setShowReviewModal(true);
     };
 
-    const handleFilter = () => {
+    // Use useEffect to trigger filtering whenever filters or perPage change
+    useEffect(() => {
+        // Skip the initial render to prevent immediate reload on page entry
+        if (initialRender.current) {
+            initialRender.current = false;
+            return;
+        }
+
         router.get(route('admin.audits.index'), {
             dateFilter,
-            statusFilter
+            statusFilter,
+            perPage
         }, {
             preserveState: true,
             preserveScroll: true,
         });
-    };
+    }, [dateFilter, statusFilter, perPage]);
 
     return (
         <AuthenticatedLayout
@@ -54,6 +66,7 @@ export default function IndexPage({ audits, filters }) {
                                         onChange={(e) => setDateFilter(e.target.value)}
                                         className="rounded-md border-gray-300 text-sm shadow-sm focus:border-green-500 focus:ring-green-500"
                                     >
+                                        <option value="all">All Dates</option>
                                         <option value="last7">Last 7 Days</option>
                                         <option value="last30">Last 30 Days</option>
                                         <option value="last90">Last 90 Days</option>
@@ -76,7 +89,9 @@ export default function IndexPage({ audits, filters }) {
                                     </select>
                                 </div>
                             </div>
-                            <AdminPrimaryButton onClick={handleFilter}>
+                            <AdminPrimaryButton onClick={() => {
+                                // The useEffect will handle the filter, no need to call handleFilter explicitly here
+                            }}>
                                 Apply Filters
                             </AdminPrimaryButton>
                         </div>
@@ -122,7 +137,7 @@ export default function IndexPage({ audits, filters }) {
 
                     {/* Tab Content */}
                     <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
-                        {activeTab === 'progress' && <AuditProgressSection audits={audits} onReviewForm={handleFormReview} />}
+                        {activeTab === 'progress' && <AuditProgressSection audits={audits} onReviewForm={handleFormReview} perPage={perPage} setPerPage={setPerPage} summaryData={summaryData} />}
                         {activeTab === 'forms' && <SubmittedFormsSection onReviewForm={handleFormReview} />}
                         {activeTab === 'reports' && <AuditReportingSection />}
                     </div>
