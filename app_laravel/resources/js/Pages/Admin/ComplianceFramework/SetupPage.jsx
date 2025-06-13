@@ -6,7 +6,7 @@ import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
 import TextInput from '@/Components/TextInput';
 import Modal from '@/Components/Modal';
 
-export default function SetupPage({ complianceRequirements = [], formTemplates = [] }) {
+export default function SetupPage({ complianceRequirements = [], formTemplates = [], categories = [] }) {
     const { flash } = usePage().props;
     const [showFlash, setShowFlash] = useState(false);
     const [flashType, setFlashType] = useState('');
@@ -49,8 +49,9 @@ export default function SetupPage({ complianceRequirements = [], formTemplates =
     const { data, setData, post, put, processing, errors, reset } = useForm({
         title: '',
         description: '',
+        category_id: '',
         submission_type: 'document_upload_only',
-        form_template_id: '',
+        form_template_ids: [],
         document_upload_instructions: '',
         frequency: '',
         is_active: true
@@ -76,8 +77,9 @@ export default function SetupPage({ complianceRequirements = [], formTemplates =
         setData({
             title: '',
             description: '',
+            category_id: '',
             submission_type: 'document_upload_only',
-            form_template_id: '',
+            form_template_ids: [],
             document_upload_instructions: '',
             frequency: '',
             is_active: true
@@ -98,8 +100,9 @@ export default function SetupPage({ complianceRequirements = [], formTemplates =
         setData({
             title: requirement.title || '',
             description: requirement.description || '',
+            category_id: requirement.category_id || '',
             submission_type: requirement.submission_type,
-            form_template_id: requirement.form_template_id || '',
+            form_template_ids: requirement.form_templates?.map(template => template.id) || [],
             document_upload_instructions: requirement.document_upload_instructions || '',
             frequency: requirement.frequency || '',
             is_active: requirement.is_active
@@ -119,7 +122,7 @@ export default function SetupPage({ complianceRequirements = [], formTemplates =
         if (type === 'form') {
             setData('document_upload_instructions', '');
         } else {
-            setData('form_template_id', '');
+            setData('form_template_ids', []);
         }
     };
 
@@ -144,7 +147,7 @@ export default function SetupPage({ complianceRequirements = [], formTemplates =
     const handleDelete = (requirementId) => {
         if (confirm('Are you sure you want to delete this compliance requirement?')) {
             // Delete the compliance requirement
-            Inertia.delete(route('admin.compliance-requirements.destroy', requirementId));
+            router.delete(route('admin.compliance-requirements.destroy', requirementId));
         }
     };
 
@@ -160,6 +163,15 @@ export default function SetupPage({ complianceRequirements = [], formTemplates =
         if (confirm('Are you sure you want to delete this form template?')) {
             router.delete(route('admin.form-templates.destroy', templateId));
         }
+    };
+
+    const handleFormTemplateToggle = (templateId) => {
+        const currentIds = data.form_template_ids || [];
+        const newIds = currentIds.includes(templateId)
+            ? currentIds.filter(id => id !== templateId)
+            : [...currentIds, templateId];
+        
+        setData('form_template_ids', newIds);
     };
 
     return (
@@ -239,10 +251,13 @@ export default function SetupPage({ complianceRequirements = [], formTemplates =
                                                 Description
                                             </th>
                                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                                Category
+                                            </th>
+                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                                                 Submission Type
                                             </th>
                                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                                                Associated Form
+                                                Associated Forms
                                             </th>
                                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                                                 Actions
@@ -259,6 +274,11 @@ export default function SetupPage({ complianceRequirements = [], formTemplates =
                                                     <div className="text-sm text-gray-500">{requirement.description}</div>
                                                 </td>
                                                 <td className="whitespace-nowrap px-6 py-4">
+                                                    <div className="text-sm text-gray-500">
+                                                        {requirement.category?.name || <span className="text-gray-400">N/A</span>}
+                                                    </div>
+                                                </td>
+                                                <td className="whitespace-nowrap px-6 py-4">
                                                     <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
                                                         requirement.submission_type === 'document_upload_only' 
                                                             ? 'bg-blue-100 text-blue-800' 
@@ -271,11 +291,9 @@ export default function SetupPage({ complianceRequirements = [], formTemplates =
                                                 </td>
                                                 <td className="whitespace-nowrap px-6 py-4">
                                                     <div className="text-sm text-gray-500">
-                                                        {requirement.form_template 
-                                                            ? requirement.form_template.name 
-                                                            : requirement.form_template_id 
-                                                                ? getFormTemplateName(requirement.form_template_id)
-                                                                : <span className="text-gray-400">N/A</span>}
+                                                        {requirement.form_templates?.map(template => (
+                                                            <span key={template.id} className="mr-2">{template.name}</span>
+                                                        )) || <span className="text-gray-400">N/A</span>}
                                                     </div>
                                                 </td>
                                                 <td className="whitespace-nowrap px-6 py-4 text-sm font-medium">
@@ -383,6 +401,27 @@ export default function SetupPage({ complianceRequirements = [], formTemplates =
                                 onChange={(e) => setData('title', e.target.value)}
                             />
                             {errors.title && <p className="mt-1 text-sm text-red-600">{errors.title}</p>}
+                        </div>
+                        
+                        {/* Compliance Category */}
+                        <div>
+                            <label htmlFor="complianceCategory" className="block text-sm font-medium text-gray-700">
+                                Compliance Category <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                                id="complianceCategory"
+                                className="mt-1 block w-full rounded-md border border-gray-300 bg-white py-2 px-3 shadow-sm focus:border-green-500 focus:outline-none focus:ring-green-500 sm:text-sm"
+                                value={data.category_id}
+                                onChange={(e) => setData('category_id', e.target.value)}
+                            >
+                                <option value="">-- Select Category --</option>
+                                {categories.map(category => (
+                                    <option key={category.id} value={category.id}>
+                                        {category.name}
+                                    </option>
+                                ))}
+                            </select>
+                            {errors.category_id && <p className="mt-1 text-sm text-red-600">{errors.category_id}</p>}
                         </div>
                         
                         {/* Category Description */}
@@ -498,23 +537,31 @@ export default function SetupPage({ complianceRequirements = [], formTemplates =
                         {/* Form Selection (only shown if "Requires Custom Form" is selected) */}
                         {submissionType === 'form' && (
                             <div>
-                                <label htmlFor="formSelect" className="block text-sm font-medium text-gray-700">
-                                    Assign Existing Form
+                                <label className="block text-sm font-medium text-gray-700">
+                                    Assign Forms
                                 </label>
-                                <select
-                                    id="formSelect"
-                                    className="mt-1 block w-full rounded-md border border-gray-300 bg-white py-2 px-3 shadow-sm focus:border-green-500 focus:outline-none focus:ring-green-500 sm:text-sm"
-                                    value={data.form_template_id}
-                                    onChange={(e) => setData('form_template_id', e.target.value)}
-                                >
-                                    <option value="">-- Select a Form --</option>
+                                <div className="mt-2 max-h-48 overflow-y-auto rounded-md border border-gray-300 bg-white p-2">
                                     {formTemplates.map(template => (
-                                        <option key={template.id} value={template.id}>
-                                            {template.name}
-                                        </option>
+                                        <div key={template.id} className="flex items-center py-1">
+                                            <input
+                                                type="checkbox"
+                                                id={`template-${template.id}`}
+                                                checked={data.form_template_ids?.includes(template.id)}
+                                                onChange={() => handleFormTemplateToggle(template.id)}
+                                                className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                                            />
+                                            <label
+                                                htmlFor={`template-${template.id}`}
+                                                className="ml-2 block text-sm text-gray-700"
+                                            >
+                                                {template.name}
+                                            </label>
+                                        </div>
                                     ))}
-                                </select>
-                                {errors.form_template_id && <p className="mt-1 text-sm text-red-600">{errors.form_template_id}</p>}
+                                </div>
+                                {errors.form_template_ids && (
+                                    <p className="mt-1 text-sm text-red-600">{errors.form_template_ids}</p>
+                                )}
                                 
                                 <div className="mt-4">
                                     <p className="text-sm text-gray-500">Or create a new form:</p>

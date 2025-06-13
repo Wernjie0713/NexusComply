@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\FormTemplate;
 use App\Models\ComplianceRequirement;
+use App\Models\Status;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -17,7 +18,7 @@ class FormTemplateController extends Controller
      */
     public function index()
     {
-        $formTemplates = FormTemplate::with('creator')
+        $formTemplates = FormTemplate::with(['creator', 'status'])
             ->orderBy('updated_at', 'desc')
             ->get();
 
@@ -37,10 +38,13 @@ class FormTemplateController extends Controller
      */
     public function create()
     {
+        $statuses = Status::all();
+
         return Inertia::render('Admin/Forms/BuilderPage', [
             'mode' => 'create',
             'formTemplate' => null,
             'fromCompliance' => request()->has('from_compliance'),
+            'statuses' => $statuses,
         ]);
     }
 
@@ -55,21 +59,21 @@ class FormTemplateController extends Controller
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'structure' => 'required|array',
-            'status' => 'required|string|in:draft,published,archived',
+            'status_id' => 'required|exists:status,id',
         ]);
 
         $formTemplate = FormTemplate::create([
             'name' => $validated['name'],
             'description' => $validated['description'],
             'structure' => $validated['structure'],
-            'status' => $validated['status'],
+            'status_id' => $validated['status_id'],
             'created_by_user_id' => Auth::id(),
         ]);
 
-        Log::info('Form Template Saved with Status:', ['id' => $formTemplate->id, 'status' => $formTemplate->status]);
+        Log::info('Form Template Saved with Status:', ['id' => $formTemplate->id, 'status_id' => $formTemplate->status_id]);
 
         // If the form is being published, redirect to compliance requirements page
-        if ($validated['status'] === 'published') {
+        if ($formTemplate->status->name === 'published') {
             return redirect()->route('admin.compliance-requirements.index')
                 ->with('success', 'Form template published successfully.');
         }
@@ -84,10 +88,13 @@ class FormTemplateController extends Controller
      */
     public function edit(FormTemplate $formTemplate)
     {
+        $statuses = Status::all();
+
         return Inertia::render('Admin/Forms/BuilderPage', [
             'mode' => 'edit',
-            'formTemplate' => $formTemplate,
+            'formTemplate' => $formTemplate->load('status'),
             'fromCompliance' => request()->has('from_compliance'),
+            'statuses' => $statuses,
         ]);
     }
 
@@ -102,20 +109,20 @@ class FormTemplateController extends Controller
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'structure' => 'required|array',
-            'status' => 'required|string|in:draft,published,archived',
+            'status_id' => 'required|exists:status,id',
         ]);
 
         $formTemplate->update([
             'name' => $validated['name'],
             'description' => $validated['description'],
             'structure' => $validated['structure'],
-            'status' => $validated['status'],
+            'status_id' => $validated['status_id'],
         ]);
 
-        Log::info('Form Template Updated with Status:', ['id' => $formTemplate->id, 'status' => $formTemplate->status]);
+        Log::info('Form Template Updated with Status:', ['id' => $formTemplate->id, 'status_id' => $formTemplate->status_id]);
 
         // If the form is being published, redirect to compliance requirements page
-        if ($validated['status'] === 'published') {
+        if ($formTemplate->status->name === 'published') {
             return redirect()->route('admin.compliance-requirements.index')
                 ->with('success', 'Form template published successfully.');
         }

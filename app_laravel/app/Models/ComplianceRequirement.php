@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class ComplianceRequirement extends Model
 {
@@ -18,8 +19,8 @@ class ComplianceRequirement extends Model
     protected $fillable = [
         'title',
         'description',
+        'category_id',
         'submission_type',
-        'form_template_id',
         'document_upload_instructions',
         'frequency',
         'is_active',
@@ -36,11 +37,11 @@ class ComplianceRequirement extends Model
     ];
 
     /**
-     * Get the form template associated with the compliance requirement.
+     * Get the form templates associated with the compliance requirement.
      */
-    public function formTemplate(): BelongsTo
+    public function formTemplates(): BelongsToMany
     {
-        return $this->belongsTo(FormTemplate::class);
+        return $this->belongsToMany(FormTemplate::class, 'compliance_requirement_form_template');
     }
 
     /**
@@ -49,5 +50,13 @@ class ComplianceRequirement extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');
+    }
+
+    /**
+     * Get the category of the compliance requirement.
+     */
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(ComplianceCategory::class);
     }
 }

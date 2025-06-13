@@ -7,13 +7,13 @@ import FormPreviewModal from '@/Components/FormPreviewModal';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { v4 as uuidv4 } from 'uuid';
 
-export default function BuilderPage({ mode = 'create', formTemplate = null, fromCompliance = false }) {
+export default function BuilderPage({ mode = 'create', formTemplate = null, fromCompliance = false, statuses = [] }) {
     // Form data using Inertia's useForm hook
     const { data, setData, post, put, processing, errors } = useForm({
         name: formTemplate?.name || '',
         description: formTemplate?.description || '',
         structure: formTemplate?.structure || [],
-        status: formTemplate?.status || 'draft',
+        status_id: formTemplate?.status?.id || statuses.find(s => s.name === 'draft')?.id || '',
     });
     
     // State for preview modal
@@ -165,32 +165,16 @@ export default function BuilderPage({ mode = 'create', formTemplate = null, from
     };
 
     // Handle form submission
-    const handleSubmit = (publishStatus = null) => {
-        // If publishStatus is provided, update the status
-        if (publishStatus) {
-            setData('status', publishStatus);
-            
-            // Create a copy of the form data with the updated status
-            const submissionData = {
-                ...data,
-                status: publishStatus
-            };
-            
-            console.log('Submitting form with status:', publishStatus, submissionData);
-            
-            // Use the updated data directly for immediate submission
-            if (mode === 'create') {
-                post(route('admin.form-templates.store'), submissionData);
-            } else {
-                put(route('admin.form-templates.update', formTemplate.id), submissionData);
+    const handleSubmit = (statusName = null) => {
+        // If statusName is provided, find the corresponding status_id
+        if (statusName) {
+            const status = statuses.find(s => s.name === statusName);
+            if (status) {
+                setData('status_id', status.id);
             }
-            
-            return; // Exit early after submission
         }
         
-        // Regular submission (no status override)
-        console.log('Submitting form with current status:', data.status, data);
-        
+        // Regular submission
         if (mode === 'create') {
             post(route('admin.form-templates.store'));
         } else {
@@ -256,7 +240,7 @@ export default function BuilderPage({ mode = 'create', formTemplate = null, from
                 </div>
             }
         >
-            <Head title={mode === 'edit' ? `Edit Form: ${data.name}` : 'Create New Form'} />
+            <Head title={mode === 'edit' ? `Editing: ${data.name}` : 'Create New Form'} />
             
             {/* Form Preview Modal */}
             <FormPreviewModal
@@ -317,7 +301,7 @@ export default function BuilderPage({ mode = 'create', formTemplate = null, from
                                             Status
                                         </label>
                                         <div className="mt-1 rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-900">
-                                            {data.status.charAt(0).toUpperCase() + data.status.slice(1)}
+                                            {data.status_id ? statuses.find(s => s.id === data.status_id)?.name : 'Draft'}
                                         </div>
                                     </div>
                                     

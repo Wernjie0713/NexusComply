@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             ManagerSeeder::class,
             OutletUserSeeder::class,
             DemoDataSeeder::class,
+            ComplianceStaticDataSeeder::class,
         ]);
     }
 }

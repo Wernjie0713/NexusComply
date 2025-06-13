@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class FormTemplate extends Model
 {
@@ -19,7 +20,7 @@ class FormTemplate extends Model
         'name',
         'description',
         'structure',
-        'status',
+        'status_id',
         'created_by_user_id',
     ];
 
@@ -38,5 +39,21 @@ class FormTemplate extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');
+    }
+
+    /**
+     * Get the status of the form template.
+     */
+    public function status(): BelongsTo
+    {
+        return $this->belongsTo(Status::class);
+    }
+
+    /**
+     * Get the compliance requirements associated with this form template.
+     */
+    public function complianceRequirements(): BelongsToMany
+    {
+        return $this->belongsToMany(ComplianceRequirement::class, 'compliance_requirement_form_template');
     }
 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ComplianceRequirement;
 use App\Models\FormTemplate;
+use App\Models\ComplianceCategory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -17,18 +18,25 @@ class ComplianceRequirementController extends Controller
     public function index()
     {
         // Get all compliance requirements with related form templates
-        $complianceRequirements = ComplianceRequirement::with(['formTemplate:id,name', 'creator:id,name'])
+        $complianceRequirements = ComplianceRequirement::with(['formTemplates:id,name', 'creator:id,name', 'category:id,name'])
             ->orderBy('created_at', 'desc')
             ->get();
             
         // Get all published form templates for the selection UI
-        $formTemplates = FormTemplate::where('status', 'published')
-            ->orderBy('name')
-            ->get(['id', 'name', 'description']);
+        // $formTemplates = FormTemplate::whereHas('status', function($query) {
+        //     $query->where('name', 'published');
+        // })
+        //     ->orderBy('name')
+        //     ->get(['id', 'name', 'description']);
+        $formTemplates = FormTemplate::orderBy('name')->get(['id', 'name', 'description']);
+
+        // Get all compliance categories
+        $categories = ComplianceCategory::orderBy('name')->get();
             
         return Inertia::render('Admin/ComplianceFramework/SetupPage', [
             'complianceRequirements' => $complianceRequirements,
             'formTemplates' => $formTemplates,
+            'categories' => $categories,
         ]);
     }
 
@@ -37,7 +45,18 @@ class ComplianceRequirementController extends Controller
      */
     public function create()
     {
-        //
+        $formTemplates = FormTemplate::whereHas('status', function($query) {
+            $query->where('name', 'published');
+        })
+            ->orderBy('name')
+            ->get(['id', 'name', 'description']);
+
+        $categories = ComplianceCategory::orderBy('name')->get();
+
+        return Inertia::render('Admin/ComplianceFramework/SetupPage', [
+            'formTemplates' => $formTemplates,
+            'categories' => $categories,
+        ]);
     }
 
     /**
@@ -48,8 +67,10 @@ class ComplianceRequirementController extends Controller
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
+            'category_id' => 'required|exists:compliance_category,id',
             'submission_type' => 'required|string|in:form_template,document_upload_only',
-            'form_template_id' => 'nullable|required_if:submission_type,form_template|exists:form_templates,id',
+            'form_template_ids' => 'nullable|array|required_if:submission_type,form_template',
+            'form_template_ids.*' => 'exists:form_templates,id',
             'document_upload_instructions' => 'nullable|required_if:submission_type,document_upload_only|string',
             'frequency' => 'nullable|string|max:50',
             'is_active' => 'boolean',
@@ -58,8 +79,17 @@ class ComplianceRequirementController extends Controller
         // Add the authenticated user's ID to the data
         $validated['created_by_user_id'] = Auth::id();
         
+        // Remove form_template_ids from validated data as it's not a direct column
+        $formTemplateIds = $validated['form_template_ids'] ?? [];
+        unset($validated['form_template_ids']);
+        
         // Create the compliance requirement
         $complianceRequirement = ComplianceRequirement::create($validated);
+        
+        // Attach form templates if any
+        if (!empty($formTemplateIds)) {
+            $complianceRequirement->formTemplates()->attach($formTemplateIds);
+        }
         
         return redirect()->route('admin.compliance-requirements.index')
             ->with('success', 'Compliance requirement created successfully.');
@@ -78,7 +108,21 @@ class ComplianceRequirementController extends Controller
      */
     public function edit(string $id)
     {
-        //
+        $complianceRequirement = ComplianceRequirement::with(['category', 'formTemplates'])->findOrFail($id);
+        
+        $formTemplates = FormTemplate::whereHas('status', function($query) {
+            $query->where('name', 'published');
+        })
+            ->orderBy('name')
+            ->get(['id', 'name', 'description']);
+
+        $categories = ComplianceCategory::orderBy('name')->get();
+
+        return Inertia::render('Admin/ComplianceFramework/SetupPage', [
+            'complianceRequirement' => $complianceRequirement,
+            'formTemplates' => $formTemplates,
+            'categories' => $categories,
+        ]);
     }
 
     /**
@@ -89,15 +133,24 @@ class ComplianceRequirementController extends Controller
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
+            'category_id' => 'required|exists:compliance_category,id',
             'submission_type' => 'required|string|in:form_template,document_upload_only',
-            'form_template_id' => 'nullable|required_if:submission_type,form_template|exists:form_templates,id',
+            'form_template_ids' => 'nullable|array|required_if:submission_type,form_template',
+            'form_template_ids.*' => 'exists:form_templates,id',
             'document_upload_instructions' => 'nullable|required_if:submission_type,document_upload_only|string',
             'frequency' => 'nullable|string|max:50',
             'is_active' => 'boolean',
         ]);
         
+        // Remove form_template_ids from validated data as it's not a direct column
+        $formTemplateIds = $validated['form_template_ids'] ?? [];
+        unset($validated['form_template_ids']);
+        
         // Update the compliance requirement
         $complianceRequirement->update($validated);
+        
+        // Sync form templates
+        $complianceRequirement->formTemplates()->sync($formTemplateIds);
         
         return redirect()->route('admin.compliance-requirements.index')
             ->with('success', 'Compliance requirement updated successfully.');
