@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\FormTemplateController;
 use App\Http\Controllers\Admin\ComplianceRequirementController;
 use App\Http\Controllers\Admin\AuditController;
+use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -26,6 +27,10 @@ Route::get('/dashboard', [DashboardController::class, 'show'])
 
 // User management routes - controller handles role-based access
 Route::middleware(['auth', 'verified'])->group(function () {
+    // Admin Dashboard
+    Route::get('/admin/dashboard', [AdminDashboardController::class, 'index'])
+        ->name('admin.dashboard');
+    
     // User listing page
     Route::get('/users', [UserController::class, 'index'])
         ->name('users.index');
