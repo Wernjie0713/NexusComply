@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -20,7 +21,7 @@ class DashboardController extends Controller
         
         // Check if user has admin role using Bouncer
         if (Bouncer::is($user)->an('admin')) {
-            return Inertia::render('Admin/DashboardPage');
+            return app(AdminDashboardController::class)->index();
         }
         
         // Check if user has manager role

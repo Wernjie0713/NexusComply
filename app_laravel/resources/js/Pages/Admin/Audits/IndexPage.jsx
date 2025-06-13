@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Head, Link } from '@inertiajs/react';
+import { useState, useEffect, useRef } from 'react';
+import { Head, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
 import Modal from '@/Components/Modal';
@@ -8,17 +8,39 @@ import SubmittedFormsSection from './Partials/SubmittedFormsSection';
 import AuditReportingSection from './Partials/AuditReportingSection';
 import FormReviewModal from './Partials/FormReviewModal';
 
-export default function IndexPage() {
+export default function IndexPage({ audits, filters, summaryData }) {
     const [activeTab, setActiveTab] = useState('progress');
-    const [dateFilter, setDateFilter] = useState('last30');
-    const [statusFilter, setStatusFilter] = useState('all');
+    const [dateFilter, setDateFilter] = useState(filters.dateFilter || 'all');
+    const [statusFilter, setStatusFilter] = useState(filters.statusFilter || 'all');
     const [showReviewModal, setShowReviewModal] = useState(false);
     const [selectedForm, setSelectedForm] = useState(null);
+    const [perPage, setPerPage] = useState(filters.perPage || 5);
+
+    // Ref to track if it's the initial render
+    const initialRender = useRef(true);
 
     const handleFormReview = (form) => {
         setSelectedForm(form);
         setShowReviewModal(true);
     };
+
+    // Use useEffect to trigger filtering whenever filters or perPage change
+    useEffect(() => {
+        // Skip the initial render to prevent immediate reload on page entry
+        if (initialRender.current) {
+            initialRender.current = false;
+            return;
+        }
+
+        router.get(route('admin.audits.index'), {
+            dateFilter,
+            statusFilter,
+            perPage
+        }, {
+            preserveState: true,
+            preserveScroll: true,
+        });
+    }, [dateFilter, statusFilter, perPage]);
 
     return (
         <AuthenticatedLayout
@@ -44,6 +66,7 @@ export default function IndexPage() {
                                         onChange={(e) => setDateFilter(e.target.value)}
                                         className="rounded-md border-gray-300 text-sm shadow-sm focus:border-green-500 focus:ring-green-500"
                                     >
+                                        <option value="all">All Dates</option>
                                         <option value="last7">Last 7 Days</option>
                                         <option value="last30">Last 30 Days</option>
                                         <option value="last90">Last 90 Days</option>
@@ -59,20 +82,22 @@ export default function IndexPage() {
                                         className="rounded-md border-gray-300 text-sm shadow-sm focus:border-green-500 focus:ring-green-500"
                                     >
                                         <option value="all">All Status</option>
-                                        <option value="inProgress">In Progress</option>
-                                        <option value="pending">Pending Review</option>
-                                        <option value="approved">Approved</option>
-                                        <option value="attention">Requires Attention</option>
+                                        <option value="In Progress">In Progress</option>
+                                        <option value="Pending Review">Pending Review</option>
+                                        <option value="Completed">Completed</option>
+                                        <option value="Requires Attention">Requires Attention</option>
                                     </select>
                                 </div>
                             </div>
-                            <AdminPrimaryButton onClick={() => {}}>
+                            <AdminPrimaryButton onClick={() => {
+                                // The useEffect will handle the filter, no need to call handleFilter explicitly here
+                            }}>
                                 Apply Filters
                             </AdminPrimaryButton>
                         </div>
                     </div>
 
-                    {/* Tabs Navigation */}
+                    {/* Tab Navigation */}
                     <div className="mb-6">
                         <div className="border-b border-gray-200">
                             <nav className="-mb-px flex space-x-8">
@@ -112,7 +137,7 @@ export default function IndexPage() {
 
                     {/* Tab Content */}
                     <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
-                        {activeTab === 'progress' && <AuditProgressSection onReviewForm={handleFormReview} />}
+                        {activeTab === 'progress' && <AuditProgressSection audits={audits} onReviewForm={handleFormReview} perPage={perPage} setPerPage={setPerPage} summaryData={summaryData} />}
                         {activeTab === 'forms' && <SubmittedFormsSection onReviewForm={handleFormReview} />}
                         {activeTab === 'reports' && <AuditReportingSection />}
                     </div>

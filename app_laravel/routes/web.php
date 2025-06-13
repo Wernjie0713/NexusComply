@@ -5,6 +5,8 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\FormTemplateController;
 use App\Http\Controllers\Admin\ComplianceRequirementController;
+use App\Http\Controllers\Admin\AuditController;
+use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -25,6 +27,10 @@ Route::get('/dashboard', [DashboardController::class, 'show'])
 
 // User management routes - controller handles role-based access
 Route::middleware(['auth', 'verified'])->group(function () {
+    // Admin Dashboard
+    Route::get('/admin/dashboard', [AdminDashboardController::class, 'index'])
+        ->name('admin.dashboard');
+    
     // User listing page
     Route::get('/users', [UserController::class, 'index'])
         ->name('users.index');
@@ -34,9 +40,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('users.activity-log');
     
     // Audit management pages
-    Route::get('/audits', function () {
-        return Inertia::render('Admin/Audits/IndexPage');
-    })->name('audits.index');
+    Route::get('/admin/audits', [AuditController::class, 'index'])
+        ->name('admin.audits.index');
     
     // Share form access page
     Route::get('/audits/share-form/{formId}', function ($formId) {
@@ -127,6 +132,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/manager/reports', function () {
         return Inertia::render('Manager/ReportsPage');
     })->name('manager.reports');
+
+    // Audit routes
+    Route::get('/admin/audits', [AuditController::class, 'index'])->name('admin.audits.index');
 });
 
 Route::middleware('auth')->group(function () {
