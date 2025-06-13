@@ -3,14 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link } from '@inertiajs/react'; 
 import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
 
-export default function DashboardPage() {
-    // Placeholder data for charts and statistics
-    const complianceData = {
-        fullyCompliant: 85,
-        partiallyCompliant: 10,
-        nonCompliant: 5
-    };
-
+export default function DashboardPage({ statistics = {}, complianceData = {} }) {
     const recentActivities = [
         { id: 1, description: "New User 'Outlet Staff X' created.", time: "2 hours ago" },
         { id: 2, description: "Compliance Framework 'HALAL Q3 Update' published.", time: "1 day ago" },
@@ -18,9 +11,23 @@ export default function DashboardPage() {
         { id: 4, description: "User 'Manager Y' updated outlet profile.", time: "3 days ago" }
     ];
 
+    // Default values for statistics
+    const {
+        totalOutlets = 0,
+        activeUsers = 0,
+        currentMonthChecks = 0,
+        pendingReviews = 0
+    } = statistics;
+
+    // Default values for compliance data
+    const {
+        fullyCompliant = { count: 0, percentage: 0 },
+        partiallyCompliant = { count: 0, percentage: 0 },
+        nonCompliant = { count: 0, percentage: 0 }
+    } = complianceData;
+
     return (
-        <AuthenticatedLayout
-        >
+        <AuthenticatedLayout>
             <Head title="Admin Dashboard" />
 
             <div className="py-0">
@@ -43,7 +50,7 @@ export default function DashboardPage() {
                                 </div>
                                 <div>
                                     <p className="text-sm font-medium text-gray-600">Total Outlets</p>
-                                    <p className="text-2xl font-bold text-green-600">150</p>
+                                    <p className="text-2xl font-bold text-green-600">{totalOutlets}</p>
                                 </div>
                             </div>
                         </div>
@@ -58,7 +65,7 @@ export default function DashboardPage() {
                                 </div>
                                 <div>
                                     <p className="text-sm font-medium text-gray-600">Active Users</p>
-                                    <p className="text-2xl font-bold text-green-600">475</p>
+                                    <p className="text-2xl font-bold text-green-600">{activeUsers}</p>
                                 </div>
                             </div>
                         </div>
@@ -73,7 +80,7 @@ export default function DashboardPage() {
                                 </div>
                                 <div>
                                     <p className="text-sm font-medium text-gray-600">Compliance Checks This Month</p>
-                                    <p className="text-2xl font-bold text-green-600">1,230</p>
+                                    <p className="text-2xl font-bold text-green-600">{currentMonthChecks}</p>
                                 </div>
                             </div>
                         </div>
@@ -88,7 +95,7 @@ export default function DashboardPage() {
                                 </div>
                                 <div>
                                     <p className="text-sm font-medium text-gray-600">Pending Reviews</p>
-                                    <p className="text-2xl font-bold text-green-600">45</p>
+                                    <p className="text-2xl font-bold text-green-600">{pendingReviews}</p>
                                 </div>
                             </div>
                         </div>
@@ -101,16 +108,16 @@ export default function DashboardPage() {
                             <div className="overflow-hidden bg-white px-6 py-6 shadow-sm sm:rounded-lg">
                                 <h2 className="mb-4 text-lg font-semibold text-gray-800">Overall Compliance Status</h2>
                                 
-                                {/* Compliance Bar Chart (Simplified visual representation) */}
+                                {/* Compliance Bar Chart */}
                                 <div className="mb-6">
                                     <div className="mb-2 flex items-center justify-between">
                                         <span className="text-sm font-medium text-gray-600">Fully Compliant</span>
-                                        <span className="text-sm font-medium text-gray-900">{complianceData.fullyCompliant}%</span>
+                                        <span className="text-sm font-medium text-gray-900">{fullyCompliant.percentage}%</span>
                                     </div>
                                     <div className="h-4 w-full overflow-hidden rounded-full bg-gray-200">
                                         <div 
                                             className="h-4 rounded-full bg-green-600" 
-                                            style={{ width: `${complianceData.fullyCompliant}%` }}
+                                            style={{ width: `${fullyCompliant.percentage}%` }}
                                         ></div>
                                     </div>
                                 </div>
@@ -118,12 +125,12 @@ export default function DashboardPage() {
                                 <div className="mb-6">
                                     <div className="mb-2 flex items-center justify-between">
                                         <span className="text-sm font-medium text-gray-600">Partially Compliant</span>
-                                        <span className="text-sm font-medium text-gray-900">{complianceData.partiallyCompliant}%</span>
+                                        <span className="text-sm font-medium text-gray-900">{partiallyCompliant.percentage}%</span>
                                     </div>
                                     <div className="h-4 w-full overflow-hidden rounded-full bg-gray-200">
                                         <div 
                                             className="h-4 rounded-full bg-green-300" 
-                                            style={{ width: `${complianceData.partiallyCompliant}%` }}
+                                            style={{ width: `${partiallyCompliant.percentage}%` }}
                                         ></div>
                                     </div>
                                 </div>
@@ -131,12 +138,12 @@ export default function DashboardPage() {
                                 <div className="mb-6">
                                     <div className="mb-2 flex items-center justify-between">
                                         <span className="text-sm font-medium text-gray-600">Non-Compliant</span>
-                                        <span className="text-sm font-medium text-gray-900">{complianceData.nonCompliant}%</span>
+                                        <span className="text-sm font-medium text-gray-900">{nonCompliant.percentage}%</span>
                                     </div>
                                     <div className="h-4 w-full overflow-hidden rounded-full bg-gray-200">
                                         <div 
                                             className="h-4 rounded-full bg-red-500" 
-                                            style={{ width: `${complianceData.nonCompliant}%` }}
+                                            style={{ width: `${nonCompliant.percentage}%` }}
                                         ></div>
                                     </div>
                                 </div>
@@ -153,33 +160,33 @@ export default function DashboardPage() {
                                                 stroke="#eee"
                                                 strokeWidth="3"
                                             />
-                                            {/* Fully Compliant - Green segment (85%) */}
+                                            {/* Fully Compliant - Green segment */}
                                             <path
                                                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                                                 fill="none"
                                                 stroke="#16a34a"
                                                 strokeWidth="3"
-                                                strokeDasharray={`${85 * 1.01}, 100`}
+                                                strokeDasharray={`${fullyCompliant.percentage * 1.01}, 100`}
                                                 strokeLinecap="round"
                                             />
-                                            {/* Partially Compliant - Light Green segment (10%) */}
+                                            {/* Partially Compliant - Light Green segment */}
                                             <path
                                                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                                                 fill="none"
                                                 stroke="#86efac"
                                                 strokeWidth="3"
-                                                strokeDasharray={`${10 * 1.01}, 100`}
-                                                strokeDashoffset={`-${85 * 1.01}`}
+                                                strokeDasharray={`${partiallyCompliant.percentage * 1.01}, 100`}
+                                                strokeDashoffset={`-${fullyCompliant.percentage * 1.01}`}
                                                 strokeLinecap="round"
                                             />
-                                            {/* Non-Compliant - Red segment (5%) */}
+                                            {/* Non-Compliant - Red segment */}
                                             <path
                                                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                                                 fill="none"
                                                 stroke="#ef4444"
                                                 strokeWidth="3"
-                                                strokeDasharray={`${5 * 1.01}, 100`}
-                                                strokeDashoffset={`-${(85 + 10) * 1.01}`}
+                                                strokeDasharray={`${nonCompliant.percentage * 1.01}, 100`}
+                                                strokeDashoffset={`-${(fullyCompliant.percentage + partiallyCompliant.percentage) * 1.01}`}
                                                 strokeLinecap="round"
                                             />
                                             {/* Center text */}
@@ -191,7 +198,7 @@ export default function DashboardPage() {
                                                 fontWeight="bold" 
                                                 textAnchor="middle"
                                             >
-                                                85%
+                                                {fullyCompliant.percentage}%
                                             </text>
                                         </svg>
                                         <div className="absolute bottom-0 left-0 right-0 text-center text-sm font-medium text-gray-600">
@@ -221,7 +228,7 @@ export default function DashboardPage() {
                             <div className="overflow-hidden bg-white px-6 py-6 shadow-sm sm:rounded-lg">
                                 <h2 className="mb-4 text-lg font-semibold text-gray-800">Quick Management Links</h2>
                                 <div className="flex flex-col space-y-3">
-                                    <Link href={route('admin.users.index')}>
+                                    <Link href={route('users.index')}>
                                         <AdminPrimaryButton className="w-full justify-center">
                                             Manage Users
                                         </AdminPrimaryButton>
