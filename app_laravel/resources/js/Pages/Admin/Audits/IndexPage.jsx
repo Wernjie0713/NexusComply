@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { Head, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
@@ -16,22 +16,12 @@ export default function IndexPage({ audits, filters, summaryData }) {
     const [selectedForm, setSelectedForm] = useState(null);
     const [perPage, setPerPage] = useState(filters.perPage || 5);
 
-    // Ref to track if it's the initial render
-    const initialRender = useRef(true);
-
     const handleFormReview = (form) => {
         setSelectedForm(form);
         setShowReviewModal(true);
     };
 
-    // Use useEffect to trigger filtering whenever filters or perPage change
-    useEffect(() => {
-        // Skip the initial render to prevent immediate reload on page entry
-        if (initialRender.current) {
-            initialRender.current = false;
-            return;
-        }
-
+    const handleApplyFilters = () => {
         router.get(route('admin.audits.index'), {
             dateFilter,
             statusFilter,
@@ -40,7 +30,7 @@ export default function IndexPage({ audits, filters, summaryData }) {
             preserveState: true,
             preserveScroll: true,
         });
-    }, [dateFilter, statusFilter, perPage]);
+    };
 
     return (
         <AuthenticatedLayout
@@ -89,9 +79,7 @@ export default function IndexPage({ audits, filters, summaryData }) {
                                     </select>
                                 </div>
                             </div>
-                            <AdminPrimaryButton onClick={() => {
-                                // The useEffect will handle the filter, no need to call handleFilter explicitly here
-                            }}>
+                            <AdminPrimaryButton onClick={handleApplyFilters}>
                                 Apply Filters
                             </AdminPrimaryButton>
                         </div>
