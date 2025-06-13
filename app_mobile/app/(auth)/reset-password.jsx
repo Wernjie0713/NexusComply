@@ -46,13 +46,32 @@ export default function ResetPasswordScreen() {
     
     try {
       // For demo, simulate successful reset
-      setTimeout(() => {
+      const response = await fetch('http://192.168.94.143:8000/api/mobile/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          token,
+          // email: '', // (optional) only if your Laravel expects it, otherwise remove
+          password,
+          password_confirmation: confirmPassword,
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
         Alert.alert(
-          'Success', 
-          'Password has been reset successfully.',
+          'Success',
+          data.message || 'Password has been reset successfully.',
           [{ text: 'Login Now', onPress: () => router.replace('/(auth)/login') }]
         );
-      }, 1000);
+      } else {
+        const errorMsg = data?.message || 'Failed to reset password. Please try again.';
+        Alert.alert('Error', errorMsg);
+      }
     } catch (error) {
       Alert.alert('Error', 'An unexpected error occurred. Please try again.');
       console.error(error);

@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Silber\Bouncer\BouncerFacade as Bouncer;
+use Illuminate\Support\Facades\Hash;
 
 class LoginRequest extends FormRequest
 {
@@ -42,6 +43,15 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
+        // 🔍 Debug logging
+        \Log::info('Login email: ' . $this->email);
+        $user = \App\Models\User::where('email', $this->email)->first();
+        if ($user) {
+            \Log::info('Password matches: ' . (Hash::check($this->password, $user->password) ? 'true' : 'false'));
+        } else {
+            \Log::info('User not found');
+        }
+
         if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
             RateLimiter::hit($this->throttleKey());
 
@@ -52,7 +62,7 @@ class LoginRequest extends FormRequest
 
         // Check if the authenticated user has the required roles
         $user = Auth::user();
-        if (!(Bouncer::is($user)->an('admin') || Bouncer::is($user)->a('manager'))) {
+        if (!(Bouncer::is($user)->an('admin') || Bouncer::is($user)->a('manager') || Bouncer::is($user)->a('outlet-user'))) {
             // Log the user out immediately
             Auth::logout();
             

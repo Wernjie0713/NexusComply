@@ -7,9 +7,9 @@ const AuthContext = createContext();
 
 // API base URL - you might want to store this in a config file
 // Use your local network IP instead of localhost so mobile devices can connect
-const API_BASE_URL = 'http://10.0.2.2:8000'; // Android emulator pointing to host's localhost
+// const API_BASE_URL = 'http://10.0.2.2:8000'; // Android emulator pointing to host's localhost
 // If using a physical device or iOS simulator, use your computer's actual IP address:
-// const API_BASE_URL = 'http://192.168.1.x:8000'; // Replace with your actual IP
+const API_BASE_URL = 'http://192.168.94.143:8000'; // Replace with your actual IP
 
 // Auth token key
 const AUTH_TOKEN_KEY = 'auth_token';

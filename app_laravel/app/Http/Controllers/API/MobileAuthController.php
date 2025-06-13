@@ -90,7 +90,7 @@ class MobileAuthController extends Controller
     public function sendResetLink(Request $request): JsonResponse
     {
         $request->validate([
-            'email' => 'required|email',
+            'email' => 'required|email|exists:users,email',
         ]);
         
         // Reuse the same Password Broker service from Breeze
@@ -114,14 +114,14 @@ class MobileAuthController extends Controller
     /**
      * Handle a new password request from mobile.
      * 
-     * @param  \Illuminate\Http\Request  $request
+     * @param  \Illuminate\Http\Request  $requeste
      * @return \Illuminate\Http\JsonResponse
      */
     public function resetPassword(Request $request): JsonResponse
     {
         $request->validate([
             'token' => 'required',
-            'email' => 'required|email',
+            // 'email' => 'required|email',
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
         

@@ -7,11 +7,13 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Silber\Bouncer\Database\HasRolesAndAbilities;
+use Laravel\Sanctum\HasApiTokens;
+use App\Notifications\CustomResetPassword;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasRolesAndAbilities;
+    use HasApiTokens, HasFactory, Notifiable, HasRolesAndAbilities;
 
     /**
      * The attributes that are mass assignable.
@@ -62,5 +64,10 @@ class User extends Authenticatable
     public function outletUserOutlet()
     {
         return $this->hasOne(\App\Models\Outlet::class, 'outlet_user_role_id', 'role_id');
+    }
+
+    public function sendPasswordResetNotification($token)
+    {
+        $this->notify(new CustomResetPassword($token));
     }
 }

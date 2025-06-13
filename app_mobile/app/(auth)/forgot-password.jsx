@@ -31,14 +31,27 @@ export default function ForgotPasswordScreen() {
     setIsSubmitting(true);
     
     try {
-      // For demo, simulate successful request
-      setTimeout(() => {
+      const response = await fetch('http://192.168.94.143:8000/api/mobile/forgot-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+  
+      const data = await response.json();
+  
+      if (response.ok) {
         Alert.alert(
-          'Success', 
-          'Password reset link has been sent to your email.',
+          'Success',
+          data.message || 'Password reset link has been sent to your email.',
           [{ text: 'OK', onPress: () => router.replace('/(auth)/login') }]
         );
-      }, 1000);
+      } else {
+        const errorMsg = data?.message || 'Failed to send reset link.';
+        Alert.alert('Error', errorMsg);
+      }
     } catch (error) {
       Alert.alert('Error', 'An unexpected error occurred. Please try again.');
       console.error(error);

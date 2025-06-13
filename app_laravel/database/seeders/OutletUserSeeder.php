@@ -35,12 +35,12 @@ class OutletUserSeeder extends Seeder
 
         // 3. Create a sample Outlet User if they don't exist
         $outletUserOne = User::firstOrCreate(
-            ['email' => 'outlet.user@example.com'], // Unique email for this user
+            ['email' => 'jgoh0338@gmail.com'], // Unique email for this user
             [
-                'name' => 'Outlet User', // Example name
-                'password' => Hash::make('password'), // Use a secure password in real scenarios
+                'name' => 'Goh Outlet', // Example name
+                'password' => Hash::make('12345'), // Use a secure password in real scenarios
                 'email_verified_at' => now(), // Auto-verify email for seeded user
-                'role_id' => 'O-001'
+                'role_id' => 'O-022'
                 // You might add an 'outlet_id' or 'assigned_outlet_name' field here
                 // if your User model or a related table stores this information.
                 // For now, we'll keep it simple.
