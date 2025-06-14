@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\FormTemplateController;
 use App\Http\Controllers\Admin\ComplianceRequirementController;
 use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\ActivityLogController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -133,8 +134,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return Inertia::render('Manager/ReportsPage');
     })->name('manager.reports');
 
-    // Audit routes
-    Route::get('/admin/audits', [AuditController::class, 'index'])->name('admin.audits.index');
+    // Admin routes
+    Route::middleware(['auth', 'can:admin'])->prefix('admin')->name('admin.')->group(function () {
+        Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
+        Route::get('/activity-logs', [ActivityLogController::class, 'index'])->name('activity-logs.index');
+        Route::get('/activity-logs/export', [ActivityLogController::class, 'export'])
+            ->name('activity-logs.export');
+    });
 });
 
 Route::middleware('auth')->group(function () {
