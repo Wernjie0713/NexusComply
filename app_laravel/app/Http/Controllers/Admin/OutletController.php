@@ -18,12 +18,14 @@ class OutletController extends Controller
      *
      * @return \Inertia\Response
      */
-    public function index()
+    public function index(Request $request)
     {
+        $perPage = $request->input('per_page', 5);
+
         $outlets = Outlet::with(['outletUser:id,name,email,role_id', 'manager:id,name,email,role_id'])
             ->orderBy('name')
-            ->get()
-            ->map(function ($outlet) {
+            ->paginate($perPage)
+            ->through(function ($outlet) {
                 return [
                     'id' => $outlet->id,
                     'name' => $outlet->name,
