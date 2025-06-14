@@ -146,8 +146,7 @@ export default function IndexPage({ outlets }) {
     };
 
     const handleDeleteSubmit = () => {
-        post(route('admin.outlets.destroy', currentOutlet.id), {
-            _method: 'DELETE',
+        router.delete(route('admin.outlets.destroy', currentOutlet.id), {
             onSuccess: () => {
                 setShowDeleteModal(false);
                 setCurrentOutlet(null);
