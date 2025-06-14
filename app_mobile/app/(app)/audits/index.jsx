@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -6,10 +6,13 @@ import {
   FlatList, 
   TouchableOpacity,
   SafeAreaView,
-  StatusBar
+  StatusBar,
+  ActivityIndicator,
+  Alert
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import ApiClient from '../../../utils/apiClient';
 
 // Define our primary green color for consistent use
 const PRIMARY_GREEN = '#4CAF50';
@@ -18,39 +21,39 @@ const PRIMARY_GREEN = '#4CAF50';
 const StatusBadge = ({ status }) => {
   // Define status configurations
   const statusConfig = {
-    approved: { 
+    'Approved': { 
       color: PRIMARY_GREEN, 
       text: 'Approved',
       icon: 'checkmark-circle' 
     },
-    pending: { 
+    'Pending Review': { 
       color: '#FFEB3B', 
       text: 'Pending Manager Review',
       icon: 'time' 
     },
-    rejected: { 
+    'Rejected': { 
       color: '#F44336', 
       text: 'Rejected - Action Required',
       icon: 'alert-circle' 
     },
-    draft: { 
+    'In Progress': { 
       color: '#9E9E9E', 
       text: 'Draft',
       icon: 'document' 
     },
-    overdue: { 
+    'Overdue': { 
       color: '#2196F3', 
       text: 'Overdue',
       icon: 'warning' 
     },
-    followup: {
+    'Follow-up Required': {
       color: '#FF9800',
       text: 'Follow-up Required',
       icon: 'repeat'
     }
   };
 
-  const config = statusConfig[status] || statusConfig.draft;
+  const config = statusConfig[status] || statusConfig['In Progress'];
 
   return (
     <View style={[styles.badgeContainer, { backgroundColor: `${config.color}20` }]}>
@@ -87,88 +90,64 @@ const SectionHeader = ({ title, count }) => (
 
 export default function AuditsScreen() {
   const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   
-  // Mock data for active audits
-  const activeAudits = [
-    {
-      id: '1',
-      title: 'Monthly Hygiene Check - June',
-      dueDate: 'June 30, 2025',
-      submittedDate: '',
-      isDraft: true,
-      status: 'draft',
-      type: 'active'
-    },
-    {
-      id: '2',
-      title: 'Fire Safety Quarterly Inspection',
-      dueDate: 'June 15, 2025',
-      submittedDate: '',
-      isDraft: true,
-      status: 'overdue',
-      type: 'active'
-    },
-    {
-      id: '3',
-      title: 'Staff Training Compliance Review',
-      dueDate: 'July 10, 2025',
-      submittedDate: 'June 5, 2025',
-      isDraft: false,
-      status: 'pending',
-      type: 'active'
-    },
-    {
-      id: '4',
-      title: 'Equipment Maintenance Audit',
-      dueDate: 'June 20, 2025',
-      submittedDate: 'June 1, 2025',
-      isDraft: false,
-      status: 'rejected',
-      type: 'active'
-    },
-    {
-      id: '5',
-      title: 'Food Safety Assessment - May',
-      dueDate: 'May 31, 2025',
-      submittedDate: 'May 25, 2025',
-      isDraft: false,
-      status: 'followup',
-      type: 'active'
-    }
-  ];
-
-  // Mock data for recent audits
-  const recentAudits = [
-    {
-      id: '6',
-      title: 'Monthly Hygiene Check - May',
-      dueDate: 'May 31, 2025',
-      submittedDate: 'May 28, 2025',
-      isDraft: false,
-      status: 'approved',
-      type: 'recent'
-    },
-    {
-      id: '7',
-      title: 'Quarterly Food Safety Audit - Q1',
-      dueDate: 'March 31, 2025',
-      submittedDate: 'March 28, 2025',
-      isDraft: false,
-      status: 'approved',
-      type: 'recent'
-    }
-  ];
-
-  // Combine all audit data
+  // State for audit data
   const [auditData, setAuditData] = useState([
-    { title: 'Active Audits', data: activeAudits },
-    { title: 'Recent Audits', data: recentAudits }
+    { title: 'Active Audits', data: [] },
+    { 
+      title: 'Recent Audits', 
+      data: [
+        {
+          id: '6',
+          title: 'Monthly Hygiene Check - May',
+          dueDate: 'May 31, 2025',
+          submittedDate: 'May 28, 2025',
+          isDraft: false,
+          status: 'Approved',
+          type: 'recent'
+        },
+        {
+          id: '7',
+          title: 'Quarterly Food Safety Audit - Q1',
+          dueDate: 'March 31, 2025',
+          submittedDate: 'March 28, 2025',
+          isDraft: false,
+          status: 'Approved',
+          type: 'recent'
+        }
+      ] 
+    }
   ]);
+
+  // Fetch active audits from backend
+  const fetchActiveAudits = async () => {
+    try {
+      setLoading(true);
+      const response = await ApiClient.get('/api/mobile/audits');
+      setAuditData(prevData => [
+        { title: 'Active Audits', data: response },
+        prevData[1] // Keep the existing recent audits data
+      ]);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching audits:', err);
+      setError('Failed to load audits. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch audits when component mounts
+  useEffect(() => {
+    fetchActiveAudits();
+  }, []);
 
   // Handle audit item press
   const handleAuditPress = (item) => {
-    if (item.status === 'draft' || item.status === 'overdue') {
-      // If it's a draft, navigate to the perform audit screen
+    if (item.status === 'In Progress' || item.status === 'Overdue') {
+      // If it's a draft or overdue, navigate to the perform audit screen
       router.push({
         pathname: '/(app)/audits/perform-audit',
         params: { 
@@ -177,8 +156,8 @@ export default function AuditsScreen() {
           mode: 'edit'
         }
       });
-    } else if (item.status === 'rejected' || item.status === 'followup') {
-      // If it's rejected, navigate to follow-up audit
+    } else if (item.status === 'Rejected' || item.status === 'Follow-up Required') {
+      // If it's rejected or needs follow-up, navigate to follow-up audit
       router.push({
         pathname: '/(app)/audits/perform-audit',
         params: { 
@@ -218,13 +197,30 @@ export default function AuditsScreen() {
   const renderSection = ({ item }) => (
     <View style={styles.section}>
       <SectionHeader title={item.title} count={item.data.length} />
-      {item.data.map((audit) => (
-        <AuditListItem 
-          key={audit.id}
-          item={audit}
-          onPress={handleAuditPress}
-        />
-      ))}
+      {loading && item.title === 'Active Audits' ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color={PRIMARY_GREEN} />
+          <Text style={styles.loadingText}>Loading audits...</Text>
+        </View>
+      ) : error && item.title === 'Active Audits' ? (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity 
+            style={styles.retryButton}
+            onPress={fetchActiveAudits}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        item.data.map((audit) => (
+          <AuditListItem 
+            key={audit.id}
+            item={audit}
+            onPress={handleAuditPress}
+          />
+        ))
+      )}
     </View>
   );
 
@@ -393,5 +389,35 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
+  },
+  loadingContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 8,
+    color: '#666666',
+    fontSize: 14,
+  },
+  errorContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  errorText: {
+    color: '#DC2626',
+    fontSize: 14,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  retryButtonText: {
+    color: '#374151',
+    fontSize: 14,
+    fontWeight: '500',
   },
 }); 

@@ -5,6 +5,9 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\API\MobileAuthController;
 use App\Http\Controllers\API\MobileProfileController;
 use App\Http\Controllers\API\MobileDashboardController;
+use App\Http\Controllers\API\MobileComplianceFormController;
+use App\Http\Controllers\Api\Mobile\ComplianceRequirementController;
+use App\Http\Controllers\API\MobileAuditController;
 
 /*
 |--------------------------------------------------------------------------
@@ -35,7 +38,15 @@ Route::middleware('auth:sanctum')->group(function () {
         // Dashboard data
         Route::get('/dashboard', [MobileDashboardController::class, 'getData']);
         
-        // Additional mobile-specific routes will be added here
+        // Compliance Form
+        Route::get('/compliance-forms', [MobileComplianceFormController::class, 'index']);
+        
+        // Get form templates for a compliance requirement
+        Route::get('/compliance-requirements/{complianceRequirement}/form-templates', [ComplianceRequirementController::class, 'getFormTemplates']);
+        
+        // Audit routes
+        Route::post('/audits', [MobileAuditController::class, 'store']);
+        Route::get('/audits', [MobileAuditController::class, 'getUserAudits']);
     });
 });
 
