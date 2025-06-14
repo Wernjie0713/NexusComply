@@ -20,13 +20,13 @@ class AuditController extends Controller
         // Calculate summary data across all audits (using optimized database queries)
         $summaryData = [
             'totalActive' => Audit::whereHas('status', function ($q) {
-                $q->where('name', 'In Progress');
+                $q->whereIn('name', ['In Progress', 'Draft', 'Overdue', 'Pending Manager Revised', 'Rejected - Action Required']);
             })->count(),
             'pendingReview' => Audit::whereHas('status', function ($q) {
                 $q->where('name', 'Pending Review');
             })->count(),
             'overdueTasks' => Audit::where(function ($q) {
-                $q->where('end_time', '<', now());
+                $q->where('due_date', '<', now());
                 $q->whereDoesntHave('status', function ($sq) {
                     $sq->where('name', 'Completed');
                 });
@@ -60,7 +60,7 @@ class AuditController extends Controller
         }
         
         $audits = $query->orderBy('start_time', 'desc')
-            ->paginate($perPage)
+            ->paginate($request->input('per_page', 5))
             ->withQueryString();
 
         return Inertia::render('Admin/Audits/IndexPage', [
