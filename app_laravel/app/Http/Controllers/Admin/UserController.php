@@ -21,39 +21,51 @@ class UserController extends Controller
      *
      * @return \Inertia\Response
      */
-    public function index()
+    public function index(Request $request)
     {
-        $allUsers = User::with(['roles', 'outletUserOutlet', 'managedOutlets'])->get();
-        $managers = $allUsers->filter(function ($user) {
-            return $user->roles->pluck('name')->contains('manager');
-        })->map(function ($user) {
-            return [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'role_id' => $user->role_id,
-                'role' => 'Manager',
-                'managed_outlets' => $user->managedOutlets->map(function ($outlet) {
-                    return [
-                        'id' => $outlet->id,
-                        'name' => $outlet->name
-                    ];
-                }),
-                'managed_outlets_count' => $user->managedOutlets->count()
-            ];
-        })->values();
-        $outletUsers = $allUsers->filter(function ($user) {
-            return $user->roles->pluck('name')->contains('outlet-user');
-        })->map(function ($user) {
-            return [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'role_id' => $user->role_id,
-                'role' => 'Outlet User',
-                'assigned_outlet' => $user->outletUserOutlet ? $user->outletUserOutlet->name : null,
-            ];
-        })->values();
+        $managersPerPage = $request->input('managers_per_page', 5);
+        $outletUsersPerPage = $request->input('outlet_users_per_page', 5);
+
+        $managersQuery = User::with(['roles', 'managedOutlets'])
+            ->whereHas('roles', function($query) {
+                $query->where('name', 'manager');
+            });
+
+        $outletUsersQuery = User::with(['roles', 'outletUserOutlet'])
+            ->whereHas('roles', function($query) {
+                $query->where('name', 'outlet-user');
+            });
+
+        $managers = $managersQuery->paginate($managersPerPage, ['*'], 'managers_page', $request->input('managers_page'))
+            ->through(function ($user) {
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role_id' => $user->role_id,
+                    'role' => 'Manager',
+                    'managed_outlets' => $user->managedOutlets->map(function ($outlet) {
+                        return [
+                            'id' => $outlet->id,
+                            'name' => $outlet->name
+                        ];
+                    }),
+                    'managed_outlets_count' => $user->managedOutlets->count()
+                ];
+            });
+
+        $outletUsers = $outletUsersQuery->paginate($outletUsersPerPage, ['*'], 'outlet_users_page', $request->input('outlet_users_page'))
+            ->through(function ($user) {
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role_id' => $user->role_id,
+                    'role' => 'Outlet User',
+                    'assigned_outlet' => $user->outletUserOutlet ? $user->outletUserOutlet->name : null,
+                ];
+            });
+
         return Inertia::render('Admin/Users/IndexPage', [
             'managers' => $managers,
             'outletUsers' => $outletUsers,
