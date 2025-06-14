@@ -1,16 +1,9 @@
 import { useState } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link } from '@inertiajs/react'; 
+import { Head, Link, router } from '@inertiajs/react'; 
 import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
 
-export default function DashboardPage({ statistics = {}, complianceData = {} }) {
-    const recentActivities = [
-        { id: 1, description: "New User 'Outlet Staff X' created.", time: "2 hours ago" },
-        { id: 2, description: "Compliance Framework 'HALAL Q3 Update' published.", time: "1 day ago" },
-        { id: 3, description: "Report 'Monthly Compliance Summary - April' generated.", time: "2 days ago" },
-        { id: 4, description: "User 'Manager Y' updated outlet profile.", time: "3 days ago" }
-    ];
-
+export default function DashboardPage({ statistics = {}, complianceData = {}, recentActivities = [] }) {
     // Default values for statistics
     const {
         totalOutlets = 0,
@@ -70,7 +63,7 @@ export default function DashboardPage({ statistics = {}, complianceData = {} }) 
                             </div>
                         </div>
 
-                        {/* Compliance Checks Card */}
+                        {/* Current Month Checks Card */}
                         <div className="overflow-hidden bg-white px-6 py-6 shadow-sm sm:rounded-lg">
                             <div className="flex items-center">
                                 <div className="mr-4 rounded-full bg-green-100 p-3">
@@ -209,18 +202,29 @@ export default function DashboardPage({ statistics = {}, complianceData = {} }) 
                             </div>
                         </div>
 
-                        {/* Right Column - Activity Feed and Quick Links */}
+                        {/* Right Column - Quick Links and System Status */}
                         <div className="space-y-6">
                             {/* Recent Activity Section */}
                             <div className="overflow-hidden bg-white px-6 py-6 shadow-sm sm:rounded-lg">
-                                <h2 className="mb-4 text-lg font-semibold text-gray-800">Recent System Activity</h2>
+                                <div className="mb-4 flex items-center justify-between">
+                                    <h2 className="text-lg font-semibold text-gray-800">Recent System Activity</h2>
+                                    <Link href={route('admin.activity-logs.index')} className="text-sm text-green-600 hover:text-green-700">
+                                        View All Activities →
+                                    </Link>
+                                </div>
                                 <div className="space-y-4">
-                                    {recentActivities.map((activity) => (
-                                        <div key={activity.id} className="border-l-4 border-green-500 pl-4">
-                                            <p className="text-sm text-gray-700">{activity.description}</p>
-                                            <p className="text-xs text-gray-500">{activity.time}</p>
+                                    {recentActivities.length > 0 ? (
+                                        recentActivities.map((activity) => (
+                                            <div key={activity.id} className="border-l-4 border-green-500 pl-4">
+                                                <p className="text-sm text-gray-700">{activity.description}</p>
+                                                <p className="text-xs text-gray-500">{activity.time}</p>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="text-center py-4">
+                                            <p className="text-sm text-gray-500">No recent activities to display</p>
                                         </div>
-                                    ))}
+                                    )}
                                 </div>
                             </div>
 
