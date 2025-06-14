@@ -14,7 +14,6 @@ export default function IndexPage({ audits, filters, summaryData }) {
     const [statusFilter, setStatusFilter] = useState(filters.statusFilter || 'all');
     const [showReviewModal, setShowReviewModal] = useState(false);
     const [selectedForm, setSelectedForm] = useState(null);
-    const [perPage, setPerPage] = useState(filters.perPage || 5);
 
     const handleFormReview = (form) => {
         setSelectedForm(form);
@@ -25,7 +24,7 @@ export default function IndexPage({ audits, filters, summaryData }) {
         router.get(route('admin.audits.index'), {
             dateFilter,
             statusFilter,
-            perPage
+            per_page: filters.per_page
         }, {
             preserveState: true,
             preserveScroll: true,
@@ -125,7 +124,14 @@ export default function IndexPage({ audits, filters, summaryData }) {
 
                     {/* Tab Content */}
                     <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
-                        {activeTab === 'progress' && <AuditProgressSection audits={audits} onReviewForm={handleFormReview} perPage={perPage} setPerPage={setPerPage} summaryData={summaryData} filters={{ dateFilter, statusFilter, perPage }} />}
+                        {activeTab === 'progress' && (
+                            <AuditProgressSection 
+                                audits={audits} 
+                                onReviewForm={handleFormReview} 
+                                summaryData={summaryData} 
+                                filters={{ dateFilter, statusFilter, per_page: filters.per_page }} 
+                            />
+                        )}
                         {activeTab === 'forms' && <SubmittedFormsSection onReviewForm={handleFormReview} />}
                         {activeTab === 'reports' && <AuditReportingSection />}
                     </div>
