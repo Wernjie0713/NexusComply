@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class ActivityLogController extends Controller
 {
@@ -127,7 +128,8 @@ class ActivityLogController extends Controller
                 $query->whereDate('created_at', '<=', Carbon::parse($request->date_to));
             }
 
-            $activities = $query->get();
+            // Limit to last 1000 records for better performance
+            $activities = $query->limit(1000)->get();
             
             // Format data for export
             $exportData = $activities->map(function ($activity, $index) {
@@ -191,15 +193,19 @@ class ActivityLogController extends Controller
     
     private function exportToPdf($data, $fileName)
     {
-        $pdf = \PDF::loadView('exports.activity_logs', [
+        // Configure PDF options for better performance
+        $pdf = Pdf::setOptions([
+            'isHtml5ParserEnabled' => true,
+            'isRemoteEnabled' => false,
+            'isPhpEnabled' => false,
+            'isFontSubsettingEnabled' => true,
+            'defaultFont' => 'DejaVu Sans'
+        ])->loadView('exports.activity_logs', [
             'data' => $data,
             'title' => 'Activity Logs Export',
             'date' => Carbon::now()->format('Y-m-d H:i:s')
         ]);
         
-        return $pdf->download($fileName . '.pdf', [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="' . $fileName . '.pdf"'
-        ]);
+        return $pdf->download($fileName . '.pdf');
     }
 }
