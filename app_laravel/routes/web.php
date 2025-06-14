@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\ComplianceRequirementController;
 use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\ActivityLogController;
+use App\Http\Controllers\Admin\RolePermissionController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -31,26 +32,26 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Admin Dashboard
     Route::get('/admin/dashboard', [AdminDashboardController::class, 'index'])
         ->name('admin.dashboard');
-    
+
     // User listing page
     Route::get('/users', [UserController::class, 'index'])
         ->name('users.index');
-    
+
     // User activity log page
     Route::get('/users/{user}/activity-log', [UserController::class, 'activityLog'])
         ->name('users.activity-log');
-    
+
     // Audit management pages
     Route::get('/admin/audits', [AuditController::class, 'index'])
         ->name('admin.audits.index');
-    
+
     // Share form access page
     Route::get('/audits/share-form/{formId}', function ($formId) {
         return Inertia::render('Admin/Audits/ShareFormAccessPage', [
             'formId' => $formId
         ]);
     })->name('audits.share-form');
-    
+
     // Compliance Requirements routes
     Route::resource('/admin/compliance-requirements', ComplianceRequirementController::class)
         ->names([
@@ -60,7 +61,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             'destroy' => 'admin.compliance-requirements.destroy',
         ])
         ->except(['create', 'edit', 'show']); // Not needed for inline form handling
-    
+
     // Form Template routes
     Route::resource('/admin/form-templates', FormTemplateController::class)
         ->names([
@@ -71,12 +72,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
             'update' => 'admin.form-templates.update',
             'destroy' => 'admin.form-templates.destroy',
         ]);
-    
+
     // Settings - Roles & Permissions page
     Route::get('/admin/settings/roles-permissions', function () {
         return Inertia::render('Admin/Settings/RolesPermissionsPage');
     })->name('settings.roles-permissions');
-    
+
     // Outlet Management Routes
     Route::resource('/admin/outlets', \App\Http\Controllers\Admin\OutletController::class)
         ->names([
@@ -87,7 +88,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             'update' => 'admin.outlets.update',
             'destroy' => 'admin.outlets.destroy',
         ]);
-    
+
     // User Management Routes
     Route::resource('/admin/users', \App\Http\Controllers\Admin\UserController::class)
         ->names([
@@ -98,7 +99,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             'update' => 'admin.users.update',
             'destroy' => 'admin.users.destroy',
         ]);
-    
+
     // API routes for outlet user assignment
     Route::get('/admin/outlet-users', [\App\Http\Controllers\Admin\OutletController::class, 'getOutletUsers'])
         ->name('admin.outlet-users');
@@ -107,29 +108,29 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // API route for available outlets for user creation
     Route::get('/admin/available-outlets', [\App\Http\Controllers\Admin\OutletController::class, 'availableOutlets'])
         ->name('admin.available-outlets');
-    
+
     // Manager Routes
     Route::get('/manager/audits', function () {
         return Inertia::render('Manager/Audits/IndexPage');
     })->name('manager.audits');
-    
+
     Route::get('/manager/audits/share-form/{formId}', function ($formId) {
         return Inertia::render('Manager/Audits/ShareFormAccessPage', [
             'formId' => $formId
         ]);
     })->name('manager.audits.share-form');
-    
+
     // User Management Routes for Manager
     Route::get('/manager/users', function () {
         return Inertia::render('Manager/Users/IndexPage');
     })->name('manager.users');
-    
+
     Route::get('/manager/users/{userId}/activity-log', function ($userId) {
         return Inertia::render('Manager/Users/ActivityLogPage', [
             'userId' => $userId
         ]);
     })->name('manager.users.activity-log');
-    
+
     Route::get('/manager/reports', function () {
         return Inertia::render('Manager/ReportsPage');
     })->name('manager.reports');
@@ -140,6 +141,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/activity-logs', [ActivityLogController::class, 'index'])->name('activity-logs.index');
         Route::get('/activity-logs/export', [ActivityLogController::class, 'export'])
             ->name('activity-logs.export');
+    });
+
+    // New AJAX routes
+    Route::middleware(['auth', 'verified'])->prefix('admin/ajax')->group(function () {
+        Route::get('/roles', [RolePermissionController::class, 'roles']);
+        // Add other endpoints as needed
     });
 });
 
@@ -154,11 +161,11 @@ Route::middleware('guest')->group(function () {
     Route::get('/login', function () {
         return Inertia::render('Admin/Auth/LoginPage');
     })->name('login');
-    
+
     Route::get('/forgot-password', function () {
         return Inertia::render('Admin/Auth/ForgotPasswordPage');
     })->name('password.request');
-    
+
     Route::get('/reset-password/{token}', function ($token) {
         return Inertia::render('Admin/Auth/ResetPasswordPage', [
             'token' => $token,
@@ -168,4 +175,4 @@ Route::middleware('guest')->group(function () {
 });
 
 // Include standard auth routes (for POST handlers)
-require __DIR__.'/auth.php';
+require __DIR__ . '/auth.php';

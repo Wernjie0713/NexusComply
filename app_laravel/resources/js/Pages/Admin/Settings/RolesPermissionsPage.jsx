@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Head } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
@@ -11,41 +11,34 @@ export default function RolesPermissionsPage() {
     const [editingRole, setEditingRole] = useState(null);
     const [selectedRoleId, setSelectedRoleId] = useState(null);
     
-    // Dummy data for existing roles
-    const [roles, setRoles] = useState([
-        {
-            id: 1,
-            name: 'admin',
-            title: 'Admin',
-            description: 'Full system access with all permissions',
-            userCount: 3,
-            isSystem: true, // System roles cannot be deleted
-        },
-        {
-            id: 2,
-            name: 'manager',
-            title: 'Manager',
-            description: 'Manages a region of outlets and their compliance',
-            userCount: 12,
-            isSystem: false,
-        },
-        {
-            id: 3,
-            name: 'outlet_user',
-            title: 'Outlet User',
-            description: 'Manages a single outlet and submits compliance documentation',
-            userCount: 45,
-            isSystem: false,
-        },
-        {
-            id: 4,
-            name: 'external_auditor',
-            title: 'External Auditor',
-            description: 'External user who can review specific assigned compliance documents',
-            userCount: 8,
-            isSystem: false,
+    // Fetch roles from API
+    const [roles, setRoles] = useState([]);
+    const [loadingRoles, setLoadingRoles] = useState(true);
+
+    useEffect(() => {
+        async function fetchRoles() {
+            setLoadingRoles(true);
+            try {
+                const response = await fetch('/admin/ajax/roles', {
+                    headers: {
+                        'Accept': 'application/json',
+                    },
+                    credentials: 'same-origin',
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    setRoles(data);
+                } else {
+                    setRoles([]);
+                }
+            } catch (e) {
+                setRoles([]);
+            } finally {
+                setLoadingRoles(false);
+            }
         }
-    ]);
+        fetchRoles();
+    }, []);
     
     // Sample permissions grouped by module
     const permissionModules = [
@@ -264,10 +257,14 @@ export default function RolesPermissionsPage() {
                                                 <div className="text-sm text-gray-500">{role.name}</div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <div className="text-sm text-gray-500">{role.description}</div>
+                                                <div className="text-sm text-gray-500">{role.description || '-'}</div>
                                             </td>
                                             <td className="whitespace-nowrap px-6 py-4">
-                                                <div className="text-sm text-gray-900">{role.userCount} users</div>
+                                                <div className="text-sm text-gray-900">
+                                                    {role.user_count === 0
+                                                        ? 'No users'
+                                                        : `${role.user_count} ${role.user_count === 1 ? 'user' : 'users'}`}
+                                                </div>
                                             </td>
                                             <td className="whitespace-nowrap px-6 py-4 text-sm font-medium">
                                                 <button

@@ -8,6 +8,7 @@ use App\Http\Controllers\API\MobileDashboardController;
 use App\Http\Controllers\API\MobileComplianceFormController;
 use App\Http\Controllers\Api\Mobile\ComplianceRequirementController;
 use App\Http\Controllers\API\MobileAuditController;
+use App\Http\Controllers\Admin\RolePermissionController;
 
 /*
 |--------------------------------------------------------------------------
@@ -34,19 +35,27 @@ Route::middleware('auth:sanctum')->group(function () {
         // User profile routes
         Route::get('/profile', [MobileProfileController::class, 'show']);
         Route::put('/profile', [MobileProfileController::class, 'update']);
-        
+
         // Dashboard data
         Route::get('/dashboard', [MobileDashboardController::class, 'getData']);
-        
+
         // Compliance Form
         Route::get('/compliance-forms', [MobileComplianceFormController::class, 'index']);
-        
+
         // Get form templates for a compliance requirement
         Route::get('/compliance-requirements/{complianceRequirement}/form-templates', [ComplianceRequirementController::class, 'getFormTemplates']);
-        
+
         // Audit routes
         Route::post('/audits', [MobileAuditController::class, 'store']);
         Route::get('/audits', [MobileAuditController::class, 'getUserAudits']);
+    });
+
+    // Admin routes for authenticated users
+    Route::prefix('admin')->group(function () {
+        Route::get('/roles', [RolePermissionController::class, 'roles']);
+        Route::get('/abilities', [RolePermissionController::class, 'abilities']);
+        Route::get('/roles/{role}/abilities', [RolePermissionController::class, 'getRoleAbilities']);
+        Route::post('/roles/{role}/abilities', [RolePermissionController::class, 'updateRoleAbilities']);
     });
 });
 
@@ -55,4 +64,4 @@ Route::prefix('mobile')->group(function () {
     Route::post('/login', [MobileAuthController::class, 'login']);
     Route::post('/forgot-password', [MobileAuthController::class, 'sendResetLink']);
     Route::post('/reset-password', [MobileAuthController::class, 'resetPassword']);
-}); 
+});

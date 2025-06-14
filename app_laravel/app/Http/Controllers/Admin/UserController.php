@@ -132,14 +132,14 @@ class UserController extends Controller
         $roleTitle = $validated['role'] === 'manager' ? 'Manager' : 'Outlet User';
         $outletName = isset($assignedOutlet) ? $assignedOutlet->name : null;
         $defaultPassword = 'password';
-        
+
         // Get assigned outlets for managers
         $assignedOutlets = null;
         if ($validated['role'] === 'manager' && !empty($validated['outlet_ids'])) {
             $assignedOutlets = Outlet::whereIn('id', $validated['outlet_ids'])
                 ->orderBy('name')
                 ->get(['id', 'name']);
-            
+
             Log::info('Assigned outlets for new manager', [
                 'manager_id' => $user->id,
                 'manager_role_id' => $user->role_id,
@@ -147,12 +147,12 @@ class UserController extends Controller
                 'outlet_names' => $assignedOutlets->pluck('name')
             ]);
         }
-        
+
         Mail::to($user->email)->send(new UserInvitationEmail(
-            $user, 
-            $roleTitle, 
-            $defaultPassword, 
-            $outletName, 
+            $user,
+            $roleTitle,
+            $defaultPassword,
+            $outletName,
             $assignedOutlets
         ));
 
@@ -167,30 +167,30 @@ class UserController extends Controller
     {
         $user->load('roles', 'outletUserOutlet', 'managedOutlets');
         $role = $user->roles->first() ? $user->roles->first()->name : null;
-        
+
         // Get available outlets based on role
         $availableOutlets = [];
         if ($role === 'outlet-user') {
             $assignedOutlet = $user->outletUserOutlet;
             $assignedOutletId = $assignedOutlet ? $assignedOutlet->id : null;
-            
+
             // Get outlets that are not assigned to any outlet user or are assigned to this user
-            $availableOutlets = Outlet::where(function($query) use ($assignedOutletId) {
+            $availableOutlets = Outlet::where(function ($query) use ($assignedOutletId) {
                 $query->whereNull('outlet_user_role_id');
                 if ($assignedOutletId) {
                     $query->orWhere('id', $assignedOutletId);
                 }
             })
-            ->orderBy('name')
-            ->get(['id', 'name']);
+                ->orderBy('name')
+                ->get(['id', 'name']);
         } else if ($role === 'manager') {
             // For managers, get outlets that have no manager or are already assigned to this manager
-            $availableOutlets = Outlet::where(function($query) use ($user) {
+            $availableOutlets = Outlet::where(function ($query) use ($user) {
                 $query->whereNull('manager_role_id')
-                      ->orWhere('manager_role_id', $user->role_id);
+                    ->orWhere('manager_role_id', $user->role_id);
             })
-            ->orderBy('name')
-            ->get(['id', 'name']);
+                ->orderBy('name')
+                ->get(['id', 'name']);
         } else {
             // For other roles, get all outlets
             $availableOutlets = Outlet::orderBy('name')->get(['id', 'name']);
@@ -223,7 +223,7 @@ class UserController extends Controller
     public function update(Request $request, User $user)
     {
         Log::info('User Update Request Data:', $request->all());
-        
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
@@ -235,11 +235,11 @@ class UserController extends Controller
 
         // Check for outlet assignment validity for managers
         if ($validated['role'] === 'manager' && !empty($validated['outlet_ids'])) {
-            $availableOutlets = Outlet::where(function($query) use ($user) {
+            $availableOutlets = Outlet::where(function ($query) use ($user) {
                 $query->whereNull('manager_role_id')
-                      ->orWhere('manager_role_id', $user->role_id);
+                    ->orWhere('manager_role_id', $user->role_id);
             })->pluck('id')->toArray();
-            
+
             $invalidOutlets = array_diff($validated['outlet_ids'], $availableOutlets);
             if (!empty($invalidOutlets)) {
                 return back()->withErrors([
@@ -273,7 +273,7 @@ class UserController extends Controller
             // For manager role
             // First, clear all previous outlet assignments for this manager
             Outlet::where('manager_role_id', $user->role_id)->update(['manager_role_id' => null]);
-            
+
             // Then assign the selected outlets
             if (!empty($validated['outlet_ids'])) {
                 Outlet::whereIn('id', $validated['outlet_ids'])->update([
@@ -305,4 +305,4 @@ class UserController extends Controller
         $user->delete();
         return redirect()->route('admin.users.index')->with('success', 'User deleted successfully.');
     }
-} 
+}
