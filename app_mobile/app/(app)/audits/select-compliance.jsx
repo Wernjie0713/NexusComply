@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -7,15 +7,17 @@ import {
   TouchableOpacity,
   SafeAreaView,
   TextInput,
+  Alert
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import ApiClient from '../../../utils/apiClient';
 
 // Reuse the same primary green color for consistency
 const PRIMARY_GREEN = '#4CAF50';
 
-// Compliance Form Item Component
-const ComplianceFormItem = ({ item, onPress }) => (
+// Compliance Requirement Item Component
+const ComplianceRequirementItem = ({ item, onPress }) => (
   <TouchableOpacity 
     style={styles.formItem}
     onPress={() => onPress(item)}
@@ -35,62 +37,45 @@ export default function SelectComplianceScreen() {
   const router = useRouter();
   const [searchText, setSearchText] = useState('');
   
-  // Mock data for compliance forms
-  const complianceForms = [
-    {
-      id: 1,
-      title: 'Monthly Hygiene Check',
-      description: 'Standard hygiene compliance check required monthly.',
-      icon: 'medical-outline',
-    },
-    {
-      id: 2,
-      title: 'Fire Safety Inspection',
-      description: 'Quarterly fire safety compliance audit.',
-      icon: 'flame-outline',
-    },
-    {
-      id: 3,
-      title: 'Staff Training Log',
-      description: 'Record of staff training completion and certification.',
-      icon: 'people-outline',
-    },
-    {
-      id: 4,
-      title: 'Equipment Maintenance',
-      description: 'Scheduled equipment inspections and maintenance record.',
-      icon: 'construct-outline',
-    },
-    {
-      id: 5,
-      title: 'Food Temperature Log',
-      description: 'Daily food storage temperature monitoring form.',
-      icon: 'thermometer-outline',
-    },
-    {
-      id: 6,
-      title: 'Incident Report',
-      description: 'Report for any safety incidents or near misses.',
-      icon: 'warning-outline',
-    },
-  ];
+  // State for compliance requirements
+  const [complianceRequirements, setComplianceRequirements] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Filter forms based on search text
-  const filteredForms = searchText 
-    ? complianceForms.filter(form => 
-        form.title.toLowerCase().includes(searchText.toLowerCase()) ||
-        form.description.toLowerCase().includes(searchText.toLowerCase())
+  // Fetch compliance requirements from Laravel backend
+  useEffect(() => {
+    const fetchComplianceRequirements = async () => {
+      try {
+        const response = await ApiClient.get('/api/mobile/compliance-forms');
+        setComplianceRequirements(response);
+      } catch (error) {
+        console.error('Error fetching compliance requirements:', error);
+        Alert.alert('Error', 'Failed to load compliance requirements. Please check your connection and try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchComplianceRequirements();
+  }, []);
+
+  // Filter compliance requirements based on search text
+  const filteredRequirements = searchText 
+    ? complianceRequirements.filter(requirement => 
+        requirement.title.toLowerCase().includes(searchText.toLowerCase()) ||
+        requirement.description.toLowerCase().includes(searchText.toLowerCase())
       )
-    : complianceForms;
+    : complianceRequirements;
 
-  const handleFormSelection = (form) => {
-    // Navigate to the perform-audit screen with the selected form
+  const handleComplianceSelection = (requirement) => {
+    // Navigate to perform audit screen with the selected compliance requirement
     router.push({
       pathname: '/(app)/audits/perform-audit',
       params: { 
-        formName: form.title,
-        formId: form.id,
-        mode: 'new'
+        complianceId: requirement.id,
+        auditTitle: requirement.title,
+        auditDescription: requirement.description,
+        submissionType: requirement.submission_type,
+        category: requirement.category
       }
     });
   };
@@ -105,7 +90,7 @@ export default function SelectComplianceScreen() {
         >
           <Ionicons name="arrow-back" size={24} color="#333333" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Select Compliance Form</Text>
+        <Text style={styles.headerTitle}>Select Compliance Requirement</Text>
         <View style={styles.placeholderView} />
       </View>
       
@@ -114,7 +99,7 @@ export default function SelectComplianceScreen() {
         <Ionicons name="search-outline" size={20} color="#999999" style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search forms..."
+          placeholder="Search compliance requirements..."
           value={searchText}
           onChangeText={setSearchText}
           placeholderTextColor="#999999"
@@ -126,25 +111,31 @@ export default function SelectComplianceScreen() {
         ) : null}
       </View>
       
-      {/* Form List */}
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.formListContainer}>
-          {filteredForms.length > 0 ? (
-            filteredForms.map(form => (
-              <ComplianceFormItem 
-                key={form.id} 
-                item={form} 
-                onPress={handleFormSelection}
-              />
-            ))
-          ) : (
-            <View style={styles.noResultsContainer}>
-              <Ionicons name="search" size={48} color="#CCCCCC" />
-              <Text style={styles.noResultsText}>No forms match your search</Text>
-            </View>
-          )}
+      {/* Loading or List */}
+      {loading ? (
+        <View style={styles.noResultsContainer}>
+          <Text>Loading compliance requirements...</Text>
         </View>
-      </ScrollView>
+      ) : (
+        <ScrollView style={styles.scrollView}>
+          <View style={styles.formListContainer}>
+            {filteredRequirements.length > 0 ? (
+              filteredRequirements.map(requirement => (
+                <ComplianceRequirementItem 
+                  key={requirement.id} 
+                  item={requirement} 
+                  onPress={handleComplianceSelection}
+                />
+              ))
+            ) : (
+              <View style={styles.noResultsContainer}>
+                <Ionicons name="search" size={48} color="#CCCCCC" />
+                <Text style={styles.noResultsText}>No compliance requirements match your search</Text>
+              </View>
+            )}
+          </View>
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }

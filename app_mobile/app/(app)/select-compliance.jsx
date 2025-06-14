@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import axios from 'axios';
 
 // Reuse the same primary green color for consistency
 const PRIMARY_GREEN = '#4CAF50';
@@ -37,44 +38,25 @@ export default function SelectComplianceScreen() {
   const [searchText, setSearchText] = useState('');
   
   // Mock data for compliance forms
-  const complianceForms = [
-    {
-      id: 1,
-      title: 'Monthly Hygiene Check',
-      description: 'Standard hygiene compliance check required monthly.',
-      icon: 'medical-outline',
-    },
-    {
-      id: 2,
-      title: 'Fire Safety Inspection',
-      description: 'Quarterly fire safety compliance audit.',
-      icon: 'flame-outline',
-    },
-    {
-      id: 3,
-      title: 'Staff Training Log',
-      description: 'Record of staff training completion and certification.',
-      icon: 'people-outline',
-    },
-    {
-      id: 4,
-      title: 'Equipment Maintenance',
-      description: 'Scheduled equipment inspections and maintenance record.',
-      icon: 'construct-outline',
-    },
-    {
-      id: 5,
-      title: 'Food Temperature Log',
-      description: 'Daily food storage temperature monitoring form.',
-      icon: 'thermometer-outline',
-    },
-    {
-      id: 6,
-      title: 'Incident Report',
-      description: 'Report for any safety incidents or near misses.',
-      icon: 'warning-outline',
-    },
-  ];
+  const [complianceForms, setComplianceForms] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch data from Laravel backend
+  useEffect(() => {
+    const fetchForms = async () => {
+      try {
+        const response = await axios.get('http://<your-laravel-ip>:8000/api/compliance-forms');
+        setComplianceForms(response.data);
+      } catch (error) {
+        Alert.alert('Error', 'Failed to load compliance forms.');
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchForms();
+  }, []);
 
   // Filter forms based on search text
   const filteredForms = searchText 
@@ -124,25 +106,31 @@ export default function SelectComplianceScreen() {
         ) : null}
       </View>
       
-      {/* Form List */}
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.formListContainer}>
-          {filteredForms.length > 0 ? (
-            filteredForms.map(form => (
-              <ComplianceFormItem 
-                key={form.id} 
-                item={form} 
-                onPress={handleFormSelection}
-              />
-            ))
-          ) : (
-            <View style={styles.noResultsContainer}>
-              <Ionicons name="search" size={48} color="#CCCCCC" />
-              <Text style={styles.noResultsText}>No forms match your search</Text>
-            </View>
-          )}
+      {/* Loading or List */}
+      {loading ? (
+        <View style={styles.noResultsContainer}>
+          <Text>Loading forms...</Text>
         </View>
-      </ScrollView>
+      ) : (
+        <ScrollView style={styles.scrollView}>
+          <View style={styles.formListContainer}>
+            {filteredForms.length > 0 ? (
+              filteredForms.map(form => (
+                <ComplianceFormItem 
+                  key={form.id} 
+                  item={form} 
+                  onPress={handleFormSelection}
+                />
+              ))
+            ) : (
+              <View style={styles.noResultsContainer}>
+                <Ionicons name="search" size={48} color="#CCCCCC" />
+                <Text style={styles.noResultsText}>No forms match your search</Text>
+              </View>
+            )}
+          </View>
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }

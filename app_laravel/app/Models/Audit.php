@@ -18,6 +18,8 @@ class Audit extends Model
         'start_time',
         'end_time',
         'notes',
+        'progress',
+        'compliance_id',
     ];
 
     protected $casts = [
@@ -38,5 +40,10 @@ class Audit extends Model
     public function status()
     {
         return $this->belongsTo(Status::class, 'status_id');
+    }
+
+    public function complianceRequirement()
+    {
+        return $this->belongsTo(ComplianceRequirement::class, 'compliance_id');
     }
 } 
