@@ -36,7 +36,7 @@ class ActivityLogController extends Controller
 
             Log::info('ActivityLogController: Query built', ['sql' => $query->toSql()]);
 
-            $activities = $query->paginate($request->input('per_page', 10))
+            $activities = $query->paginate($request->input('per_page', 5))
                 ->withQueryString()
                 ->through(function ($activity) {
                     return [
@@ -60,8 +60,6 @@ class ActivityLogController extends Controller
                 return $link;
             }, $activitiesArray['links']);
 
-            Log::info('ActivityLogController: Activities retrieved', ['count' => count($activitiesArray['data'])]);
-
             // Get unique action types and target types for filters
             $actionTypes = ActivityLog::distinct()->pluck('action_type')->toArray();
             $targetTypes = ActivityLog::distinct()->pluck('target_type')->toArray();
@@ -80,7 +78,6 @@ class ActivityLogController extends Controller
                 ]
             ];
 
-            Log::info('ActivityLogController: Rendering view with data', ['data_structure' => array_keys($data)]);
 
             return Inertia::render('Admin/ActivityLog/IndexPage', $data);
         } catch (\Exception $e) {
