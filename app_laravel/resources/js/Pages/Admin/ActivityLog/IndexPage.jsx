@@ -16,7 +16,7 @@ export default function ActivityLogPage({ activities = { data: [], links: [] }, 
     const [dateTo, setDateTo] = useState(safeFilters.current.date_to || '');
     const [exportFormat, setExportFormat] = useState('pdf');
     const [exporting, setExporting] = useState(false);
-    const [perPage, setPerPage] = useState(safeFilters.current.per_page || 10);
+    const [perPage, setPerPage] = useState(safeFilters.current.per_page || 5);
 
     const capitalizeFirstLetter = (str) => {
         if (!str) return '';
@@ -211,6 +211,39 @@ export default function ActivityLogPage({ activities = { data: [], links: [] }, 
                     {/* Activity Log Table */}
                     <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
                         <div className="px-6 py-6">
+                             <div className="mb-4 flex items-center justify-between">
+                                <div className="flex items-center space-x-2 text-sm text-gray-700">
+                                    <span>Show</span>
+                                    <select
+                                        value={perPage}
+                                        onChange={(e) => {
+                                            const newPerPageValue = e.target.value;
+                                            setPerPage(newPerPageValue);
+                                            router.get(
+                                                route('admin.activity-logs.index'),
+                                                {
+                                                    action_type: selectedActionType,
+                                                    target_type: selectedTargetType,
+                                                    date_from: dateFrom,
+                                                    date_to: dateTo,
+                                                    per_page: newPerPageValue
+                                                },
+                                                {
+                                                    preserveState: true,
+                                                    preserveScroll: true,
+                                                    replace: true,
+                                                }
+                                            );
+                                        }}
+                                        className="rounded-md border-gray-300 text-sm shadow-sm focus:border-green-500 focus:ring-green-500"
+                                    >
+                                        <option value="5">5</option>
+                                        <option value="10">10</option>
+                                        <option value="25">25</option>
+                                    </select>
+                                    <span>entries</span>
+                                </div>
+                            </div>
                             <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow">
                                 <table className="min-w-full divide-y divide-gray-200">
                                     <thead className="bg-green-50">
@@ -242,49 +275,47 @@ export default function ActivityLogPage({ activities = { data: [], links: [] }, 
 
                             {/* Pagination */}
                             {safeActivities?.links && (
-                                <div className="mt-6 flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
-                                    <div className="flex items-center space-x-2 text-sm text-gray-700">
-                                        <span>Show</span>
-                                        <select
-                                            value={perPage}
-                                            onChange={(e) => {
-                                                const newPerPageValue = e.target.value;
-                                                setPerPage(newPerPageValue);
-                                                router.get(
-                                                    route('admin.activity-logs.index'),
-                                                    {
-                                                        action_type: selectedActionType,
-                                                        target_type: selectedTargetType,
-                                                        date_from: dateFrom,
-                                                        date_to: dateTo,
-                                                        per_page: newPerPageValue
-                                                    },
-                                                    {
-                                                        preserveState: true,
-                                                        preserveScroll: true,
-                                                        replace: true,
-                                                    }
-                                                );
-                                            }}
-                                            className="rounded-md border-gray-300 text-sm shadow-sm focus:border-green-500 focus:ring-green-500"
-                                        >
-                                            <option value="10">10</option>
-                                            <option value="25">25</option>
-                                            <option value="50">50</option>
-                                        </select>
-                                        <span>entries</span>
-                                    </div>
+                                <div className="mt-4 flex items-center justify-between">
+                                    <p className="text-sm text-gray-700">
+                                        Showing <span className="font-medium">{safeActivities.from}</span> to{' '}
+                                        <span className="font-medium">{safeActivities.to}</span> of{' '}
+                                        <span className="font-medium">{safeActivities.total}</span> results
+                                    </p>
                                     <div className="flex flex-wrap justify-center space-x-1">
                                         {safeActivities.links
-                                            .filter(link => link !== null)
+                                            .filter(link => link.url !== null)
                                             .map((link, i) => (
-                                                <Link
+                                                <button
                                                     key={i}
-                                                    href={link.url || '#'}
-                                                    className={`rounded px-3 py-1 text-sm ${link.url ? (link.active ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200') : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+                                                    onClick={() => {
+                                                        if (link.url) {
+                                                            const url = new URL(link.url);
+                                                            console.log('Activity Log Link URL:', link.url);
+                                                            const page = url.searchParams.get('page');
+                                                            console.log('Activity Log Page from URL:', page);
+                                                            const currentUrl = new URL(window.location.href);
+
+                                                            router.get(
+                                                                route('admin.activity-logs.index'),
+                                                                {
+                                                                    page: page,
+                                                                    action_type: selectedActionType,
+                                                                    target_type: selectedTargetType,
+                                                                    date_from: dateFrom,
+                                                                    date_to: dateTo,
+                                                                    per_page: perPage
+                                                                },
+                                                                {
+                                                                    preserveState: true,
+                                                                    preserveScroll: true,
+                                                                    replace: true,
+                                                                }
+                                                            );
+                                                        }
+                                                    }}
+                                                    className={`rounded px-3 py-1 text-sm ${link.active ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'} ${!link.url ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                    disabled={!link.url}
                                                     dangerouslySetInnerHTML={{ __html: link.label }}
-                                                    aria-disabled={!link.url}
-                                                    onClick={(e) => !link.url && e.preventDefault()}
                                                 />
                                             ))}
                                     </div>
