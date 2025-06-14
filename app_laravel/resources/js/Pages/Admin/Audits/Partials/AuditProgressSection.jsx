@@ -1,8 +1,7 @@
 import React from 'react';
-import { Link } from '@inertiajs/react';
-import Pagination from '@/Components/Pagination';
+import { Link, router } from '@inertiajs/react';
 
-export default function AuditProgressSection({ audits: receivedAudits, onReviewForm, perPage, setPerPage, summaryData }) {
+export default function AuditProgressSection({ audits: receivedAudits, onReviewForm, perPage, setPerPage, summaryData, filters }) {
     const audits = receivedAudits || { data: [], links: [] };
 
     // Function to get the correct status badge styling
@@ -19,6 +18,24 @@ export default function AuditProgressSection({ audits: receivedAudits, onReviewF
             default:
                 return 'bg-gray-100 text-gray-800';
         }
+    };
+
+    const handlePerPageChange = (e) => {
+        const newPerPageValue = e.target.value;
+        setPerPage(newPerPageValue);
+        router.get(
+            route('admin.audits.index'),
+            {
+                dateFilter: filters.dateFilter,
+                statusFilter: filters.statusFilter,
+                perPage: newPerPageValue
+            },
+            {
+                preserveState: true,
+                preserveScroll: true,
+                replace: true,
+            }
+        );
     };
 
     return (
@@ -141,9 +158,7 @@ export default function AuditProgressSection({ audits: receivedAudits, onReviewF
                     <span>Show</span>
                     <select
                         value={perPage}
-                        onChange={(e) => {
-                            setPerPage(e.target.value);
-                        }}
+                        onChange={handlePerPageChange}
                         className="rounded-md border-gray-300 text-sm shadow-sm focus:border-green-500 focus:ring-green-500"
                     >
                         <option value="5">5</option>
@@ -153,7 +168,20 @@ export default function AuditProgressSection({ audits: receivedAudits, onReviewF
                     </select>
                     <span>entries</span>
                 </div>
-                <Pagination links={audits.links} />
+                <div className="flex space-x-1">
+                    {audits.links
+                        .filter(link => link !== null)
+                        .map((link, i) => (
+                            <Link
+                                key={i}
+                                href={link.url || '#'}
+                                className={`rounded px-3 py-1 text-sm ${link.url ? (link.active ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200') : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+                                dangerouslySetInnerHTML={{ __html: link.label }}
+                                aria-disabled={!link.url}
+                                onClick={(e) => !link.url && e.preventDefault()}
+                            />
+                        ))}
+                </div>
             </div>
         </div>
     );
