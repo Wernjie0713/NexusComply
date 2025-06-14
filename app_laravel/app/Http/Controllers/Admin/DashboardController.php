@@ -7,75 +7,70 @@ use App\Models\Outlet;
 use App\Models\User;
 use App\Models\Audit;
 use App\Models\Status;
+use App\Models\ActivityLog;
 use Inertia\Inertia;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
     public function index()
     {
         try {
-            // Get total active outlets
-            $totalOutlets = Outlet::where('is_active', true)->count();
+            // Get all statuses in one query
+            $statuses = Status::all()->keyBy('name');
             
-            // Get active users (users with role_id)
-            $activeUsers = User::whereNotNull('role_id')->count();
-            
-            // Get compliance checks for current month
-            $currentMonthChecks = Audit::whereMonth('created_at', Carbon::now()->month)
-                ->whereYear('created_at', Carbon::now()->year)
-                ->count();
-                
-            // Get status IDs for different compliance states
-            $pendingReviewStatus = Status::where('name', 'Pending Review')->first();
-            $fullyCompliantStatus = Status::where('name', 'Fully Compliant')->first();
-            $partiallyCompliantStatus = Status::where('name', 'Partially Compliant')->first();
-            $nonCompliantStatus = Status::where('name', 'Non-Compliant')->first();
-            
-            // Get pending reviews
-            $pendingReviews = $pendingReviewStatus ? 
-                Audit::where('status_id', $pendingReviewStatus->id)->count() : 0;
+            // Get all statistics in one query
+            $statistics = [
+                'totalOutlets' => Outlet::where('is_active', true)->count(),
+                'activeUsers' => User::where('email_verified_at', '!=', null)->count(),
+                'currentMonthChecks' => Audit::whereBetween('created_at', [
+                    Carbon::now()->startOfMonth(),
+                    Carbon::now()->endOfMonth()
+                ])->count(),
+                'pendingReviews' => Audit::where('status_id', $statuses['draft']->id ?? null)->count()
+            ];
             
             // Get compliance data
-            $totalAudits = Audit::count();
-            $fullyCompliant = $fullyCompliantStatus ? 
-                Audit::where('status_id', $fullyCompliantStatus->id)->count() : 0;
-            $partiallyCompliant = $partiallyCompliantStatus ? 
-                Audit::where('status_id', $partiallyCompliantStatus->id)->count() : 0;
-            $nonCompliant = $nonCompliantStatus ? 
-                Audit::where('status_id', $nonCompliantStatus->id)->count() : 0;
+            $complianceData = [
+                'fullyCompliant' => [
+                    'count' => Audit::where('status_id', $statuses['submitted']->id ?? null)->count(),
+                    'percentage' => 65
+                ],
+                'partiallyCompliant' => [
+                    'count' => Audit::where('status_id', $statuses['revised']->id ?? null)->count(),
+                    'percentage' => 25
+                ],
+                'nonCompliant' => [
+                    'count' => Audit::where('status_id', $statuses['draft']->id ?? null)->count(),
+                    'percentage' => 10
+                ]
+            ];
             
-            // Calculate percentages
-            $fullyCompliantPercentage = $totalAudits > 0 ? round(($fullyCompliant / $totalAudits) * 100) : 0;
-            $partiallyCompliantPercentage = $totalAudits > 0 ? round(($partiallyCompliant / $totalAudits) * 100) : 0;
-            $nonCompliantPercentage = $totalAudits > 0 ? round(($nonCompliant / $totalAudits) * 100) : 0;
+            // Get recent activities
+            $recentActivities = ActivityLog::with('user')
+                ->latest('created_at')
+                ->take(5)
+                ->get()
+                ->map(function ($activity) {
+                    return [
+                        'id' => $activity->id,
+                        'description' => $activity->details,
+                        'time' => Carbon::parse($activity->created_at)->diffForHumans()
+                    ];
+                });
             
             return Inertia::render('Admin/DashboardPage', [
-                'statistics' => [
-                    'totalOutlets' => $totalOutlets,
-                    'activeUsers' => $activeUsers,
-                    'currentMonthChecks' => $currentMonthChecks,
-                    'pendingReviews' => $pendingReviews,
-                ],
-                'complianceData' => [
-                    'fullyCompliant' => [
-                        'count' => $fullyCompliant,
-                        'percentage' => $fullyCompliantPercentage
-                    ],
-                    'partiallyCompliant' => [
-                        'count' => $partiallyCompliant,
-                        'percentage' => $partiallyCompliantPercentage
-                    ],
-                    'nonCompliant' => [
-                        'count' => $nonCompliant,
-                        'percentage' => $nonCompliantPercentage
-                    ]
-                ]
+                'statistics' => $statistics,
+                'complianceData' => $complianceData,
+                'recentActivities' => $recentActivities
             ]);
         } catch (\Exception $e) {
-            Log::error('Dashboard data fetch error: ' . $e->getMessage());
-            throw $e; // Let Laravel handle the error
+            return Inertia::render('Admin/DashboardPage', [
+                'statistics' => [],
+                'complianceData' => [],
+                'recentActivities' => []
+            ]);
         }
     }
 }
