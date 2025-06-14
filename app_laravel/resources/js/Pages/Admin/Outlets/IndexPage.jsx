@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
 import Modal from '@/Components/Modal';
@@ -80,6 +80,7 @@ export default function IndexPage({ outlets }) {
     const [showEditModal, setShowEditModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [currentOutlet, setCurrentOutlet] = useState(null);
+    const [perPage, setPerPage] = useState(outlets?.per_page || 5);
     
     const { data, setData, post, processing, errors, reset } = useForm({
         id: '',
@@ -154,6 +155,16 @@ export default function IndexPage({ outlets }) {
         });
     };
 
+    const handlePerPageChange = (e) => {
+        const newPerPage = e.target.value;
+        setPerPage(newPerPage);
+        router.get(
+            route('admin.outlets.index'),
+            { per_page: newPerPage },
+            { preserveState: true, preserveScroll: true, replace: true }
+        );
+    };
+
     return (
         <AuthenticatedLayout
             header={
@@ -161,8 +172,8 @@ export default function IndexPage({ outlets }) {
                     <h2 className="text-xl font-semibold text-gray-800">Outlet Management</h2>
                     <Link href={route('admin.outlets.create')}>
                         <AdminPrimaryButton>
-                        Create New Outlet
-                    </AdminPrimaryButton>
+                            Create New Outlet
+                        </AdminPrimaryButton>
                     </Link>
                 </div>
             }
@@ -172,6 +183,21 @@ export default function IndexPage({ outlets }) {
             <div className="py-0">
                 <div className="mx-auto max-w-7xl sm:px-6 lg:px-0">
                     <div className="mb-8 overflow-hidden bg-white px-6 py-6 shadow-sm sm:rounded-lg">
+                        <div className="mb-4 flex items-center justify-between">
+                            <div className="flex items-center space-x-2 text-sm text-gray-700">
+                                <span>Show</span>
+                                <select
+                                    value={perPage}
+                                    onChange={handlePerPageChange}
+                                    className="rounded-md border-gray-300 text-sm shadow-sm focus:border-green-500 focus:ring-green-500"
+                                >
+                                    <option value="5">5</option>
+                                    <option value="10">10</option>
+                                    <option value="25">25</option>
+                                </select>
+                                <span>entries</span>
+                            </div>
+                        </div>
                         <div className="overflow-x-auto">
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-green-50">
@@ -200,8 +226,8 @@ export default function IndexPage({ outlets }) {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200 bg-white">
-                                    {outlets && outlets.length > 0 ? (
-                                        outlets.map((outlet) => (
+                                    {outlets?.data && outlets.data.length > 0 ? (
+                                        outlets.data.map((outlet) => (
                                             <tr key={outlet.id}>
                                                 <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
                                                     {outlet.name}
@@ -261,13 +287,60 @@ export default function IndexPage({ outlets }) {
                                     ) : (
                                         <tr>
                                             <td colSpan="7" className="px-6 py-4 text-center text-sm text-gray-500">
-                                                No outlets found. Click "Create New Outlet" to add one.
+                                                No outlets found
                                             </td>
                                         </tr>
                                     )}
                                 </tbody>
                             </table>
                         </div>
+
+                        {/* Pagination */}
+                        {outlets?.links && outlets.data.length > 0 && (
+                            <div className="mt-4 flex items-center justify-between">
+                                <p className="text-sm text-gray-700">
+                                    Showing <span className="font-medium">{outlets.from}</span> to{' '}
+                                    <span className="font-medium">{outlets.to}</span> of{' '}
+                                    <span className="font-medium">{outlets.total}</span> results
+                                </p>
+                                <div className="flex flex-wrap justify-center space-x-1">
+                                    {outlets.links
+                                        .filter(link => link.url !== null || (link.label.includes('Previous') || link.label.includes('Next')))
+                                        .map((link, i) => (
+                                            <button
+                                                key={i}
+                                                onClick={() => {
+                                                    if (link.url) {
+                                                        const url = new URL(link.url);
+                                                        console.log('Outlet Link URL:', link.url);
+                                                        const page = url.searchParams.get('page');
+                                                        console.log('Outlet Page from URL:', page);
+                                                        const currentUrl = new URL(window.location.href);
+
+                                                        router.get(
+                                                            route('admin.outlets.index'),
+                                                            {
+                                                                page: page,
+                                                                per_page: perPage,
+                                                            },
+                                                            {
+                                                                preserveState: true,
+                                                                preserveScroll: true,
+                                                                replace: true,
+                                                            }
+                                                        );
+                                                    }
+                                                }}
+                                                className={`rounded px-3 py-1 text-sm ${
+                                                    link.active ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                                } ${!link.url ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                disabled={!link.url}
+                                                dangerouslySetInnerHTML={{ __html: link.label }}
+                                            />
+                                        ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
