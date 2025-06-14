@@ -125,7 +125,7 @@ export default function IndexPage({ audits, filters, summaryData }) {
 
                     {/* Tab Content */}
                     <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
-                        {activeTab === 'progress' && <AuditProgressSection audits={audits} onReviewForm={handleFormReview} perPage={perPage} setPerPage={setPerPage} summaryData={summaryData} />}
+                        {activeTab === 'progress' && <AuditProgressSection audits={audits} onReviewForm={handleFormReview} perPage={perPage} setPerPage={setPerPage} summaryData={summaryData} filters={{ dateFilter, statusFilter, perPage }} />}
                         {activeTab === 'forms' && <SubmittedFormsSection onReviewForm={handleFormReview} />}
                         {activeTab === 'reports' && <AuditReportingSection />}
                     </div>
