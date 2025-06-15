@@ -48,6 +48,7 @@ Route::middleware('auth:sanctum')->group(function () {
         // Audit routes
         Route::post('/audits', [MobileAuditController::class, 'store']);
         Route::get('/audits', [MobileAuditController::class, 'getUserAudits']);
+        Route::get('/outlets/{id}', [MobileAuditController::class, 'getOutlet']);
     });
 
     // Admin routes for authenticated users
@@ -65,3 +66,7 @@ Route::prefix('mobile')->group(function () {
     Route::post('/forgot-password', [MobileAuthController::class, 'sendResetLink']);
     Route::post('/reset-password', [MobileAuthController::class, 'resetPassword']);
 });
+
+// Mobile Compliance Form routes
+Route::get('/mobile/compliance-forms', [MobileComplianceFormController::class, 'index']);
+Route::get('/mobile/audits/{auditId}/forms', [MobileComplianceFormController::class, 'getAuditForms']); 

@@ -69,7 +69,7 @@ export default function SelectComplianceScreen() {
   const handleComplianceSelection = (requirement) => {
     // Navigate to perform audit screen with the selected compliance requirement
     router.push({
-      pathname: '/(app)/audits/perform-audit',
+      pathname: '/(app)/audits/compliance-details',
       params: { 
         complianceId: requirement.id,
         auditTitle: requirement.title,

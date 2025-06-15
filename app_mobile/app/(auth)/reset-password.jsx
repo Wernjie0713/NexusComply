@@ -46,7 +46,7 @@ export default function ResetPasswordScreen() {
     
     try {
       // For demo, simulate successful reset
-      const response = await fetch('http://192.168.94.143:8000/api/mobile/reset-password', {
+      const response = await fetch('http://192.168.131.143:8080/api/mobile/reset-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

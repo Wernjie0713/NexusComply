@@ -149,7 +149,7 @@ export default function AuditsScreen() {
     if (item.status === 'In Progress' || item.status === 'Overdue') {
       // If it's a draft or overdue, navigate to the perform audit screen
       router.push({
-        pathname: '/(app)/audits/perform-audit',
+        pathname: '/(app)/audits/compliance-details',
         params: { 
           formName: item.title,
           formId: item.id,
@@ -159,7 +159,7 @@ export default function AuditsScreen() {
     } else if (item.status === 'Rejected' || item.status === 'Follow-up Required') {
       // If it's rejected or needs follow-up, navigate to follow-up audit
       router.push({
-        pathname: '/(app)/audits/perform-audit',
+        pathname: '/(app)/audits/compliance-details',
         params: { 
           formName: item.title,
           formId: item.id,
@@ -169,10 +169,13 @@ export default function AuditsScreen() {
     } else {
       // Otherwise view the submission details
       router.push({
-        pathname: '/(app)/audits/view-submission',
+        pathname: '/(app)/audits/audit-details',
         params: { 
           formName: item.title,
-          formId: item.id
+          formId: item.id,
+          headerTitle: item.title,
+          outletId: item.outlet_id,
+          dueDate: item.dueDate
         }
       });
     }

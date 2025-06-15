@@ -46,4 +46,9 @@ class Audit extends Model
     {
         return $this->belongsTo(ComplianceRequirement::class, 'compliance_id');
     }
+
+    public function auditForms()
+    {
+        return $this->hasMany(AuditForm::class, 'audit_id');
+    }
 } 

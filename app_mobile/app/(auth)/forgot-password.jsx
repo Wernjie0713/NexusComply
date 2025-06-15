@@ -31,7 +31,7 @@ export default function ForgotPasswordScreen() {
     setIsSubmitting(true);
     
     try {
-      const response = await fetch('http://192.168.94.143:8000/api/mobile/forgot-password', {
+      const response = await fetch('http://192.168.131.143:8080/api/mobile/forgot-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

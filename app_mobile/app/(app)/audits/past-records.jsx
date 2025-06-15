@@ -147,7 +147,7 @@ export default function PastRecordsScreen() {
   // Handle record item press
   const handleRecordPress = (item) => {
     router.push({
-      pathname: '/(app)/audits/view-submission',
+      pathname: '/(app)/audits/audit-details',
       params: { 
         formName: item.title,
         formId: item.id

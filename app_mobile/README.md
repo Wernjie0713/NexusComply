@@ -70,9 +70,9 @@ app/
 │       ├── _layout.jsx   # Audit stack navigator
 │       ├── index.jsx     # Audit home screen
 │       ├── select-compliance.jsx  # Form type selector
-│       ├── perform-audit.jsx      # Dynamic form filling
+│       ├── compliance-details.jsx      # Dynamic form filling
 │       ├── past-records.jsx       # Audit history
-│       ├── view-submission.jsx    # View submitted audit
+│       ├── audit-details.jsx    # View submitted audit
 │       ├── my-reports.jsx         # Reports list
 │       ├── view-report-detail.jsx # Detailed report view
 │       └── print-preview.jsx      # Print/export view

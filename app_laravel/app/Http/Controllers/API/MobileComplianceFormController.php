@@ -3,6 +3,8 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\ComplianceRequirement;
+use App\Models\Audit;
+use App\Models\AuditForm;
 use Illuminate\Http\Request;
 
 class MobileComplianceFormController extends Controller
@@ -28,13 +30,66 @@ class MobileComplianceFormController extends Controller
                         return [
                             'id' => $template->id,
                             'name' => $template->name,
-                            'description' => $template->description
+                            'description' => $template->description,
+                            'structure' => $template->structure
                         ];
                     })
                 ];
             });
 
         return response()->json($requirements);
+    }
+
+    /**
+     * Get forms for a specific audit, including both created and not-yet-created forms
+     * 
+     * @param Request $request
+     * @param int $auditId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getAuditForms(Request $request, $auditId)
+    {
+        try {
+            // Get the audit with its compliance requirement and existing forms
+            $audit = Audit::with(['complianceRequirement.formTemplates', 'auditForms'])
+                ->findOrFail($auditId);
+
+            // Get all form templates from the compliance requirement
+            $allFormTemplates = $audit->complianceRequirement->formTemplates;
+            
+            // Transform into response format
+            $forms = $allFormTemplates->map(function ($template) use ($audit) {
+                // Check if this form has already been created in audit_form
+                $auditForm = $audit->auditForms->firstWhere('form_id', $template->id);
+                
+                return [
+                    'id' => $template->id,
+                    'name' => $template->name,
+                    'description' => $template->description,
+                    'structure' => $template->structure,
+                    'is_created' => !is_null($auditForm),
+                    'audit_form_id' => $auditForm?->id,
+                    'value' => $auditForm?->value,
+                    'created_at' => $auditForm?->created_at,
+                    'updated_at' => $auditForm?->updated_at
+                ];
+            });
+
+            return response()->json([
+                'forms' => $forms,
+                'audit' => [
+                    'id' => $audit->id,
+                    'compliance_id' => $audit->compliance_id,
+                    'status' => $audit->status->name
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to fetch audit forms',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     private function getIconForSubmissionType($type)

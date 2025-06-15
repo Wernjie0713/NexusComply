@@ -26,7 +26,7 @@ export default function AuditsLayout() {
         }} 
       />
       <Stack.Screen 
-        name="perform-audit" 
+        name="compliance-details" 
         options={{ 
           headerTitle: 'Perform Audit',
           // Dynamic title will be set in the component
@@ -46,7 +46,7 @@ export default function AuditsLayout() {
         }} 
       />
       <Stack.Screen 
-        name="view-submission" 
+        name="audit-details" 
         options={{ 
           headerTitle: 'Audit Details',
           // Dynamic title will be set in the component
