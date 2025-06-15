@@ -21,6 +21,8 @@ class DatabaseSeeder extends Seeder
             ComplianceStaticDataSeeder::class,
             RoleDescriptionSeeder::class,
             SectionSeeder::class,
+            AbilitySeeder::class,
+            DefaultRolePermissionsSeeder::class,
         ]);
     }
 }

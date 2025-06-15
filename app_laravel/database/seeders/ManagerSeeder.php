@@ -28,8 +28,6 @@ class ManagerSeeder extends Seeder
         // For now, we can skip specific abilities if you're not ready,
         // or assign a placeholder ability if needed.
         // Let's create a placeholder ability for now.
-        Bouncer::ability()->firstOrCreate(['name' => 'manage-regional-tasks', 'title' => 'Manage Regional Tasks']);
-        Bouncer::allow($managerRole)->to('manage-regional-tasks');
 
 
         // 3. Create a sample Manager user if they don't exist
@@ -51,7 +49,7 @@ class ManagerSeeder extends Seeder
             // 5. Refresh Bouncer's cache to apply changes
             Bouncer::refreshFor($managerUser);
         });
-        
+
         // Or globally: Bouncer::refresh();
     }
 }

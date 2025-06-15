@@ -17,10 +17,10 @@ class DemoDataSeeder extends Seeder
     {
         // Create outlets first
         $this->createOutlets();
-        
+
         // Create managers
         $this->createManagers();
-        
+
         // Create outlet users
         $this->createOutletUsers();
     }
@@ -69,7 +69,7 @@ class DemoDataSeeder extends Seeder
         User::withoutEvents(function () use ($managers) {
             foreach ($managers as $managerData) {
                 $roleId = $this->generateUniqueRoleId('M');
-                
+
                 $manager = User::create([
                     'name' => $managerData['name'],
                     'email' => $managerData['email'],
@@ -91,7 +91,7 @@ class DemoDataSeeder extends Seeder
             for ($i = 1; $i <= 20; $i++) {
                 $roleId = $this->generateUniqueRoleId('O');
                 $isFemale = (bool)rand(0, 1);
-                
+
                 $user = User::create([
                     'name' => MalaysianDataProvider::generateMalaysianName($isFemale),
                     'email' => sprintf('outletuser%02d@nexuscomply.app', $i),
@@ -119,7 +119,7 @@ class DemoDataSeeder extends Seeder
 
         $lastNumber = (int)substr($lastId, 2);
         $newNumber = $lastNumber + 1;
-        
+
         return sprintf('%s-%03d', $prefix, $newNumber);
     }
-} 
+}

@@ -24,14 +24,14 @@ class OutletUserSeeder extends Seeder
         // These abilities would allow them to perform tasks on the mobile app.
         // You will define these more specifically as you build out features.
         // For now, let's create a few placeholder abilities.
-        Bouncer::ability()->firstOrCreate(['name' => 'submit-compliance-forms', 'title' => 'Submit Compliance Forms']);
-        Bouncer::ability()->firstOrCreate(['name' => 'upload-audit-documents', 'title' => 'Upload Audit Documents']);
-        Bouncer::ability()->firstOrCreate(['name' => 'view-assigned-audits', 'title' => 'View Assigned Audits']);
+        // Removed: Bouncer::ability()->firstOrCreate(['name' => 'submit-compliance-forms', 'title' => 'Submit Compliance Forms']);
+        // Removed: Bouncer::ability()->firstOrCreate(['name' => 'upload-audit-documents', 'title' => 'Upload Audit Documents']);
+        // Removed: Bouncer::ability()->firstOrCreate(['name' => 'view-assigned-audits', 'title' => 'View Assigned Audits']);
 
         // Assign these placeholder abilities to the 'outlet-user' role
-        Bouncer::allow($outletUserRole)->to('submit-compliance-forms');
-        Bouncer::allow($outletUserRole)->to('upload-audit-documents');
-        Bouncer::allow($outletUserRole)->to('view-assigned-audits');
+        // Removed: Bouncer::allow($outletUserRole)->to('submit-compliance-forms');
+        // Removed: Bouncer::allow($outletUserRole)->to('upload-audit-documents');
+        // Removed: Bouncer::allow($outletUserRole)->to('view-assigned-audits');
 
         // 3. Create a sample Outlet User if they don't exist
         // Wrap user creation in withoutEvents to prevent activity logging
@@ -55,7 +55,7 @@ class OutletUserSeeder extends Seeder
             // 5. Refresh Bouncer's cache to apply changes
             Bouncer::refreshFor($outletUserOne);
         });
-        
+
         // Or globally: Bouncer::refresh();
     }
 }
