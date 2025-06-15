@@ -148,6 +148,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/roles', [RolePermissionController::class, 'roles']);
         Route::post('/roles', [RolePermissionController::class, 'storeRole']);
         Route::post('/roles/{role}/details', [RolePermissionController::class, 'updateRoleDetails']);
+        Route::delete('/roles/{role}', [RolePermissionController::class, 'destroyRole']);
         // Add other endpoints as needed
     });
 });

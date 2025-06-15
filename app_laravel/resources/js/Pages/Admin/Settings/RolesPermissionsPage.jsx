@@ -171,11 +171,36 @@ export default function RolesPermissionsPage() {
         }
     };
 
-    const handleDeleteRole = (roleId) => {
-        // For demo purposes, just filter out the role
-        setRoles(roles.filter(role => role.id !== roleId));
-        if (selectedRoleId === roleId) {
-            setSelectedRoleId(null);
+    const handleDeleteRole = async (roleId) => {
+        if (!confirm('Are you sure you want to delete this role? This action cannot be undone.')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/admin/ajax/roles/${roleId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                },
+            });
+
+            if (response.ok) {
+                const responseData = await response.json();
+                setRoles(prevRoles => prevRoles.filter(role => role.id !== roleId));
+                if (selectedRoleId === roleId) {
+                    setSelectedRoleId(null);
+                }
+                console.log('Role deleted successfully!', responseData.message);
+                // Optionally, show a success message to the user
+            } else {
+                const errorData = await response.json();
+                console.error('Failed to delete role:', errorData);
+                alert(errorData.message || 'Failed to delete role. Please check the console for details.');
+            }
+        } catch (error) {
+            console.error('Network or other error:', error);
+            alert('An error occurred during deletion. Please try again.');
         }
     };
 
