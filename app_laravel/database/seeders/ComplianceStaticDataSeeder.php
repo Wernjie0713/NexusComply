@@ -28,16 +28,16 @@ class ComplianceStaticDataSeeder extends Seeder
 
         // Seed compliance categories
         $categories = [
-            'Data Protection & Privacy',
-            'Information Security',
-            'Financial Compliance',
-            'Healthcare Compliance',
-            'Workplace & Labor Laws',
-            'Environmental Compliance',
-            'Trade Compliance',
-            'Anti-Corruption & Ethics',
-            'Industry-Specific Regulations',
-            'Regulatory Reporting'
+            'Food Safety & Hygiene',
+            'Halal Compliance',
+            'Occupational Safety & Health (OSH)',
+            'Workplace & Employment Compliance',
+            'Business Licensing & Permits',
+            'Financial & Tax Compliance',
+            'Environmental Management',
+            'Data Protection & Security',
+            'Maintenance & Asset Management',
+            'Supply Chain & Vendor Management'
         ];
 
         foreach ($categories as $category) {
