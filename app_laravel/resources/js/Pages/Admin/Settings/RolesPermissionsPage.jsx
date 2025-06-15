@@ -111,9 +111,64 @@ export default function RolesPermissionsPage() {
         setShowRoleModal(true);
     };
 
-    const handleSaveRole = () => {
-        // For demo purposes, just close the modal
-        setShowRoleModal(false);
+    const handleSaveRole = async () => {
+        if (!editingRole) return;
+
+        try {
+            let response;
+            let url;
+            let method;
+
+            if (modalMode === 'add') {
+                url = '/admin/ajax/roles';
+                method = 'POST';
+            } else {
+                url = `/admin/ajax/roles/${editingRole.id}/details`;
+                method = 'POST'; // Laravel uses POST for updates when not using PUT/PATCH directly
+            }
+
+            response = await fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                },
+                body: JSON.stringify({
+                    name: editingRole.name,
+                    title: editingRole.title,
+                    description: editingRole.description,
+                }),
+            });
+
+            if (response.ok) {
+                const responseData = await response.json();
+                if (modalMode === 'add') {
+                    setRoles(prevRoles => [...prevRoles, responseData.role].sort(
+                        (a, b) => {
+                            const order = {'admin': 1, 'manager': 2, 'outlet-user': 3};
+                            return (order[a.name] || 999) - (order[b.name] || 999);
+                        }
+                    ));
+                } else {
+                    setRoles(prevRoles =>
+                        prevRoles.map(role =>
+                            role.id === responseData.role.id ? responseData.role : role
+                        )
+                    );
+                }
+                setShowRoleModal(false);
+                setEditingRole(null);
+                console.log('Role operation successful!', responseData.role);
+            } else {
+                const errorData = await response.json();
+                console.error('Failed to save role:', errorData);
+                alert('Failed to save role. Please check the console for details.');
+            }
+        } catch (error) {
+            console.error('Network or other error:', error);
+            alert('An error occurred. Please try again.');
+        }
     };
 
     const handleDeleteRole = (roleId) => {

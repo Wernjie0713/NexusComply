@@ -4,16 +4,20 @@ namespace App\Http\Controllers\Admin;
 
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Silber\Bouncer\Database\Role;
 use Silber\Bouncer\Database\Ability;
 use Silber\Bouncer\Database\Permission;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use App\Models\Role;
 
 class RolePermissionController extends Controller
 {
     // List all roles
     public function roles()
     {
+        // Temporarily log the role model being used
+        Log::info('Role model being used: ' . get_class(new Role()));
+
         $roles = Role::query()
             ->select('roles.*')
             ->selectRaw('COALESCE((SELECT COUNT(*) FROM assigned_roles WHERE assigned_roles.role_id = roles.id), 0) as user_count')
@@ -26,6 +30,27 @@ class RolePermissionController extends Controller
     public function abilities()
     {
         return response()->json(Ability::all());
+    }
+
+    // Store a new role
+    public function storeRole(Request $request)
+    {
+        $validatedData = $request->validate([
+            'name' => 'required|string|max:255|unique:roles,name',
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+        ]);
+
+        $role = Role::create($validatedData);
+
+        // Re-fetch the newly created role with user_count for consistency
+        $newRole = Role::query()
+            ->where('id', $role->id)
+            ->select('roles.*')
+            ->selectRaw('COALESCE((SELECT COUNT(*) FROM assigned_roles WHERE assigned_roles.role_id = roles.id), 0) as user_count')
+            ->first();
+
+        return response()->json(['success' => true, 'role' => $newRole], 201); // 201 Created
     }
 
     // Get all ability IDs assigned to a role
@@ -44,5 +69,45 @@ class RolePermissionController extends Controller
         // Sync abilities
         $role->abilities()->sync($abilityIds);
         return response()->json(['success' => true]);
+    }
+
+    // Update role details (name, title, description)
+    public function updateRoleDetails(Request $request, $roleId)
+    {
+        $role = Role::findOrFail($roleId);
+        $role->update($request->validate([
+            'name' => 'required|string|max:255|unique:roles,name,' . $role->id, // Ensure unique name
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+        ]));
+
+        // Re-fetch the role with the user_count and correct order for consistency
+        $updatedRole = Role::query()
+            ->where('id', $role->id)
+            ->select('roles.*')
+            ->selectRaw('COALESCE((SELECT COUNT(*) FROM assigned_roles WHERE assigned_roles.role_id = roles.id), 0) as user_count')
+            ->first();
+
+        return response()->json(['success' => true, 'role' => $updatedRole]);
+    }
+
+    // Delete a role
+    public function destroyRole($roleId)
+    {
+        $role = Role::findOrFail($roleId);
+
+        // Prevent deletion of system roles (e.g., 'admin')
+        if (in_array($role->name, ['admin', 'manager', 'outlet_user', 'external_auditor'])) {
+            return response()->json(['success' => false, 'message' => 'System roles cannot be deleted.'], 403);
+        }
+
+        // Check if role is assigned to any users
+        if ($role->users()->count() > 0) {
+            return response()->json(['success' => false, 'message' => 'Role cannot be deleted while assigned to users.'], 409);
+        }
+
+        $role->delete();
+
+        return response()->json(['success' => true, 'message' => 'Role deleted successfully.']);
     }
 }

@@ -146,6 +146,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // New AJAX routes
     Route::middleware(['auth', 'verified'])->prefix('admin/ajax')->group(function () {
         Route::get('/roles', [RolePermissionController::class, 'roles']);
+        Route::post('/roles', [RolePermissionController::class, 'storeRole']);
+        Route::post('/roles/{role}/details', [RolePermissionController::class, 'updateRoleDetails']);
         // Add other endpoints as needed
     });
 });
