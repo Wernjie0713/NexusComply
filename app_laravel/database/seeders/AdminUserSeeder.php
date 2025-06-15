@@ -24,32 +24,35 @@ class AdminUserSeeder extends Seeder
         // Grant all permissions to the admin role
         Bouncer::allow('admin')->everything();
 
-        // Create the default admin user if it doesn't exist
-        $admin = User::firstOrCreate(
-            ['email' => 'admin@example.com'],
-            [
-                'name' => 'Admin User',
-                'password' => Hash::make('password'),
-                'email_verified_at' => now(),
-                'role_id' => 'Admin',
-            ]
-        );
+        // Use withoutEvents to prevent activity logging for this specific action
+        User::withoutEvents(function () {
+            // Create the default admin user if it doesn't exist
+            $admin = User::firstOrCreate(
+                ['email' => 'admin@example.com'],
+                [
+                    'name' => 'Admin User',
+                    'password' => Hash::make('password'),
+                    'email_verified_at' => now(),
+                    'role_id' => 'Admin',
+                ]
+            );
 
-        // Assign the admin role to the user
-        Bouncer::assign('admin')->to($admin);
+            // Assign the admin role to the user
+            Bouncer::assign('admin')->to($admin);
 
-        $admin2 = User::firstOrCreate(
-            ['email' => 'admin2@example.com'],
-            [
-                'name' => 'Admin User2',
-                'password' => Hash::make('password'),
-                'email_verified_at' => now(),
-                'role_id' => 'Admin-002',
-            ]
-        );
+            // $admin2 = User::firstOrCreate(
+            //     ['email' => 'admin2@example.com'],
+            //     [
+            //         'name' => 'Admin User2',
+            //         'password' => Hash::make('password'),
+            //         'email_verified_at' => now(),
+            //         'role_id' => 'Admin-002',
+            //     ]
+            // );
 
-        // Assign the admin role to the user
-        Bouncer::assign('admin')->to($admin2);
+            // // Assign the admin role to the user
+            // Bouncer::assign('admin')->to($admin2);
+        });
 
         // Ensure the cache is cleared
         Bouncer::refresh();

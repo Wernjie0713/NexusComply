@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\FormTemplate;
 use App\Models\ComplianceRequirement;
+use App\Models\Section;
 use App\Models\Status;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,12 +17,27 @@ class FormTemplateController extends Controller
     /**
      * Display a listing of the form templates.
      */
+    public function index()
+    {
+        $formTemplates = FormTemplate::with(['status', 'section'])
+            ->orderBy('name')
+            ->get();
+            
+        $sections = Section::orderBy('name')->get();
+
+        return Inertia::render('Admin/Forms/IndexPage', [
+            'formTemplates' => $formTemplates,
+            'sections' => $sections,
+        ]);
+    }
+
     /**
      * Show the form for creating a new form template.
      */
     public function create()
     {
         $statuses = Status::all();
+        $sections = Section::orderBy('name')->get();
         $draftStatusId = Status::where('name', 'draft')->first()->id;
 
         return Inertia::render('Admin/Forms/BuilderPage', [
@@ -29,6 +45,7 @@ class FormTemplateController extends Controller
             'formTemplate' => null,
             'fromCompliance' => request()->has('from_compliance'),
             'statuses' => $statuses,
+            'sections' => $sections,
             'defaultStatusId' => $draftStatusId,
         ]);
     }
@@ -46,6 +63,7 @@ class FormTemplateController extends Controller
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'structure' => 'required|array',
+            'section_id' => 'nullable|exists:sections,id',
             'action' => 'nullable|string|in:save_draft,submit_for_revision',
         ]);
 
@@ -68,6 +86,7 @@ class FormTemplateController extends Controller
             'name' => $validated['name'],
             'description' => $validated['description'],
             'structure' => $validated['structure'],
+            'section_id' => $validated['section_id'] ?? null,
             'status_id' => $newStatusId,
             'created_by_user_id' => Auth::id(),
         ]);
@@ -95,12 +114,14 @@ class FormTemplateController extends Controller
     public function edit(FormTemplate $formTemplate)
     {
         $statuses = Status::all();
+        $sections = Section::orderBy('name')->get();
 
         return Inertia::render('Admin/Forms/BuilderPage', [
             'mode' => 'edit',
-            'formTemplate' => $formTemplate->load('status'),
+            'formTemplate' => $formTemplate->load(['status', 'section']),
             'fromCompliance' => request()->has('from_compliance'),
             'statuses' => $statuses,
+            'sections' => $sections,
         ]);
     }
 
@@ -119,6 +140,7 @@ class FormTemplateController extends Controller
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'structure' => 'required|array',
+            'section_id' => 'nullable|exists:sections,id',
             'action' => 'nullable|string|in:save_draft,submit_for_revision,approve_revision',
         ]);
 
@@ -145,6 +167,7 @@ class FormTemplateController extends Controller
             'name' => $validated['name'],
             'description' => $validated['description'],
             'structure' => $validated['structure'],
+            'section_id' => $validated['section_id'] ?? null,
             'status_id' => $newStatusId, // Use the determined status ID
         ];
         

@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             DemoDataSeeder::class,
             ComplianceStaticDataSeeder::class,
             RoleDescriptionSeeder::class,
+            SectionSeeder::class,
         ]);
     }
 }

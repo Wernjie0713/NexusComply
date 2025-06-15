@@ -34,24 +34,28 @@ class OutletUserSeeder extends Seeder
         Bouncer::allow($outletUserRole)->to('view-assigned-audits');
 
         // 3. Create a sample Outlet User if they don't exist
-        $outletUserOne = User::firstOrCreate(
-            ['email' => 'jgoh0338@gmail.com'], // Unique email for this user
-            [
-                'name' => 'Goh Outlet', // Example name
-                'password' => Hash::make('12345'), // Use a secure password in real scenarios
-                'email_verified_at' => now(), // Auto-verify email for seeded user
-                'role_id' => 'O-022'
-                // You might add an 'outlet_id' or 'assigned_outlet_name' field here
-                // if your User model or a related table stores this information.
-                // For now, we'll keep it simple.
-            ]
-        );
+        // Wrap user creation in withoutEvents to prevent activity logging
+        User::withoutEvents(function () use ($outletUserRole) {
+            $outletUserOne = User::firstOrCreate(
+                ['email' => 'jgoh0338@gmail.com'], // Unique email for this user
+                [
+                    'name' => 'Goh Outlet', // Example name
+                    'password' => Hash::make('12345'), // Use a secure password in real scenarios
+                    'email_verified_at' => now(), // Auto-verify email for seeded user
+                    'role_id' => 'O-022'
+                    // You might add an 'outlet_id' or 'assigned_outlet_name' field here
+                    // if your User model or a related table stores this information.
+                    // For now, we'll keep it simple.
+                ]
+            );
 
-        // 4. Assign the 'outlet-user' role to the user
-        Bouncer::assign($outletUserRole)->to($outletUserOne);
+            // 4. Assign the 'outlet-user' role to the user
+            Bouncer::assign($outletUserRole)->to($outletUserOne);
 
-        // 5. Refresh Bouncer's cache to apply changes
-        Bouncer::refreshFor($outletUserOne);
+            // 5. Refresh Bouncer's cache to apply changes
+            Bouncer::refreshFor($outletUserOne);
+        });
+        
         // Or globally: Bouncer::refresh();
     }
 }
