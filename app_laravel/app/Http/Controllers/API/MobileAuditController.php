@@ -8,6 +8,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use App\Models\Outlet;
+use App\Models\AuditForm;
+use Illuminate\Support\Facades\Storage;
 
 class MobileAuditController extends Controller
 {
@@ -156,6 +158,201 @@ class MobileAuditController extends Controller
                 'message' => 'Failed to fetch outlet information',
                 'error' => $e->getMessage()
             ], 404);
+        }
+    }
+
+    /**
+     * Submit a form for an audit.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function submitForm(Request $request)
+    {
+        $request->validate([
+            'audit_id' => 'required|exists:audit,id',
+            'form_id' => 'required|exists:form_templates,id',
+            'name' => 'required|string',
+            'value' => 'required|array'
+        ]);
+
+        try {
+            // Check if an audit form already exists for this audit and form
+            $existingForm = AuditForm::where('audit_id', $request->audit_id)
+                ->where('form_id', $request->form_id)
+                ->first();
+
+            if ($existingForm) {
+                // Update existing form
+                $existingForm->update([
+                    'name' => $request->name,
+                    'value' => $request->value
+                ]);
+                
+                $auditForm = $existingForm;
+                $message = 'Form updated successfully';
+            } else {
+                // Create new form
+                $auditForm = AuditForm::create([
+                    'audit_id' => $request->audit_id,
+                    'form_id' => $request->form_id,
+                    'name' => $request->name,
+                    'value' => $request->value
+                ]);
+                
+                $message = 'Form submitted successfully';
+            }
+
+            // Update audit progress
+            $this->updateAuditProgress($request->audit_id);
+
+            return response()->json([
+                'message' => $message,
+                'audit_form' => $auditForm
+            ], 201);
+        } catch (\Exception $e) {
+            \Log::error('Failed to submit form: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Failed to submit form',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Update the progress of an audit based on completed forms.
+     *
+     * @param int $auditId
+     * @return void
+     */
+    private function updateAuditProgress($auditId)
+    {
+        try {
+            $audit = Audit::with('complianceRequirement.formTemplates')->findOrFail($auditId);
+            $totalForms = $audit->complianceRequirement->formTemplates->count();
+            
+            if ($totalForms > 0) {
+                $completedForms = AuditForm::where('audit_id', $auditId)->count();
+                $progress = ($completedForms / $totalForms) * 100;
+                
+                $audit->update([
+                    'progress' => $progress,
+                    // If all forms are completed, set status to completed (assuming status_id 2 is "Completed")
+                    'status_id' => $completedForms >= $totalForms ? 2 : 1
+                ]);
+            }
+        } catch (\Exception $e) {
+            \Log::error('Failed to update audit progress: ' . $e->getMessage());
+        }
+    }
+
+    public function uploadFile(Request $request)
+    {
+        try {
+            \Log::info('File upload request received', [
+                'fileName' => $request->fileName,
+                'fieldId' => $request->fieldId,
+                'hasFile' => !empty($request->file)
+            ]);
+
+            $request->validate([
+                'file' => 'required',
+                'fileName' => 'required|string',
+                'fieldId' => 'required|string'
+            ]);
+
+            // Ensure storage directory exists
+            $directory = 'audit_files';
+            if (!Storage::disk('public')->exists($directory)) {
+                Storage::disk('public')->makeDirectory($directory);
+                \Log::info('Created audit_files directory');
+            }
+
+            // Check if the file data is valid base64
+            if (!preg_match('/^[a-zA-Z0-9\/\r\n+]*={0,2}$/', $request->file)) {
+                \Log::error('Invalid base64 data received');
+                throw new \Exception('Invalid file data');
+            }
+
+            // Decode base64 file
+            $fileData = base64_decode($request->file, true);
+            if ($fileData === false) {
+                \Log::error('Failed to decode base64 data');
+                throw new \Exception('Failed to decode file data');
+            }
+
+            // Store file in storage/app/public/audit_files
+            $path = $directory . '/' . $request->fileName;
+            \Log::info('Attempting to store file', [
+                'path' => $path,
+                'fileSize' => strlen($fileData)
+            ]);
+            
+            $stored = Storage::disk('public')->put($path, $fileData);
+            
+            if (!$stored) {
+                \Log::error('Failed to store file', [
+                    'path' => $path,
+                    'diskFree' => disk_free_space(storage_path('app/public'))
+                ]);
+                throw new \Exception('Failed to store file');
+            }
+
+            // Verify file exists and is readable
+            if (!Storage::disk('public')->exists($path)) {
+                \Log::error('File not found after storage');
+                throw new \Exception('File not found after storage');
+            }
+
+            \Log::info('File stored successfully', [
+                'path' => $path,
+                'size' => Storage::disk('public')->size($path),
+                'url' => Storage::disk('public')->url($path)
+            ]);
+
+            // Return the file path and URL
+            return response()->json([
+                'path' => $path,
+                'url' => Storage::disk('public')->url($path),
+                'message' => 'File uploaded successfully'
+            ], 201);
+        } catch (\Exception $e) {
+            \Log::error('File upload failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'message' => 'Failed to upload file',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // Add a method to serve files
+    public function serveFile($filename)
+    {
+        try {
+            $path = 'audit_files/' . $filename;
+            
+            if (!Storage::disk('public')->exists($path)) {
+                \Log::error('File not found', ['path' => $path]);
+                return response()->json(['error' => 'File not found'], 404);
+            }
+
+            $file = Storage::disk('public')->get($path);
+            $mimeType = Storage::disk('public')->mimeType($path);
+
+            return response($file)
+                ->header('Content-Type', $mimeType)
+                ->header('Content-Disposition', 'inline; filename="' . $filename . '"')
+                ->header('Cache-Control', 'public, max-age=300');
+        } catch (\Exception $e) {
+            \Log::error('Error serving file', [
+                'error' => $e->getMessage(),
+                'filename' => $filename
+            ]);
+            return response()->json(['error' => 'Error serving file'], 500);
         }
     }
 } 

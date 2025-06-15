@@ -21,22 +21,17 @@ const PRIMARY_GREEN = '#4CAF50';
 const StatusBadge = ({ status }) => {
   // Define status configurations
   const statusConfig = {
-    'Approved': { 
+    'Revised': { 
       color: PRIMARY_GREEN, 
       text: 'Approved',
       icon: 'checkmark-circle' 
     },
-    'Pending Review': { 
+    'Submitted': { 
       color: '#FFEB3B', 
       text: 'Pending Manager Review',
       icon: 'time' 
     },
-    'Rejected': { 
-      color: '#F44336', 
-      text: 'Rejected - Action Required',
-      icon: 'alert-circle' 
-    },
-    'In Progress': { 
+    'Draft': { 
       color: '#9E9E9E', 
       text: 'Draft',
       icon: 'document' 
@@ -53,7 +48,7 @@ const StatusBadge = ({ status }) => {
     }
   };
 
-  const config = statusConfig[status] || statusConfig['In Progress'];
+  const config = statusConfig[status] || statusConfig['Draft'];
 
   return (
     <View style={[styles.badgeContainer, { backgroundColor: `${config.color}20` }]}>
@@ -105,7 +100,7 @@ export default function AuditsScreen() {
           dueDate: 'May 31, 2025',
           submittedDate: 'May 28, 2025',
           isDraft: false,
-          status: 'Approved',
+          status: 'Revised',
           type: 'recent'
         },
         {

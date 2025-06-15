@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -8,30 +8,217 @@ import {
   TouchableOpacity,
   TextInput,
   Switch,
-  Platform
+  Platform,
+  Alert,
+  Image,
+  Dimensions,
+  Linking
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import * as DocumentPicker from 'expo-document-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import ApiClient from '../../../utils/apiClient';
+import * as FileSystem from 'expo-file-system';
+import * as MediaLibrary from 'expo-media-library';
 
 const PRIMARY_GREEN = '#4CAF50';
+const windowWidth = Dimensions.get('window').width;
+const API_BASE_URL = 'http://192.168.131.143:8000'; // Replace with your actual API base URL
+
+// Function to check if file is an image
+const isImageFile = (fileName) => {
+  const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp'];
+  const extension = fileName.split('.').pop().toLowerCase();
+  return imageExtensions.includes(extension);
+};
+
+// File Preview Component
+const FilePreview = ({ filePath, fileName }) => {
+  if (!filePath) return null;
+
+  const isImage = isImageFile(fileName);
+  const fileUrl = `${API_BASE_URL}/api/mobile/audits/files/${filePath.split('/').pop()}`;
+
+  if (isImage) {
+    return (
+      <View style={styles.previewContainer}>
+        <Image
+          source={{ 
+            uri: fileUrl,
+            headers: {
+              'Accept': '*/*'
+            }
+          }}
+          style={styles.imagePreview}
+          resizeMode="contain"
+        />
+      </View>
+    );
+  }
+
+  return (
+    <TouchableOpacity 
+      style={styles.filePreviewContainer}
+      onPress={() => Linking.openURL(fileUrl)}
+    >
+      <Ionicons name="document-outline" size={24} color={PRIMARY_GREEN} />
+      <Text style={styles.fileNameText}>{fileName}</Text>
+      <Text style={styles.openFileText}>Tap to open</Text>
+    </TouchableOpacity>
+  );
+};
+
+// Function to handle file upload
+const uploadFile = async (fileUri, fileName, fieldId) => {
+  try {
+    console.log('Starting file upload. URI:', fileUri, 'Filename:', fileName, 'Field ID:', fieldId);
+    
+    // Read the file as base64
+    const base64 = await FileSystem.readAsStringAsync(fileUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    console.log('File converted to base64');
+
+    // Upload to Laravel endpoint - Fixed endpoint path
+    const endpoint = '/api/mobile/audits/upload-file';
+    console.log('Sending to API:', endpoint);
+    const response = await ApiClient.post(endpoint, {
+      file: base64,
+      fileName: fileName,
+      fieldId: fieldId
+    });
+    console.log('API Response:', response);
+
+    if (response && response.path) {
+      console.log('Upload successful, path:', response.path);
+      return response.path;
+    } else {
+      console.log('Invalid response:', response);
+      throw new Error('Invalid response from server');
+    }
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    throw error;
+  }
+};
 
 // Form Field Component
 const FormField = ({ field, value, onChange }) => {
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(() => {
+    // Initialize with existing file data if value exists and is a string
+    if (value && typeof value === 'string') {
+      return {
+        name: value.split('/').pop(), // Get filename from path
+        uri: value
+      };
+    }
+    return null;
+  });
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   const handleFilePick = async () => {
     try {
-      const result = await DocumentPicker.getDocumentAsync();
-      if (result.type === 'success') {
-        setSelectedFile(result);
-        onChange(result.name);
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*', // Allow any file type
+        copyToCacheDirectory: true
+      });
+      console.log('Document picked:', result);
+      
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const file = result.assets[0];
+        console.log('Selected file:', file);
+        
+        setUploading(true);
+        try {
+          // Generate a unique filename using field ID
+          const fileExtension = file.name.split('.').pop();
+          const newFileName = `${field.id}.${fileExtension}`;
+          console.log('Generated filename:', newFileName);
+          
+          // Upload the file and get the path
+          const filePath = await uploadFile(file.uri, newFileName, field.id);
+          console.log('File uploaded, path received:', filePath);
+          
+          const newFile = {
+            name: file.name,
+            uri: filePath
+          };
+          setSelectedFile(newFile);
+          // Store the file path in form values
+          onChange(filePath);
+        } catch (error) {
+          console.error('Upload failed:', error);
+          Alert.alert(
+            'Upload Error',
+            'Failed to upload file. Please try again.',
+            [{ text: 'OK' }]
+          );
+        } finally {
+          setUploading(false);
+        }
       }
     } catch (err) {
       console.error('Error picking document:', err);
+      Alert.alert(
+        'Error',
+        'Failed to pick document. Please try again.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
+  const downloadAndOpenFile = async (fileUri, fileName) => {
+    try {
+      setDownloading(true);
+      console.log('Starting download process for:', fileName);
+      console.log('File URI:', fileUri);
+
+      const fileUrl = `${API_BASE_URL}/api/mobile/audits/files/${fileUri.split('/').pop()}`;
+
+      if (isImageFile(fileName)) {
+        // For images, open directly
+        await Linking.openURL(fileUrl);
+        Alert.alert(
+          'Success',
+          'File opened successfully',
+          [{ text: 'OK' }]
+        );
+      } else {
+        // For other files, download first
+        const downloadResult = await FileSystem.downloadAsync(
+          fileUrl,
+          `${FileSystem.cacheDirectory}${fileName}`,
+          {
+            headers: {
+              'Accept': '*/*'
+            }
+          }
+        );
+
+        if (downloadResult.status === 200) {
+          await Linking.openURL(downloadResult.uri);
+          Alert.alert(
+            'Success',
+            'File opened successfully',
+            [{ text: 'OK' }]
+          );
+        } else {
+          throw new Error(`Download failed with status ${downloadResult.status}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error handling file:', error);
+      Alert.alert(
+        'Error',
+        'Could not open the file. Please try again later.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -232,15 +419,61 @@ const FormField = ({ field, value, onChange }) => {
       return (
         <View style={styles.fieldContainer}>
           <Text style={styles.fieldLabel}>{field.label}{field.required && <Text style={styles.required}> *</Text>}</Text>
-          <TouchableOpacity 
-            style={styles.fileUploadButton}
-            onPress={handleFilePick}
-          >
-            <Ionicons name="cloud-upload" size={24} color="#fff" />
-            <Text style={styles.fileUploadButtonText}>
-              {selectedFile ? selectedFile.name : 'Choose File'}
-            </Text>
-          </TouchableOpacity>
+          {selectedFile ? (
+            <View style={styles.fileInfoContainer}>
+              <View style={styles.fileNameContainer}>
+                <Ionicons name="document" size={20} color={PRIMARY_GREEN} />
+                <Text style={styles.fileName}>{selectedFile.name}</Text>
+              </View>
+              
+              <FilePreview filePath={selectedFile.uri} fileName={selectedFile.name} />
+              
+              <View style={styles.fileActionsContainer}>
+                <TouchableOpacity 
+                  style={[
+                    styles.fileActionButton,
+                    downloading && styles.fileActionButtonDisabled
+                  ]}
+                  onPress={() => downloadAndOpenFile(selectedFile.uri, selectedFile.name)}
+                  disabled={downloading}
+                >
+                  <Ionicons 
+                    name={downloading ? "cloud-download-outline" : "eye-outline"} 
+                    size={20} 
+                    color={downloading ? '#999' : PRIMARY_GREEN} 
+                  />
+                  <Text style={[
+                    styles.fileActionText,
+                    downloading && styles.fileActionTextDisabled
+                  ]}>
+                    {downloading ? 'Downloading...' : 'View'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.fileActionButton, styles.editButton]}
+                  onPress={handleFilePick}
+                  disabled={downloading}
+                >
+                  <Ionicons name="pencil-outline" size={20} color={PRIMARY_GREEN} />
+                  <Text style={styles.fileActionText}>Change</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <TouchableOpacity 
+              style={[
+                styles.fileUploadButton,
+                uploading && styles.fileUploadButtonDisabled
+              ]}
+              onPress={handleFilePick}
+              disabled={uploading}
+            >
+              <Ionicons name="cloud-upload" size={24} color="#fff" />
+              <Text style={styles.fileUploadButtonText}>
+                {uploading ? 'Uploading...' : 'Choose File'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       );
     
@@ -295,7 +528,18 @@ export default function AuditFormDetailsScreen() {
   const sortedFields = [...formFields].sort((a, b) => a.order - b.order);
   
   // State for form values
-  const [formValues, setFormValues] = useState({});
+  const [formValues, setFormValues] = useState(() => {
+    // If the form is completed (is_created is true), try to parse and use the values from params
+    if (params.isCreated === 'true' && params.value) {
+      try {
+        return JSON.parse(params.value);
+      } catch (e) {
+        console.error('Error parsing form values:', e);
+        return {};
+      }
+    }
+    return {};
+  });
 
   const handleFieldChange = (fieldId, value) => {
     setFormValues(prev => ({
@@ -304,19 +548,74 @@ export default function AuditFormDetailsScreen() {
     }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // Validate required fields
     const missingRequiredFields = formFields
       .filter(field => field.required && !formValues[field.id])
       .map(field => field.label);
 
     if (missingRequiredFields.length > 0) {
-      console.log('Missing required fields:', missingRequiredFields);
+      Alert.alert(
+        'Required Fields Missing',
+        `Please fill in the following required fields:\n${missingRequiredFields.join('\n')}`,
+        [{ text: 'OK' }]
+      );
       return;
     }
 
-    console.log('Form Values:', formValues);
-    router.back();
+    // Single confirmation
+    Alert.alert(
+      'Submit Form',
+      'Are you sure you want to submit this form?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Submit',
+          onPress: async () => {
+            try {
+              await ApiClient.post('/api/mobile/audits/submit-form', {
+                audit_id: params.auditId,
+                form_id: params.formId,
+                name: params.formName,
+                value: formValues
+              });
+
+              // If we reach here, it means the API call was successful
+              Alert.alert(
+                'Success',
+                'Form submitted successfully',
+                [{ 
+                  text: 'OK',
+                  onPress: () => {
+                    // Replace current route with audit-details to refresh the page with all necessary params
+                    router.replace({
+                      pathname: '/(app)/audits/audit-details',
+                      params: {
+                        formId: params.auditId,
+                        outletId: params.outletId,
+                        headerTitle: params.originalTitle, // Use the original audit title
+                        dueDate: params.dueDate,
+                        outletName: params.outletName
+                      }
+                    });
+                  }
+                }]
+              );
+            } catch (error) {
+              console.error('Error submitting form:', error);
+              Alert.alert(
+                'Error',
+                'Failed to submit form. Please try again.',
+                [{ text: 'OK' }]
+              );
+            }
+          }
+        }
+      ]
+    );
   };
 
   return (
@@ -524,5 +823,97 @@ const styles = StyleSheet.create({
   iosDatePicker: {
     width: '100%',
     height: 200,
+  },
+  fileUploadButtonDisabled: {
+    backgroundColor: '#CCCCCC',
+  },
+  fileInfoContainer: {
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 8,
+  },
+  fileNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  fileName: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#333333',
+    flex: 1,
+  },
+  fileActionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    gap: 12,
+  },
+  fileActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    padding: 8,
+    borderRadius: 6,
+    minWidth: 80,
+    justifyContent: 'center',
+  },
+  fileActionText: {
+    marginLeft: 4,
+    color: PRIMARY_GREEN,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  editButton: {
+    backgroundColor: '#E3F2FD',
+  },
+  previewContainer: {
+    marginTop: 10,
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
+  },
+  imagePreview: {
+    width: windowWidth - 32, // Full width minus padding
+    height: 200,
+    backgroundColor: '#F5F5F5',
+  },
+  filePreviewContainer: {
+    marginTop: 10,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#F5F5F5',
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
+  },
+  fileNameText: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#333333',
+  },
+  openFileText: {
+    fontSize: 12,
+    color: PRIMARY_GREEN,
+    marginLeft: 8,
+  },
+  fileActionButtonDisabled: {
+    backgroundColor: '#F5F5F5',
+  },
+  fileActionTextDisabled: {
+    color: '#999',
+  },
+  loadingText: {
+    textAlign: 'center',
+    color: '#666666',
+    padding: 20,
+  },
+  errorText: {
+    textAlign: 'center',
+    color: '#FF0000',
+    padding: 20,
   },
 }); 

@@ -49,6 +49,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/audits', [MobileAuditController::class, 'store']);
         Route::get('/audits', [MobileAuditController::class, 'getUserAudits']);
         Route::get('/outlets/{id}', [MobileAuditController::class, 'getOutlet']);
+        Route::post('/audits/submit-form', [MobileAuditController::class, 'submitForm']);
+        Route::post('/audits/upload-file', [MobileAuditController::class, 'uploadFile']);
+        Route::get('/audits/files/{filename}', [MobileAuditController::class, 'serveFile']);
     });
 
     // Admin routes for authenticated users
@@ -69,4 +72,5 @@ Route::prefix('mobile')->group(function () {
 
 // Mobile Compliance Form routes
 Route::get('/mobile/compliance-forms', [MobileComplianceFormController::class, 'index']);
-Route::get('/mobile/audits/{auditId}/forms', [MobileComplianceFormController::class, 'getAuditForms']); 
+Route::get('/mobile/audits/{auditId}/forms', [MobileComplianceFormController::class, 'getAuditForms']);
+Route::post('/mobile/audits/upload-file', [MobileAuditController::class, 'uploadFile']);

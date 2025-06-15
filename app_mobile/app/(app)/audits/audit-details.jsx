@@ -48,7 +48,7 @@ const StatusBadge = ({ status }) => {
 };
 
 // Form Item Component
-const FormItem = ({ item }) => {
+const FormItem = ({ item, auditId, outletId, dueDate, outletName, headerTitle }) => {
   const router = useRouter();
 
   const handleFormPress = () => {
@@ -57,9 +57,15 @@ const FormItem = ({ item }) => {
       params: { 
         formId: item.id, 
         formName: item.name,
+        auditId: auditId,
         auditFormId: item.audit_form_id,
         structure: JSON.stringify(item.structure), 
-        isCreated: item.is_created
+        isCreated: item.is_created,
+        value: item.is_created ? JSON.stringify(item.value) : null,
+        outletId: outletId,
+        dueDate: dueDate,
+        outletName: outletName,
+        originalTitle: headerTitle
       }
     });
   };
@@ -189,7 +195,15 @@ export default function ViewSubmissionScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Forms</Text>
           {auditData?.forms?.map((form) => (
-            <FormItem key={form.id} item={form} />
+            <FormItem 
+              key={form.id} 
+              item={form} 
+              auditId={params.formId}
+              outletId={params.outletId}
+              dueDate={params.dueDate}
+              outletName={outletName}
+              headerTitle={params.headerTitle}
+            />
           ))}
           {(!auditData?.forms || auditData.forms.length === 0) && (
             <Text style={styles.noFormsText}>No forms available</Text>
