@@ -6,7 +6,10 @@ import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
 import TextInput from '@/Components/TextInput';
 import Modal from '@/Components/Modal';
 
-export default function SetupPage({ complianceRequirements = [], formTemplates = [], categories = [] }) {
+export default function SetupPage({ complianceRequirements = [], formTemplates = [], categories = [], submittedFormTemplates = [] }) {
+    console.log(complianceRequirements);
+    console.log(submittedFormTemplates);
+    console.log(formTemplates);
     const { flash } = usePage().props;
     const [showFlash, setShowFlash] = useState(false);
     const [flashType, setFlashType] = useState('');
@@ -291,9 +294,15 @@ export default function SetupPage({ complianceRequirements = [], formTemplates =
                                                 </td>
                                                 <td className="whitespace-nowrap px-6 py-4">
                                                     <div className="text-sm text-gray-500">
-                                                        {requirement.form_templates?.map(template => (
-                                                            <span key={template.id} className="mr-2">{template.name}</span>
-                                                        )) || <span className="text-gray-400">N/A</span>}
+                                                        {requirement.form_templates?.length > 0 
+                                                            ? requirement.form_templates.map((template, index) => (
+                                                                <React.Fragment key={template.id}>
+                                                                    {template.name}
+                                                                    {index < requirement.form_templates.length - 1 && ', '}
+                                                                </React.Fragment>
+                                                            ))
+                                                            : <span className="text-gray-400">N/A</span>
+                                                        }
                                                     </div>
                                                 </td>
                                                 <td className="whitespace-nowrap px-6 py-4 text-sm font-medium">
@@ -301,13 +310,19 @@ export default function SetupPage({ complianceRequirements = [], formTemplates =
                                                         onClick={() => openEditModal(requirement)}
                                                         className="mr-2 text-green-600 hover:text-green-900"
                                                     >
-                                                        Edit
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                        </svg>
+                                                        {/* Edit */}
                                                     </button>
                                                     <button
                                                         onClick={() => handleDelete(requirement.id)}
                                                         className="text-red-600 hover:text-red-900"
                                                     >
-                                                        Delete
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                        </svg>
+                                                        {/* Delete */}
                                                     </button>
                                                 </td>
                                             </tr>
@@ -318,6 +333,54 @@ export default function SetupPage({ complianceRequirements = [], formTemplates =
                         </div>
                     </div>
 
+                    {/* Form Templates Awaiting Revision Section */}
+                    {submittedFormTemplates && submittedFormTemplates.length > 0 && (
+                        <div className="mt-8 overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                            <div className="p-6">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h3 className="text-lg font-medium text-gray-900">Form Templates Awaiting Revision</h3>
+                                        <p className="mt-1 text-sm text-gray-600">
+                                            These templates have been submitted and are awaiting your review and approval.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                                    {submittedFormTemplates.map((template) => (
+                                        <div 
+                                            key={template.id} 
+                                            className="flex items-center justify-between rounded-lg border border-yellow-200 bg-yellow-50 p-4 shadow-sm"
+                                        >
+                                            <div className="flex items-center">
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="mr-3 h-6 w-6 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                </svg>
+                                                <div>
+                                                    <span className="block text-sm font-medium">{template.name}</span>
+                                                    <span className="mt-1 block text-xs text-gray-500">
+                                                        Created by: {template.creator?.name || 'Unknown'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <Link 
+                                                    href={route('admin.form-templates.edit', [template.id, { from_compliance: true }])}
+                                                    className="inline-flex items-center rounded-md border border-yellow-600 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-widest text-yellow-700 transition duration-150 ease-in-out hover:bg-yellow-50"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                    </svg>
+                                                    Edit/Revise
+                                                </Link>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Available Form Templates Section */}
                     <div className="mt-8 overflow-hidden bg-white shadow-sm sm:rounded-lg">
                         <div className="p-6">
@@ -325,7 +388,7 @@ export default function SetupPage({ complianceRequirements = [], formTemplates =
                                 <div>
                                     <h3 className="text-lg font-medium text-gray-900">Available Form Templates</h3>
                                     <p className="mt-1 text-sm text-gray-600">
-                                        Form templates that can be assigned to compliance categories.
+                                        Finalized form templates that can be assigned to compliance categories.
                                     </p>
                                 </div>
                                 <Link
@@ -366,7 +429,7 @@ export default function SetupPage({ complianceRequirements = [], formTemplates =
                                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                 </svg>
-                                        </button>
+                                            </button>
                                         </div>
                                     </div>
                                 ))}
@@ -380,102 +443,111 @@ export default function SetupPage({ complianceRequirements = [], formTemplates =
             <Modal
                 show={showModal}
                 onClose={() => setShowModal(false)}
-                maxWidth="md"
+                maxWidth="2xl"
             >
                 <div className="p-6">
                     <h3 className="text-lg font-medium text-gray-900">
                         {modalMode === 'add' ? 'Add New Compliance Category' : 'Edit Compliance Category'}
                     </h3>
                     
-                    <div className="mt-6 space-y-4">
-                        {/* Category Name */}
-                        <div>
-                            <label htmlFor="categoryName" className="block text-sm font-medium text-gray-700">
-                                Category Name
-                            </label>
-                            <TextInput
-                                id="categoryName"
-                                type="text"
-                                className="mt-1 block w-full"
-                                value={data.title}
-                                onChange={(e) => setData('title', e.target.value)}
-                            />
-                            {errors.title && <p className="mt-1 text-sm text-red-600">{errors.title}</p>}
-                        </div>
-                        
-                        {/* Compliance Category */}
-                        <div>
-                            <label htmlFor="complianceCategory" className="block text-sm font-medium text-gray-700">
-                                Compliance Category <span className="text-red-500">*</span>
-                            </label>
-                            <select
-                                id="complianceCategory"
-                                className="mt-1 block w-full rounded-md border border-gray-300 bg-white py-2 px-3 shadow-sm focus:border-green-500 focus:outline-none focus:ring-green-500 sm:text-sm"
-                                value={data.category_id}
-                                onChange={(e) => setData('category_id', e.target.value)}
-                            >
-                                <option value="">-- Select Category --</option>
-                                {categories.map(category => (
-                                    <option key={category.id} value={category.id}>
-                                        {category.name}
-                                    </option>
-                                ))}
-                            </select>
-                            {errors.category_id && <p className="mt-1 text-sm text-red-600">{errors.category_id}</p>}
-                        </div>
-                        
-                        {/* Category Description */}
-                        <div>
-                            <label htmlFor="categoryDescription" className="block text-sm font-medium text-gray-700">
-                                Category Description
-                            </label>
-                            <textarea
-                                id="categoryDescription"
-                                rows={3}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-                                value={data.description}
-                                onChange={(e) => setData('description', e.target.value)}
-                            />
-                            {errors.description && <p className="mt-1 text-sm text-red-600">{errors.description}</p>}
-                        </div>
-                        
-                        {/* Frequency */}
-                        <div>
-                            <label htmlFor="frequency" className="block text-sm font-medium text-gray-700">
-                                Frequency
-                            </label>
-                            <select
-                                id="frequency"
-                                className="mt-1 block w-full rounded-md border border-gray-300 bg-white py-2 px-3 shadow-sm focus:border-green-500 focus:outline-none focus:ring-green-500 sm:text-sm"
-                                value={data.frequency}
-                                onChange={(e) => setData('frequency', e.target.value)}
-                            >
-                                <option value="">-- Select Frequency --</option>
-                                <option value="Daily">Daily</option>
-                                <option value="Weekly">Weekly</option>
-                                <option value="Monthly">Monthly</option>
-                                <option value="Quarterly">Quarterly</option>
-                                <option value="Bi-annually">Bi-annually</option>
-                                <option value="Annually">Annually</option>
-                            </select>
-                            {errors.frequency && <p className="mt-1 text-sm text-red-600">{errors.frequency}</p>}
-                        </div>
-                        
-                        {/* Status */}
-                        <div>
-                            <div className="flex items-center">
-                                <input
-                                    id="is_active"
-                                    type="checkbox"
-                                    className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
-                                    checked={data.is_active}
-                                    onChange={(e) => setData('is_active', e.target.checked)}
-                            />
-                                <label htmlFor="is_active" className="ml-2 block text-sm text-gray-700">
-                                    Active
+                    <div className="mt-6 space-y-6">
+                        {/* First Row: Two Columns - Category Name and Compliance Category */}
+                        <div className="grid grid-cols-2 gap-6">
+                            {/* Category Name */}
+                            <div>
+                                <label htmlFor="categoryName" className="block text-sm font-medium text-gray-700">
+                                    Category Name
                                 </label>
+                                <TextInput
+                                    id="categoryName"
+                                    type="text"
+                                    className="mt-1 block w-full"
+                                    value={data.title}
+                                    onChange={(e) => setData('title', e.target.value)}
+                                />
+                                {errors.title && <p className="mt-1 text-sm text-red-600">{errors.title}</p>}
                             </div>
-                            {errors.is_active && <p className="mt-1 text-sm text-red-600">{errors.is_active}</p>}
+                            
+                            {/* Compliance Category */}
+                            <div>
+                                <label htmlFor="complianceCategory" className="block text-sm font-medium text-gray-700">
+                                    Compliance Category <span className="text-red-500">*</span>
+                                </label>
+                                <select
+                                    id="complianceCategory"
+                                    className="mt-1 block w-full rounded-md border border-gray-300 bg-white py-2 px-3 shadow-sm focus:border-green-500 focus:outline-none focus:ring-green-500 sm:text-sm"
+                                    value={data.category_id}
+                                    onChange={(e) => setData('category_id', e.target.value)}
+                                >
+                                    <option value="">-- Select Category --</option>
+                                    {categories.map(category => (
+                                        <option key={category.id} value={category.id}>
+                                            {category.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                {errors.category_id && <p className="mt-1 text-sm text-red-600">{errors.category_id}</p>}
+                            </div>
+                        </div>
+                        
+                        {/* Second Row: Two Columns - Description and Frequency/Active */}
+                        <div className="grid grid-cols-2 gap-6">
+                            {/* Category Description */}
+                            <div>
+                                <label htmlFor="categoryDescription" className="block text-sm font-medium text-gray-700">
+                                    Category Description
+                                </label>
+                                <textarea
+                                    id="categoryDescription"
+                                    rows={5}
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                                    value={data.description}
+                                    onChange={(e) => setData('description', e.target.value)}
+                                />
+                                {errors.description && <p className="mt-1 text-sm text-red-600">{errors.description}</p>}
+                            </div>
+                            
+                            {/* Frequency and Active stacked vertically */}
+                            <div className="space-y-4">
+                                {/* Frequency */}
+                                <div>
+                                    <label htmlFor="frequency" className="block text-sm font-medium text-gray-700">
+                                        Frequency
+                                    </label>
+                                    <select
+                                        id="frequency"
+                                        className="mt-1 block w-full rounded-md border border-gray-300 bg-white py-2 px-3 shadow-sm focus:border-green-500 focus:outline-none focus:ring-green-500 sm:text-sm"
+                                        value={data.frequency}
+                                        onChange={(e) => setData('frequency', e.target.value)}
+                                    >
+                                        <option value="">-- Select Frequency --</option>
+                                        <option value="Daily">Daily</option>
+                                        <option value="Weekly">Weekly</option>
+                                        <option value="Monthly">Monthly</option>
+                                        <option value="Quarterly">Quarterly</option>
+                                        <option value="Bi-annually">Bi-annually</option>
+                                        <option value="Annually">Annually</option>
+                                    </select>
+                                    {errors.frequency && <p className="mt-1 text-sm text-red-600">{errors.frequency}</p>}
+                                </div>
+                                
+                                {/* Status */}
+                                <div>
+                                    <div className="flex items-center">
+                                        <input
+                                            id="is_active"
+                                            type="checkbox"
+                                            className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                                            checked={data.is_active}
+                                            onChange={(e) => setData('is_active', e.target.checked)}
+                                        />
+                                        <label htmlFor="is_active" className="ml-2 block text-sm text-gray-700">
+                                            Active
+                                        </label>
+                                    </div>
+                                    {errors.is_active && <p className="mt-1 text-sm text-red-600">{errors.is_active}</p>}
+                                </div>
+                            </div>
                         </div>
                         
                         {/* Submission Type */}
@@ -563,7 +635,7 @@ export default function SetupPage({ complianceRequirements = [], formTemplates =
                                     <p className="mt-1 text-sm text-red-600">{errors.form_template_ids}</p>
                                 )}
                                 
-                                <div className="mt-4">
+                                {/* <div className="mt-4">
                                     <p className="text-sm text-gray-500">Or create a new form:</p>
                                     <Link
                                         href={route('admin.form-templates.create', { from_compliance: true })}
@@ -573,7 +645,7 @@ export default function SetupPage({ complianceRequirements = [], formTemplates =
                                             Design New Form in Builder
                                         </AdminPrimaryButton>
                                     </Link>
-                                </div>
+                                </div> */}
                             </div>
                         )}
                     </div>

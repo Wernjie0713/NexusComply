@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Head, useForm, Link } from '@inertiajs/react';
+import { Head, useForm, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
 import TextInput from '@/Components/TextInput';
@@ -7,14 +7,17 @@ import FormPreviewModal from '@/Components/FormPreviewModal';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { v4 as uuidv4 } from 'uuid';
 
-export default function BuilderPage({ mode = 'create', formTemplate = null, fromCompliance = false, statuses = [] }) {
+export default function BuilderPage({ mode = 'create', formTemplate = null, fromCompliance = false, statuses = [], defaultStatusId = null }) {
     // Form data using Inertia's useForm hook
     const { data, setData, post, put, processing, errors } = useForm({
         name: formTemplate?.name || '',
         description: formTemplate?.description || '',
         structure: formTemplate?.structure || [],
-        status_id: formTemplate?.status?.id || statuses.find(s => s.name === 'draft')?.id || '',
+        status_id: formTemplate?.status?.id || defaultStatusId || statuses.find(s => s.name === 'draft')?.id || '',
     });
+    
+    // Get the current status name
+    const currentStatus = formTemplate?.status?.name || 'draft';
     
     // State for preview modal
     const [previewModalOpen, setPreviewModalOpen] = useState(false);
@@ -164,22 +167,86 @@ export default function BuilderPage({ mode = 'create', formTemplate = null, from
         setData('structure', updatedStructure);
     };
 
-    // Handle form submission
-    const handleSubmit = (statusName = null) => {
-        // If statusName is provided, find the corresponding status_id
-        if (statusName) {
-            const status = statuses.find(s => s.name === statusName);
-            if (status) {
-                setData('status_id', status.id);
-            }
-        }
+    // Handle form submission with specific action handlers
+    const handleSaveDraft = () => {
+        console.log('handleSaveDraft called - sending action: save_draft');
         
-        // Regular submission
         if (mode === 'create') {
-            post(route('admin.form-templates.store'));
+            router.post(
+                route('admin.form-templates.store'),
+                {
+                    ...data,
+                    action: 'save_draft'
+                },
+                {
+                    preserveScroll: true,
+                    onSuccess: () => { console.log('Save draft successful!'); },
+                    onError: (err) => { console.error('Save draft failed:', err); }
+                }
+            );
         } else {
-            put(route('admin.form-templates.update', formTemplate.id));
+            router.put(
+                route('admin.form-templates.update', formTemplate.id),
+                {
+                    ...data,
+                    action: 'save_draft'
+                },
+                {
+                    preserveScroll: true,
+                    onSuccess: () => { console.log('Save draft successful!'); },
+                    onError: (err) => { console.error('Save draft failed:', err); }
+                }
+            );
         }
+    };
+
+    const handleSubmitForRevision = () => {
+        console.log('handleSubmitForRevision called - sending action: submit_for_revision');
+        
+        if (mode === 'create') {
+            router.post(
+                route('admin.form-templates.store'),
+                {
+                    ...data,
+                    action: 'submit_for_revision'
+                },
+                {
+                    preserveScroll: true,
+                    onSuccess: () => { console.log('Submit for revision successful!'); },
+                    onError: (err) => { console.error('Submit for revision failed:', err); }
+                }
+            );
+        } else {
+            router.put(
+                route('admin.form-templates.update', formTemplate.id),
+                {
+                    ...data,
+                    action: 'submit_for_revision'
+                },
+                {
+                    preserveScroll: true,
+                    onSuccess: () => { console.log('Submit for revision successful!'); },
+                    onError: (err) => { console.error('Submit for revision failed:', err); }
+                }
+            );
+        }
+    };
+
+    const handleApproveRevision = () => {
+        console.log('handleApproveRevision called - sending action: approve_revision');
+        
+        router.put(
+            route('admin.form-templates.update', formTemplate.id),
+            {
+                ...data,
+                action: 'approve_revision'
+            },
+            {
+                preserveScroll: true,
+                onSuccess: () => { console.log('Approve revision successful!'); },
+                onError: (err) => { console.error('Approve revision failed:', err); }
+            }
+        );
     };
 
     // Show form preview
@@ -189,6 +256,85 @@ export default function BuilderPage({ mode = 'create', formTemplate = null, from
 
     // Get the currently selected field
     const selectedField = data.structure.find(field => field.id === selectedFieldId);
+
+    // Render action buttons based on form status
+    const renderActionButtons = () => {
+        if (currentStatus === 'draft') {
+            return (
+                <div className="flex space-x-2">
+                    <button
+                        type="button"
+                        className="inline-flex items-center rounded-md border border-green-600 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-widest text-green-700 transition duration-150 ease-in-out hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                        onClick={handleSaveDraft}
+                        disabled={processing}
+                    >
+                        Save Draft
+                    </button>
+                    <button
+                        type="button"
+                        className="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-widest text-gray-700 transition duration-150 ease-in-out hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                        onClick={handlePreviewForm}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        Preview Form
+                    </button>
+                    <AdminPrimaryButton
+                        onClick={handleSubmitForRevision}
+                        disabled={processing}
+                    >
+                        Submit for Revision
+                    </AdminPrimaryButton>
+                </div>
+            );
+        } else if (currentStatus === 'submitted') {
+            return (
+                <div className="flex space-x-2">
+                    <button
+                        type="button"
+                        className="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-widest text-gray-700 transition duration-150 ease-in-out hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                        onClick={handlePreviewForm}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        Preview Form
+                    </button>
+                    <AdminPrimaryButton
+                        onClick={handleApproveRevision}
+                        disabled={processing}
+                    >
+                        Approve & Finalize Revision
+                    </AdminPrimaryButton>
+                </div>
+            );
+        } else if (currentStatus === 'revised') {
+            return (
+                <div className="flex space-x-2">
+                    <button
+                        type="button"
+                        className="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-widest text-gray-700 transition duration-150 ease-in-out hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                        onClick={handlePreviewForm}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        Preview Form
+                    </button>
+                    <div className="inline-flex items-center rounded-md border border-green-600 bg-green-50 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-green-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Form Finalized
+                    </div>
+                </div>
+            );
+        }
+    };
 
     return (
         <AuthenticatedLayout
@@ -210,33 +356,7 @@ export default function BuilderPage({ mode = 'create', formTemplate = null, from
                             {mode === 'edit' ? `Editing: ${data.name}` : 'Create New Form'}
                     </h2>
                     </div>
-                    <div className="flex space-x-2">
-                        <button
-                            type="button"
-                            className="inline-flex items-center rounded-md border border-green-600 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-widest text-green-700 transition duration-150 ease-in-out hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-                            onClick={() => handleSubmit('draft')}
-                            disabled={processing}
-                        >
-                            Save Draft
-                        </button>
-                        <button
-                            type="button"
-                            className="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-widest text-gray-700 transition duration-150 ease-in-out hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
-                            onClick={handlePreviewForm}
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                            Preview Form
-                        </button>
-                        <AdminPrimaryButton
-                            onClick={() => handleSubmit('published')}
-                            disabled={processing}
-                        >
-                            Publish Form
-                        </AdminPrimaryButton>
-                    </div>
+                    {renderActionButtons()}
                 </div>
             }
         >
@@ -273,6 +393,7 @@ export default function BuilderPage({ mode = 'create', formTemplate = null, from
                                             value={data.name}
                                             onChange={(e) => setData('name', e.target.value)}
                                             placeholder="Enter form name..."
+                                            disabled={currentStatus === 'revised'}
                                         />
                                         {errors.name && (
                                             <div className="mt-1 text-sm text-red-600">{errors.name}</div>
@@ -290,6 +411,7 @@ export default function BuilderPage({ mode = 'create', formTemplate = null, from
                                             value={data.description}
                                             onChange={(e) => setData('description', e.target.value)}
                                             placeholder="Describe the purpose of this form..."
+                                            disabled={currentStatus === 'revised'}
                                         />
                                         {errors.description && (
                                             <div className="mt-1 text-sm text-red-600">{errors.description}</div>
@@ -300,8 +422,12 @@ export default function BuilderPage({ mode = 'create', formTemplate = null, from
                                         <label className="block text-sm font-medium text-gray-700">
                                             Status
                                         </label>
-                                        <div className="mt-1 rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-900">
-                                            {data.status_id ? statuses.find(s => s.id === data.status_id)?.name : 'Draft'}
+                                        <div className={`mt-1 rounded-md px-3 py-2 text-sm font-medium ${
+                                            currentStatus === 'draft' ? 'bg-gray-100 text-gray-800' :
+                                            currentStatus === 'submitted' ? 'bg-yellow-50 text-yellow-800' :
+                                            'bg-green-50 text-green-800'
+                                        }`}>
+                                            {currentStatus.charAt(0).toUpperCase() + currentStatus.slice(1)}
                                         </div>
                                     </div>
                                     
@@ -312,6 +438,7 @@ export default function BuilderPage({ mode = 'create', formTemplate = null, from
                                             className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
                                             checked={enableOfflineSupport}
                                             onChange={() => setEnableOfflineSupport(!enableOfflineSupport)}
+                                            disabled={currentStatus === 'revised'}
                                         />
                                         <label htmlFor="offlineSupport" className="ml-2 block text-sm text-gray-700">
                                             Enable Offline Support for Mobile App
@@ -321,7 +448,7 @@ export default function BuilderPage({ mode = 'create', formTemplate = null, from
                             </div>
                             
                             {/* Field Palette */}
-                            <div className="overflow-hidden rounded-lg bg-white shadow">
+                            <div className={`overflow-hidden rounded-lg bg-white shadow ${currentStatus === 'revised' ? 'opacity-50' : ''}`}>
                                 <div className="border-b border-gray-200 bg-green-50 px-4 py-3">
                                     <h3 className="text-sm font-medium text-gray-900">Add Form Fields</h3>
                                 </div>
@@ -333,6 +460,7 @@ export default function BuilderPage({ mode = 'create', formTemplate = null, from
                                                 type="button"
                                                 className="flex flex-col items-center justify-center rounded-md border border-gray-300 bg-white p-3 text-xs shadow-sm hover:bg-gray-50 hover:text-green-700"
                                                 onClick={() => addField(field.id)}
+                                                disabled={currentStatus === 'revised'}
                                             >
                                                 <svg
                                                     xmlns="http://www.w3.org/2000/svg"
@@ -383,9 +511,10 @@ export default function BuilderPage({ mode = 'create', formTemplate = null, from
                                                     >
                                                         {data.structure.map((field, index) => (
                                                             <Draggable 
-                                                    key={field.id}
+                                                                key={field.id}
                                                                 draggableId={field.id.toString()} 
                                                                 index={index}
+                                                                isDragDisabled={currentStatus === 'revised'}
                                                             >
                                                                 {(provided, snapshot) => (
                                                                     <div
@@ -394,82 +523,84 @@ export default function BuilderPage({ mode = 'create', formTemplate = null, from
                                                                         className={`relative rounded-lg border p-4 
                                                                             ${snapshot.isDragging ? 'border-green-500 bg-green-50 shadow-lg' : ''}
                                                                             ${selectedFieldId === field.id
-                                                            ? 'border-green-500 bg-green-50'
-                                                            : 'border-gray-200 bg-white hover:border-gray-300'
-                                                    }`}
-                                                    onClick={() => selectField(field.id)}
-                                                >
+                                                                                ? 'border-green-500 bg-green-50'
+                                                                                : 'border-gray-200 bg-white hover:border-gray-300'
+                                                                        }`}
+                                                                        onClick={() => currentStatus !== 'revised' && selectField(field.id)}
+                                                                    >
                                                                         {/* Drag Handle */}
                                                                         <div
                                                                             {...provided.dragHandleProps}
-                                                                            className="absolute left-2 top-1 cursor-move rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
+                                                                            className={`absolute left-2 top-1 cursor-move rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-500 ${currentStatus === 'revised' ? 'opacity-50' : ''}`}
                                                                         >
                                                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
                                                                             </svg>
                                                                         </div>
                                                                         
-                                                    {/* Field Controls */}
-                                                    <div className="absolute right-2 top-2 flex space-x-1">
-                                                        <button
-                                                            type="button"
-                                                            className="rounded p-1 text-gray-400 hover:bg-red-100 hover:text-red-500"
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation();
-                                                                                    handleDeleteField(field.id);
-                                                                                }}
-                                                        >
-                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                            </svg>
-                                                        </button>
-                                                    </div>
-
-                                                    {/* Field Content */}
-                                                    <div className="pt-2">
-                                                        {field.type === 'section' ? (
-                                                            <h4 className="font-medium text-gray-900">{field.label}</h4>
-                                                        ) : (
-                                                            <>
-                                                                <label className="mb-1 block text-sm font-medium text-gray-700">
-                                                                    {field.label}
-                                                                    {field.required && <span className="ml-1 text-red-500">*</span>}
-                                                                </label>
-                                                                
-                                                                {field.type === 'text' && (
-                                                                    <TextInput
-                                                                        type="text"
-                                                                        className="mt-1 block w-full"
-                                                                        placeholder={field.placeholder}
-                                                                        disabled
-                                                                    />
-                                                                )}
-                                                                
-                                                                {field.type === 'radio' && (
-                                                                    <div className="mt-2 space-y-2">
-                                                                        {field.options.map((option, index) => (
-                                                                            <div key={index} className="flex items-center">
-                                                                                <input
-                                                                                    type="radio"
-                                                                                    disabled
-                                                                                    className="h-4 w-4 border-gray-300 text-green-600 focus:ring-green-500"
-                                                                                />
-                                                                                <label className="ml-3 block text-sm text-gray-700">
-                                                                                    {option}
-                                                                                </label>
+                                                                        {/* Field Controls */}
+                                                                        {currentStatus !== 'revised' && (
+                                                                            <div className="absolute right-2 top-2 flex space-x-1">
+                                                                                <button
+                                                                                    type="button"
+                                                                                    className="rounded p-1 text-gray-400 hover:bg-red-100 hover:text-red-500"
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        handleDeleteField(field.id);
+                                                                                    }}
+                                                                                >
+                                                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                                    </svg>
+                                                                                </button>
                                                                             </div>
-                                                                        ))}
+                                                                        )}
+
+                                                                        {/* Field Content */}
+                                                                        <div className="pt-2">
+                                                                            {field.type === 'section' ? (
+                                                                                <h4 className="font-medium text-gray-900">{field.label}</h4>
+                                                                            ) : (
+                                                                                <>
+                                                                                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                                                                                        {field.label}
+                                                                                        {field.required && <span className="ml-1 text-red-500">*</span>}
+                                                                                    </label>
+                                                                                    
+                                                                                    {field.type === 'text' && (
+                                                                                        <TextInput
+                                                                                            type="text"
+                                                                                            className="mt-1 block w-full"
+                                                                                            placeholder={field.placeholder}
+                                                                                            disabled
+                                                                                        />
+                                                                                    )}
+                                                                                    
+                                                                                    {field.type === 'radio' && (
+                                                                                        <div className="mt-2 space-y-2">
+                                                                                            {field.options.map((option, index) => (
+                                                                                                <div key={index} className="flex items-center">
+                                                                                                    <input
+                                                                                                        type="radio"
+                                                                                                        disabled
+                                                                                                        className="h-4 w-4 border-gray-300 text-green-600 focus:ring-green-500"
+                                                                                                    />
+                                                                                                    <label className="ml-3 block text-sm text-gray-700">
+                                                                                                        {option}
+                                                                                                    </label>
+                                                                                                </div>
+                                                                                            ))}
+                                                                                        </div>
+                                                                                    )}
+                                                                                </>
+                                                                            )}
+                                                                        </div>
                                                                     </div>
                                                                 )}
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                                )}
                                                             </Draggable>
-                                            ))}
+                                                        ))}
                                                         {provided.placeholder}
-                                        </div>
+                                                    </div>
                                                 )}
                                             </Droppable>
                                         </DragDropContext>
@@ -480,12 +611,12 @@ export default function BuilderPage({ mode = 'create', formTemplate = null, from
                         
                         {/* Right Sidebar: Field Properties */}
                         <div className="lg:col-span-1">
-                            <div className="overflow-hidden rounded-lg bg-white shadow">
+                            <div className={`overflow-hidden rounded-lg bg-white shadow ${currentStatus === 'revised' ? 'opacity-50' : ''}`}>
                                 <div className="border-b border-gray-200 bg-green-50 px-4 py-3">
                                     <h3 className="text-sm font-medium text-gray-900">Field Properties</h3>
                                 </div>
                                 <div className="p-4">
-                                    {selectedField ? (
+                                    {selectedField && currentStatus !== 'revised' ? (
                                         <div className="space-y-4">
                                             <div>
                                                 <label htmlFor="fieldLabel" className="block text-sm font-medium text-gray-700">
@@ -585,7 +716,9 @@ export default function BuilderPage({ mode = 'create', formTemplate = null, from
                                         </div>
                                     ) : (
                                         <p className="text-sm text-gray-600">
-                                            Select a field in the canvas to edit its properties.
+                                            {currentStatus === 'revised' 
+                                                ? 'This form has been finalized and cannot be edited.' 
+                                                : 'Select a field in the canvas to edit its properties.'}
                                         </p>
                                     )}
                                 </div>

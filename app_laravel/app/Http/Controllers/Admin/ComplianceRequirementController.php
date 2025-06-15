@@ -9,6 +9,7 @@ use App\Models\ComplianceCategory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
+use App\Models\Status;
 
 class ComplianceRequirementController extends Controller
 {
@@ -22,20 +23,29 @@ class ComplianceRequirementController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
             
-        // Get all published form templates for the selection UI
-        // $formTemplates = FormTemplate::whereHas('status', function($query) {
-        //     $query->where('name', 'published');
-        // })
-        //     ->orderBy('name')
-        //     ->get(['id', 'name', 'description']);
-        $formTemplates = FormTemplate::orderBy('name')->get(['id', 'name', 'description']);
+        // Get the IDs for the statuses we need
+        $revisedStatusId = Status::where('name', 'revised')->value('id');
+        $submittedStatusId = Status::where('name', 'submitted')->value('id');
+
+        // Get revised form templates using the direct ID
+        $revisedFormTemplates = FormTemplate::where('status_id', $revisedStatusId)
+            ->with(['creator', 'status'])
+            ->orderBy('updated_at', 'desc')
+            ->get();
+
+        // Get submitted form templates using the direct ID
+        $submittedFormTemplates = FormTemplate::where('status_id', $submittedStatusId)
+            ->with(['creator', 'status'])
+            ->orderBy('updated_at', 'desc')
+            ->get();
 
         // Get all compliance categories
         $categories = ComplianceCategory::orderBy('name')->get();
             
         return Inertia::render('Admin/ComplianceFramework/SetupPage', [
             'complianceRequirements' => $complianceRequirements,
-            'formTemplates' => $formTemplates,
+            'formTemplates' => $revisedFormTemplates,
+            'submittedFormTemplates' => $submittedFormTemplates,
             'categories' => $categories,
         ]);
     }
@@ -45,8 +55,9 @@ class ComplianceRequirementController extends Controller
      */
     public function create()
     {
+        // Get only revised form templates for the selection UI
         $formTemplates = FormTemplate::whereHas('status', function($query) {
-            $query->where('name', 'published');
+            $query->where('name', 'revised');
         })
             ->orderBy('name')
             ->get(['id', 'name', 'description']);
@@ -110,8 +121,9 @@ class ComplianceRequirementController extends Controller
     {
         $complianceRequirement = ComplianceRequirement::with(['category', 'formTemplates'])->findOrFail($id);
         
+        // Get only revised form templates for the selection UI
         $formTemplates = FormTemplate::whereHas('status', function($query) {
-            $query->where('name', 'published');
+            $query->where('name', 'revised');
         })
             ->orderBy('name')
             ->get(['id', 'name', 'description']);

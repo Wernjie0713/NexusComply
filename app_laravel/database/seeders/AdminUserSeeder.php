@@ -38,6 +38,19 @@ class AdminUserSeeder extends Seeder
         // Assign the admin role to the user
         Bouncer::assign('admin')->to($admin);
 
+        $admin2 = User::firstOrCreate(
+            ['email' => 'admin2@example.com'],
+            [
+                'name' => 'Admin User2',
+                'password' => Hash::make('password'),
+                'email_verified_at' => now(),
+                'role_id' => 'Admin-002',
+            ]
+        );
+
+        // Assign the admin role to the user
+        Bouncer::assign('admin')->to($admin2);
+
         // Ensure the cache is cleared
         Bouncer::refresh();
     }
