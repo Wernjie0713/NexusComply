@@ -21,6 +21,7 @@ class FormTemplate extends Model
         'description',
         'structure',
         'status_id',
+        'section_id',
         'created_by_user_id',
     ];
 
@@ -47,6 +48,14 @@ class FormTemplate extends Model
     public function status(): BelongsTo
     {
         return $this->belongsTo(Status::class, 'status_id');
+    }
+
+    /**
+     * Get the section that the form template belongs to.
+     */
+    public function section(): BelongsTo
+    {
+        return $this->belongsTo(Section::class);
     }
 
     /**

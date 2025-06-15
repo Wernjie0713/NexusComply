@@ -65,39 +65,45 @@ class DemoDataSeeder extends Seeder
             ]
         ];
 
-        foreach ($managers as $managerData) {
-            $roleId = $this->generateUniqueRoleId('M');
-            
-            $manager = User::create([
-                'name' => $managerData['name'],
-                'email' => $managerData['email'],
-                'password' => Hash::make('password'),
-                'email_verified_at' => now(),
-                'role_id' => $roleId,
-            ]);
+        // Wrap user creation in withoutEvents to prevent activity logging
+        User::withoutEvents(function () use ($managers) {
+            foreach ($managers as $managerData) {
+                $roleId = $this->generateUniqueRoleId('M');
+                
+                $manager = User::create([
+                    'name' => $managerData['name'],
+                    'email' => $managerData['email'],
+                    'password' => Hash::make('password'),
+                    'email_verified_at' => now(),
+                    'role_id' => $roleId,
+                ]);
 
-            // Assign Bouncer role
-            $manager->assign('manager');
-        }
+                // Assign Bouncer role
+                $manager->assign('manager');
+            }
+        });
     }
 
     private function createOutletUsers(): void
     {
-        for ($i = 1; $i <= 20; $i++) {
-            $roleId = $this->generateUniqueRoleId('O');
-            $isFemale = (bool)rand(0, 1);
-            
-            $user = User::create([
-                'name' => MalaysianDataProvider::generateMalaysianName($isFemale),
-                'email' => sprintf('outletuser%02d@nexuscomply.app', $i),
-                'password' => Hash::make('password'),
-                'email_verified_at' => now(),
-                'role_id' => $roleId,
-            ]);
+        // Wrap user creation in withoutEvents to prevent activity logging
+        User::withoutEvents(function () {
+            for ($i = 1; $i <= 20; $i++) {
+                $roleId = $this->generateUniqueRoleId('O');
+                $isFemale = (bool)rand(0, 1);
+                
+                $user = User::create([
+                    'name' => MalaysianDataProvider::generateMalaysianName($isFemale),
+                    'email' => sprintf('outletuser%02d@nexuscomply.app', $i),
+                    'password' => Hash::make('password'),
+                    'email_verified_at' => now(),
+                    'role_id' => $roleId,
+                ]);
 
-            // Assign Bouncer role
-            $user->assign('outlet-user');
-        }
+                // Assign Bouncer role
+                $user->assign('outlet-user');
+            }
+        });
     }
 
     private function generateUniqueRoleId(string $prefix): string

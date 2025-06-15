@@ -7,13 +7,14 @@ import FormPreviewModal from '@/Components/FormPreviewModal';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { v4 as uuidv4 } from 'uuid';
 
-export default function BuilderPage({ mode = 'create', formTemplate = null, fromCompliance = false, statuses = [], defaultStatusId = null }) {
+export default function BuilderPage({ mode = 'create', formTemplate = null, fromCompliance = false, statuses = [], sections = [], defaultStatusId = null }) {
     // Form data using Inertia's useForm hook
     const { data, setData, post, put, processing, errors } = useForm({
         name: formTemplate?.name || '',
         description: formTemplate?.description || '',
         structure: formTemplate?.structure || [],
         status_id: formTemplate?.status?.id || defaultStatusId || statuses.find(s => s.name === 'draft')?.id || '',
+        section_id: formTemplate?.section?.id || '',
     });
     
     // Get the current status name
@@ -415,6 +416,29 @@ export default function BuilderPage({ mode = 'create', formTemplate = null, from
                                         />
                                         {errors.description && (
                                             <div className="mt-1 text-sm text-red-600">{errors.description}</div>
+                                        )}
+                                    </div>
+                                    
+                                    <div>
+                                        <label htmlFor="formSection" className="block text-sm font-medium text-gray-700">
+                                            Section
+                                        </label>
+                                        <select
+                                            id="formSection"
+                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                                            value={data.section_id}
+                                            onChange={(e) => setData('section_id', e.target.value)}
+                                            disabled={currentStatus === 'revised'}
+                                        >
+                                            <option value="">-- Select Section --</option>
+                                            {sections.map((section) => (
+                                                <option key={section.id} value={section.id}>
+                                                    {section.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {errors.section_id && (
+                                            <div className="mt-1 text-sm text-red-600">{errors.section_id}</div>
                                         )}
                                     </div>
                                     

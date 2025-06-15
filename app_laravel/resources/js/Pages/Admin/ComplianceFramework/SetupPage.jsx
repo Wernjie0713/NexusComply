@@ -185,7 +185,7 @@ export default function SetupPage({ complianceRequirements = [], formTemplates =
                         Compliance Framework Setup
                     </h2>
                     <AdminPrimaryButton onClick={openAddModal}>
-                        Add New Compliance Category
+                        Add New Compliance Requirement
                     </AdminPrimaryButton>
                 </div>
             }
@@ -237,9 +237,9 @@ export default function SetupPage({ complianceRequirements = [], formTemplates =
                     {/* Main content section */}
                     <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
                         <div className="p-6">
-                            <h3 className="text-lg font-medium text-gray-900">Existing Compliance Categories</h3>
+                            <h3 className="text-lg font-medium text-gray-900">Existing Compliance Requirements</h3>
                             <p className="mb-6 mt-1 text-sm text-gray-600">
-                                Manage compliance categories and their associated requirements for your organization.
+                                Manage compliance requirements and their associated forms for your organization.
                             </p>
                             
                             {/* Categories Table */}
@@ -248,7 +248,7 @@ export default function SetupPage({ complianceRequirements = [], formTemplates =
                                     <thead className="bg-gray-50">
                                         <tr>
                                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                                                Category Name
+                                                Title
                                             </th>
                                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                                                 Description
@@ -447,7 +447,7 @@ export default function SetupPage({ complianceRequirements = [], formTemplates =
             >
                 <div className="p-6">
                     <h3 className="text-lg font-medium text-gray-900">
-                        {modalMode === 'add' ? 'Add New Compliance Category' : 'Edit Compliance Category'}
+                        {modalMode === 'add' ? 'Add New Compliance Requirement' : 'Edit Compliance Requirement'}
                     </h3>
                     
                     <div className="mt-6 space-y-6">
@@ -456,7 +456,7 @@ export default function SetupPage({ complianceRequirements = [], formTemplates =
                             {/* Category Name */}
                             <div>
                                 <label htmlFor="categoryName" className="block text-sm font-medium text-gray-700">
-                                    Category Name
+                                    Requirement Title
                                 </label>
                                 <TextInput
                                     id="categoryName"
