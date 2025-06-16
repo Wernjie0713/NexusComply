@@ -21,29 +21,29 @@ const PRIMARY_GREEN = '#4CAF50';
 const StatusBadge = ({ status }) => {
   // Define status configurations
   const statusConfig = {
-    'Revised': { 
+    'approved': { 
       color: PRIMARY_GREEN, 
       text: 'Approved',
       icon: 'checkmark-circle' 
     },
-    'Submitted': { 
+    'submitted': { 
       color: '#FFEB3B', 
       text: 'Pending Manager Review',
       icon: 'time' 
     },
-    'Draft': { 
+    'draft': { 
       color: '#9E9E9E', 
       text: 'Draft',
       icon: 'document' 
     },
-    'Overdue': { 
+    'overdue': { 
       color: '#2196F3', 
       text: 'Overdue',
       icon: 'warning' 
     },
-    'Follow-up Required': {
+    'rejected': {
       color: '#FF9800',
-      text: 'Follow-up Required',
+      text: 'Rejected',
       icon: 'repeat'
     }
   };
@@ -91,29 +91,7 @@ export default function AuditsScreen() {
   // State for audit data
   const [auditData, setAuditData] = useState([
     { title: 'Active Audits', data: [] },
-    { 
-      title: 'Recent Audits', 
-      data: [
-        {
-          id: '6',
-          title: 'Monthly Hygiene Check - May',
-          dueDate: 'May 31, 2025',
-          submittedDate: 'May 28, 2025',
-          isDraft: false,
-          status: 'Revised',
-          type: 'recent'
-        },
-        {
-          id: '7',
-          title: 'Quarterly Food Safety Audit - Q1',
-          dueDate: 'March 31, 2025',
-          submittedDate: 'March 28, 2025',
-          isDraft: false,
-          status: 'Approved',
-          type: 'recent'
-        }
-      ] 
-    }
+    { title: 'Recent Audits', data: [] }
   ]);
 
   // Fetch active audits from backend
@@ -121,9 +99,14 @@ export default function AuditsScreen() {
     try {
       setLoading(true);
       const response = await ApiClient.get('/api/mobile/audits');
-      setAuditData(prevData => [
-        { title: 'Active Audits', data: response },
-        prevData[1] // Keep the existing recent audits data
+      
+      // Separate audits into active and recent based on status
+      const activeAudits = response.filter(audit => audit.status !== 'approved');
+      const recentAudits = response.filter(audit => audit.status === 'approved');
+
+      setAuditData([
+        { title: 'Active Audits', data: activeAudits },
+        { title: 'Recent Audits', data: recentAudits }
       ]);
       setError(null);
     } catch (err) {
@@ -170,7 +153,8 @@ export default function AuditsScreen() {
           formId: item.id,
           headerTitle: item.title,
           outletId: item.outlet_id,
-          dueDate: item.dueDate
+          dueDate: item.dueDate,
+          status: item.status
         }
       });
     }

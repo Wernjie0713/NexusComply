@@ -205,21 +205,6 @@ export default function DashboardScreen() {
             ))}
           </View>
           
-          {/* Tasks Due Today Section */}
-          {dashboardData.tasksDueToday && dashboardData.tasksDueToday.length > 0 && (
-            <View style={styles.submissionsContainer}>
-              <Text style={styles.sectionTitle}>Tasks Due Today</Text>
-              
-              {dashboardData.tasksDueToday.map((task, index) => (
-                <TaskItem 
-                  key={index} 
-                  item={task} 
-                  onPress={() => handleViewTaskDetails(task)}
-                />
-              ))}
-            </View>
-          )}
-          
           {/* Recent Activity Section */}
           {dashboardData.recentActivity && dashboardData.recentActivity.length > 0 && (
             <View style={styles.submissionsContainer}>

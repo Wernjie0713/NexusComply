@@ -50,7 +50,8 @@ export default function AppLayout() {
           return (
             <View style={styles.tabBarContainer}>
               {state.routes.map((route, index) => {
-                if (descriptors[route.key].options.tabBarButton === null) {
+                // Only render tabs for our three main routes
+                if (!['dashboard', 'audits', 'profile'].includes(route.name)) {
                   return null;
                 }
                 
@@ -117,14 +118,6 @@ export default function AppLayout() {
         options={{ 
           headerShown: false,
           tabBarLabel: 'Profile',
-        }} 
-      />
-      <Tabs.Screen 
-        name="select-compliance" 
-        options={{ 
-          headerTitle: 'Select Compliance Form',
-          headerShown: false,
-          tabBarButton: () => null,
         }} 
       />
     </Tabs>

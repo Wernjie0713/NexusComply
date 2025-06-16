@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -6,11 +6,13 @@ import {
   FlatList, 
   TouchableOpacity,
   SafeAreaView,
-  TextInput
+  TextInput,
+  ActivityIndicator
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import ApiClient from '../../../utils/apiClient';
 
 // Define our primary green color for consistent use
 const PRIMARY_GREEN = '#4CAF50';
@@ -19,20 +21,20 @@ const PRIMARY_GREEN = '#4CAF50';
 const StatusBadge = ({ status }) => {
   // Define status configurations
   const statusConfig = {
-    approved: { 
+    'approved': { 
       color: PRIMARY_GREEN, 
       text: 'Approved',
       icon: 'checkmark-circle' 
     },
-    rejected: { 
-      color: '#F44336', 
-      text: 'Rejected',
-      icon: 'close-circle' 
+    'submitted': { 
+      color: '#FFEB3B', 
+      text: 'Pending Manager Review',
+      icon: 'time' 
     },
-    'with-issues': { 
-      color: '#FF9800', 
-      text: 'Approved with Issues',
-      icon: 'alert-circle' 
+    'rejected': {
+      color: '#FF9800',
+      text: 'Rejected',
+      icon: 'repeat'
     }
   };
 
@@ -57,7 +59,7 @@ const AuditRecordItem = ({ item, onPress }) => (
       <Text style={styles.recordDate}>Submitted: {item.submittedDate}</Text>
       
       <View style={styles.recordDetails}>
-        <Text style={styles.recordManager}>Reviewed by: {item.reviewedBy}</Text>
+        <Text style={styles.recordManager}>Reviewed by: John Manager</Text>
         <StatusBadge status={item.status} />
       </View>
     </View>
@@ -66,83 +68,41 @@ const AuditRecordItem = ({ item, onPress }) => (
 
 export default function PastRecordsScreen() {
   const router = useRouter();
-  const [searchText, setSearchText] = React.useState('');
+  const [searchText, setSearchText] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [auditRecords, setAuditRecords] = useState([]);
   
-  // Mock data for past audit records
-  const pastRecords = [
-    {
-      id: '1',
-      title: 'Monthly Hygiene Check - May 2025',
-      submittedDate: 'May 28, 2025',
-      reviewedDate: 'May 30, 2025',
-      reviewedBy: 'John Manager',
-      status: 'approved',
-    },
-    {
-      id: '2',
-      title: 'Fire Safety Quarterly Inspection - Q1 2025',
-      submittedDate: 'March 28, 2025',
-      reviewedDate: 'April 2, 2025',
-      reviewedBy: 'Sarah Director',
-      status: 'approved',
-    },
-    {
-      id: '3',
-      title: 'Staff Training Compliance Review - Q1 2025',
-      submittedDate: 'March 15, 2025',
-      reviewedDate: 'March 18, 2025',
-      reviewedBy: 'John Manager',
-      status: 'rejected',
-    },
-    {
-      id: '4',
-      title: 'Monthly Hygiene Check - April 2025',
-      submittedDate: 'April 27, 2025',
-      reviewedDate: 'April 29, 2025',
-      reviewedBy: 'John Manager',
-      status: 'with-issues',
-    },
-    {
-      id: '5',
-      title: 'Equipment Maintenance Audit - Q1 2025',
-      submittedDate: 'March 20, 2025',
-      reviewedDate: 'March 25, 2025',
-      reviewedBy: 'Sarah Director',
-      status: 'approved',
-    },
-    {
-      id: '6',
-      title: 'Monthly Hygiene Check - March 2025',
-      submittedDate: 'March 29, 2025',
-      reviewedDate: 'April 1, 2025',
-      reviewedBy: 'John Manager',
-      status: 'approved',
-    },
-    {
-      id: '7',
-      title: 'Food Safety Assessment - February 2025',
-      submittedDate: 'February 25, 2025',
-      reviewedDate: 'February 28, 2025',
-      reviewedBy: 'Sarah Director',
-      status: 'approved',
-    },
-    {
-      id: '8',
-      title: 'Monthly Hygiene Check - February 2025',
-      submittedDate: 'February 27, 2025',
-      reviewedDate: 'March 1, 2025',
-      reviewedBy: 'John Manager',
-      status: 'with-issues',
+  // Fetch audit records from backend
+  const fetchAuditRecords = async () => {
+    try {
+      setLoading(true);
+      const response = await ApiClient.get('/api/mobile/audits');
+      
+      // Filter out drafts and sort by submitted date
+      const filteredRecords = response.filter(audit => audit.status !== 'draft');
+      
+      setAuditRecords(filteredRecords);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching audit records:', err);
+      setError('Failed to load audit records. Please try again.');
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  // Fetch records when component mounts
+  useEffect(() => {
+    fetchAuditRecords();
+  }, []);
 
   // Filter records based on search text
   const filteredRecords = searchText 
-    ? pastRecords.filter(record => 
-        record.title.toLowerCase().includes(searchText.toLowerCase()) ||
-        record.reviewedBy.toLowerCase().includes(searchText.toLowerCase())
+    ? auditRecords.filter(record => 
+        record.title.toLowerCase().includes(searchText.toLowerCase())
       )
-    : pastRecords;
+    : auditRecords;
 
   // Handle record item press
   const handleRecordPress = (item) => {
@@ -150,7 +110,11 @@ export default function PastRecordsScreen() {
       pathname: '/(app)/audits/audit-details',
       params: { 
         formName: item.title,
-        formId: item.id
+        formId: item.id,
+        headerTitle: item.title,
+        outletId: item.outlet_id,
+        dueDate: item.dueDate,
+        status: item.status
       }
     });
   };
@@ -176,27 +140,44 @@ export default function PastRecordsScreen() {
         ) : null}
       </View>
       
-      <FlatList
-        data={filteredRecords}
-        renderItem={({ item }) => (
-          <AuditRecordItem 
-            item={item}
-            onPress={handleRecordPress}
-          />
-        )}
-        keyExtractor={item => item.id}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="document-text-outline" size={48} color="#CCCCCC" />
-            <Text style={styles.emptyText}>
-              {searchText 
-                ? "No audit records match your search" 
-                : "No past audit records found"}
-            </Text>
-          </View>
-        }
-      />
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={PRIMARY_GREEN} />
+          <Text style={styles.loadingText}>Loading audit records...</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity 
+            style={styles.retryButton}
+            onPress={fetchAuditRecords}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredRecords}
+          renderItem={({ item }) => (
+            <AuditRecordItem 
+              item={item}
+              onPress={handleRecordPress}
+            />
+          )}
+          keyExtractor={item => item.id}
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Ionicons name="document-text-outline" size={48} color="#CCCCCC" />
+              <Text style={styles.emptyText}>
+                {searchText 
+                  ? "No audit records match your search" 
+                  : "No past audit records found"}
+              </Text>
+            </View>
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -290,5 +271,38 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#999999',
     textAlign: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#666666',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    color: '#DC2626',
+    fontSize: 16,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  retryButtonText: {
+    color: '#374151',
+    fontSize: 14,
+    fontWeight: '500',
   },
 }); 

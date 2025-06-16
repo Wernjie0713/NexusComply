@@ -17,6 +17,9 @@ class ComplianceStaticDataSeeder extends Seeder
             ['id' => 1, 'name' => 'draft'],
             ['id' => 2, 'name' => 'submitted'],
             ['id' => 3, 'name' => 'revised'],
+            ['id' => 4, 'name' => 'rejected'],
+            ['id' => 5, 'name' => 'approved'],
+            ['id' => 6, 'name' => 'pending']
         ];
 
         foreach ($statuses as $status) {

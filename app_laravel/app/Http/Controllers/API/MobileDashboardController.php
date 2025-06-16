@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Silber\Bouncer\BouncerFacade as Bouncer;
+use App\Models\Audit;
 
 class MobileDashboardController extends Controller
 {
@@ -39,13 +40,25 @@ class MobileDashboardController extends Controller
      */
     private function getOutletUserData($user): JsonResponse
     {
-        // In a real implementation, you would:
-        // 1. Fetch tasks pending for the outlet
-        // 2. Get compliance metrics
-        // 3. Get recent activity
-        // 4. Format everything for mobile consumption
-        
-        // For demo purposes, we'll return structured mock data
+        // Get audit counts based on status
+        $completedCount = Audit::where('user_id', $user->id)
+            ->whereHas('status', function($query) {
+                $query->where('name', 'approved');
+            })
+            ->count();
+
+        $newAuditsCount = Audit::where('user_id', $user->id)
+            ->whereHas('status', function($query) {
+                $query->where('name', 'draft');
+            })
+            ->count();
+
+        $pendingCount = Audit::where('user_id', $user->id)
+            ->whereHas('status', function($query) {
+                $query->whereNotIn('name', ['approved', 'draft']);
+            })
+            ->count();
+
         return response()->json([
             'user' => [
                 'name' => $user->name,
@@ -55,25 +68,25 @@ class MobileDashboardController extends Controller
             'metrics' => [
                 [
                     'title' => 'Tasks Pending',
-                    'value' => '12',
+                    'value' => (string)$pendingCount,
                     'icon' => 'clipboard-outline',
                     'color' => '#EF4444'
                 ],
                 [
                     'title' => 'Completed',
-                    'value' => '28',
+                    'value' => (string)$completedCount,
                     'icon' => 'checkmark-circle-outline',
                     'color' => '#10B981'
                 ],
                 [
                     'title' => 'Compliance Score',
-                    'value' => '92%',
+                    'value' => 'NaN',
                     'icon' => 'analytics-outline',
                     'color' => '#3B82F6'
                 ],
                 [
                     'title' => 'New Audits',
-                    'value' => '3',
+                    'value' => (string)$newAuditsCount,
                     'icon' => 'document-text-outline',
                     'color' => '#F59E0B'
                 ]
@@ -99,20 +112,6 @@ class MobileDashboardController extends Controller
                     'status' => 'completed',
                     'timestamp' => now()->subDay()->toIso8601String(),
                     'displayTime' => 'Yesterday at 5:15 PM'
-                ]
-            ],
-            'tasksDueToday' => [
-                [
-                    'id' => 1,
-                    'title' => 'Equipment Safety Check',
-                    'dueTime' => 'Due by 5:00 PM',
-                    'priority' => 'high'
-                ],
-                [
-                    'id' => 2,
-                    'title' => 'Inventory Audit',
-                    'dueTime' => 'Due by 6:30 PM',
-                    'priority' => 'medium'
                 ]
             ]
         ]);

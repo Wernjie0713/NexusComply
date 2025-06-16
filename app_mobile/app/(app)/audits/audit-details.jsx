@@ -48,7 +48,7 @@ const StatusBadge = ({ status }) => {
 };
 
 // Form Item Component
-const FormItem = ({ item, auditId, outletId, dueDate, outletName, headerTitle }) => {
+const FormItem = ({ item, auditId, outletId, dueDate, outletName, headerTitle, auditStatus }) => {
   const router = useRouter();
 
   const handleFormPress = () => {
@@ -65,7 +65,8 @@ const FormItem = ({ item, auditId, outletId, dueDate, outletName, headerTitle })
         outletId: outletId,
         dueDate: dueDate,
         outletName: outletName,
-        originalTitle: headerTitle
+        originalTitle: headerTitle,
+        status: auditStatus || 'draft'
       }
     });
   };
@@ -203,6 +204,7 @@ export default function ViewSubmissionScreen() {
               dueDate={params.dueDate}
               outletName={outletName}
               headerTitle={params.headerTitle}
+              auditStatus={auditData?.status}
             />
           ))}
           {(!auditData?.forms || auditData.forms.length === 0) && (

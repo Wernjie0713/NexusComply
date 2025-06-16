@@ -105,7 +105,7 @@ const uploadFile = async (fileUri, fileName, fieldId) => {
 };
 
 // Form Field Component
-const FormField = ({ field, value, onChange }) => {
+const FormField = ({ field, value, onChange, isReadOnly }) => {
   const [selectedFile, setSelectedFile] = useState(() => {
     // Initialize with existing file data if value exists and is a string
     if (value && typeof value === 'string') {
@@ -242,10 +242,11 @@ const FormField = ({ field, value, onChange }) => {
         <View style={styles.fieldContainer}>
           <Text style={styles.fieldLabel}>{field.label}{field.required && <Text style={styles.required}> *</Text>}</Text>
           <TextInput
-            style={styles.textInput}
+            style={[styles.textInput, isReadOnly && styles.readOnlyInput]}
             value={value}
             onChangeText={onChange}
             placeholder={field.placeholder || ''}
+            editable={!isReadOnly}
           />
         </View>
       );
@@ -255,12 +256,13 @@ const FormField = ({ field, value, onChange }) => {
         <View style={styles.fieldContainer}>
           <Text style={styles.fieldLabel}>{field.label}{field.required && <Text style={styles.required}> *</Text>}</Text>
           <TextInput
-            style={[styles.textInput, styles.textArea]}
+            style={[styles.textInput, styles.textArea, isReadOnly && styles.readOnlyInput]}
             value={value}
             onChangeText={onChange}
             placeholder={field.placeholder || ''}
             multiline
             numberOfLines={4}
+            editable={!isReadOnly}
           />
         </View>
       );
@@ -271,11 +273,12 @@ const FormField = ({ field, value, onChange }) => {
           <View style={styles.checkboxContainer}>
             <Switch
               value={value || false}
-              onValueChange={onChange}
+              onValueChange={isReadOnly ? null : onChange}
               trackColor={{ false: '#767577', true: PRIMARY_GREEN }}
               thumbColor={value ? '#fff' : '#f4f3f4'}
+              disabled={isReadOnly}
             />
-            <Text style={styles.checkboxLabel}>{field.label}{field.required && <Text style={styles.required}> *</Text>}</Text>
+            <Text style={[styles.checkboxLabel, isReadOnly && styles.readOnlyText]}>{field.label}{field.required && <Text style={styles.required}> *</Text>}</Text>
           </View>
         </View>
       );
@@ -283,12 +286,12 @@ const FormField = ({ field, value, onChange }) => {
     case 'checkbox-group':
       return (
         <View style={styles.fieldContainer}>
-          <Text style={styles.fieldLabel}>{field.label}{field.required && <Text style={styles.required}> *</Text>}</Text>
+          <Text style={[styles.fieldLabel, isReadOnly && styles.readOnlyText]}>{field.label}{field.required && <Text style={styles.required}> *</Text>}</Text>
           {field.options.map((option, index) => (
             <TouchableOpacity 
               key={index}
-              style={styles.optionContainer}
-              onPress={() => {
+              style={[styles.optionContainer, isReadOnly && styles.readOnlyOption]}
+              onPress={isReadOnly ? null : () => {
                 const newValue = [...(value || [])];
                 const optionIndex = newValue.indexOf(option);
                 if (optionIndex > -1) {
@@ -298,15 +301,16 @@ const FormField = ({ field, value, onChange }) => {
                 }
                 onChange(newValue);
               }}
+              disabled={isReadOnly}
             >
               <View style={styles.optionIcon}>
                 <Ionicons 
                   name={(value || []).includes(option) ? "checkbox" : "square-outline"} 
                   size={24} 
-                  color={PRIMARY_GREEN}
+                  color={isReadOnly ? '#999' : PRIMARY_GREEN}
                 />
               </View>
-              <Text style={styles.optionText}>{option}</Text>
+              <Text style={[styles.optionText, isReadOnly && styles.readOnlyText]}>{option}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -315,21 +319,22 @@ const FormField = ({ field, value, onChange }) => {
     case 'radio':
       return (
         <View style={styles.fieldContainer}>
-          <Text style={styles.fieldLabel}>{field.label}{field.required && <Text style={styles.required}> *</Text>}</Text>
+          <Text style={[styles.fieldLabel, isReadOnly && styles.readOnlyText]}>{field.label}{field.required && <Text style={styles.required}> *</Text>}</Text>
           {field.options.map((option, index) => (
             <TouchableOpacity 
               key={index}
-              style={styles.optionContainer}
-              onPress={() => onChange(option)}
+              style={[styles.optionContainer, isReadOnly && styles.readOnlyOption]}
+              onPress={isReadOnly ? null : () => onChange(option)}
+              disabled={isReadOnly}
             >
               <View style={styles.optionIcon}>
                 <Ionicons 
                   name={value === option ? "radio-button-on" : "radio-button-off"} 
                   size={24} 
-                  color={PRIMARY_GREEN}
+                  color={isReadOnly ? '#999' : PRIMARY_GREEN}
                 />
               </View>
-              <Text style={styles.optionText}>{option}</Text>
+              <Text style={[styles.optionText, isReadOnly && styles.readOnlyText]}>{option}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -338,19 +343,24 @@ const FormField = ({ field, value, onChange }) => {
     case 'select':
       return (
         <View style={styles.fieldContainer}>
-          <Text style={styles.fieldLabel}>{field.label}{field.required && <Text style={styles.required}> *</Text>}</Text>
+          <Text style={[styles.fieldLabel, isReadOnly && styles.readOnlyText]}>{field.label}{field.required && <Text style={styles.required}> *</Text>}</Text>
           {field.options.map((option, index) => (
             <TouchableOpacity 
               key={index}
               style={[
                 styles.selectOption,
-                value === option && styles.selectOptionSelected
+                value === option && styles.selectOptionSelected,
+                isReadOnly && styles.readOnlyOption,
+                isReadOnly && value === option && styles.readOnlySelectedOption
               ]}
-              onPress={() => onChange(option)}
+              onPress={isReadOnly ? null : () => onChange(option)}
+              disabled={isReadOnly}
             >
               <Text style={[
                 styles.selectOptionText,
-                value === option && styles.selectOptionTextSelected
+                value === option && styles.selectOptionTextSelected,
+                isReadOnly && styles.readOnlyText,
+                isReadOnly && value === option && styles.readOnlySelectedText
               ]}>{option}</Text>
             </TouchableOpacity>
           ))}
@@ -360,17 +370,18 @@ const FormField = ({ field, value, onChange }) => {
     case 'date':
       return (
         <View style={styles.fieldContainer}>
-          <Text style={styles.fieldLabel}>{field.label}{field.required && <Text style={styles.required}> *</Text>}</Text>
+          <Text style={[styles.fieldLabel, isReadOnly && styles.readOnlyText]}>{field.label}{field.required && <Text style={styles.required}> *</Text>}</Text>
           <TouchableOpacity 
-            style={styles.datePickerButton}
-            onPress={() => setShowDatePicker(true)}
+            style={[styles.datePickerButton, isReadOnly && styles.readOnlyOption]}
+            onPress={isReadOnly ? null : () => setShowDatePicker(true)}
+            disabled={isReadOnly}
           >
-            <Text style={styles.datePickerButtonText}>
+            <Text style={[styles.datePickerButtonText, isReadOnly && styles.readOnlyText]}>
               {value ? new Date(value).toLocaleDateString() : 'Select date'}
             </Text>
-            <Ionicons name="calendar" size={24} color={PRIMARY_GREEN} />
+            <Ionicons name="calendar" size={24} color={isReadOnly ? '#999' : PRIMARY_GREEN} />
           </TouchableOpacity>
-          {showDatePicker && Platform.OS === 'android' && (
+          {showDatePicker && Platform.OS === 'android' && !isReadOnly && (
             <DateTimePicker
               value={value ? new Date(value) : new Date()}
               mode="date"
@@ -382,7 +393,7 @@ const FormField = ({ field, value, onChange }) => {
               }}
             />
           )}
-          {showDatePicker && Platform.OS === 'ios' && (
+          {showDatePicker && Platform.OS === 'ios' && !isReadOnly && (
             <View style={styles.iosDatePickerContainer}>
               <View style={styles.iosDatePickerHeader}>
                 <TouchableOpacity onPress={() => setShowDatePicker(false)}>
@@ -449,30 +460,34 @@ const FormField = ({ field, value, onChange }) => {
                     {downloading ? 'Downloading...' : 'View'}
                   </Text>
                 </TouchableOpacity>
-                <TouchableOpacity 
-                  style={[styles.fileActionButton, styles.editButton]}
-                  onPress={handleFilePick}
-                  disabled={downloading}
-                >
-                  <Ionicons name="pencil-outline" size={20} color={PRIMARY_GREEN} />
-                  <Text style={styles.fileActionText}>Change</Text>
-                </TouchableOpacity>
+                {!isReadOnly && (
+                  <TouchableOpacity 
+                    style={[styles.fileActionButton, styles.editButton]}
+                    onPress={handleFilePick}
+                    disabled={downloading}
+                  >
+                    <Ionicons name="pencil-outline" size={20} color={PRIMARY_GREEN} />
+                    <Text style={styles.fileActionText}>Change</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
           ) : (
-            <TouchableOpacity 
-              style={[
-                styles.fileUploadButton,
-                uploading && styles.fileUploadButtonDisabled
-              ]}
-              onPress={handleFilePick}
-              disabled={uploading}
-            >
-              <Ionicons name="cloud-upload" size={24} color="#fff" />
-              <Text style={styles.fileUploadButtonText}>
-                {uploading ? 'Uploading...' : 'Choose File'}
-              </Text>
-            </TouchableOpacity>
+            !isReadOnly && (
+              <TouchableOpacity 
+                style={[
+                  styles.fileUploadButton,
+                  uploading && styles.fileUploadButtonDisabled
+                ]}
+                onPress={handleFilePick}
+                disabled={uploading}
+              >
+                <Ionicons name="cloud-upload" size={24} color="#fff" />
+                <Text style={styles.fileUploadButtonText}>
+                  {uploading ? 'Uploading...' : 'Choose File'}
+                </Text>
+              </TouchableOpacity>
+            )
           )}
         </View>
       );
@@ -489,6 +504,9 @@ export default function AuditFormDetailsScreen() {
   console.log('Raw params:', params);
   console.log('Structure type:', typeof params.structure);
   console.log('Is array?', Array.isArray(params.structure));
+  
+  // Check if form should be read-only based on status - moved after getting params
+  const isReadOnly = params.status && !['draft', 'rejected'].includes(params.status.toLowerCase());
   
   // Form fields from URL params - handle both string and direct object cases
   let formFields = [];
@@ -634,6 +652,7 @@ export default function AuditFormDetailsScreen() {
               field={field}
               value={formValues[field.id]}
               onChange={(value) => handleFieldChange(field.id, value)}
+              isReadOnly={isReadOnly}
             />
           ))}
         </View>
@@ -915,5 +934,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#FF0000',
     padding: 20,
+  },
+  readOnlyInput: {
+    backgroundColor: '#F5F5F5',
+    color: '#666666',
+  },
+  readOnlyText: {
+    color: '#999999',
+  },
+  readOnlyOption: {
+    backgroundColor: '#F5F5F5',
+    borderColor: '#DDDDDD',
+    opacity: 0.8,
+  },
+  readOnlySelectedOption: {
+    backgroundColor: '#E8F5E9',
+    borderColor: '#DDDDDD',
+    opacity: 0.8,
+  },
+  readOnlySelectedText: {
+    color: '#666666',
   },
 }); 
