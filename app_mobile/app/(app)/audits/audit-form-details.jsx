@@ -25,7 +25,7 @@ import * as MediaLibrary from 'expo-media-library';
 
 const PRIMARY_GREEN = '#4CAF50';
 const windowWidth = Dimensions.get('window').width;
-const API_BASE_URL = 'http://192.168.131.143:8000'; // Replace with your actual API base URL
+const API_BASE_URL = 'http://192.168.131.143:8080'; // Replace with your actual API base URL
 
 // Function to check if file is an image
 const isImageFile = (fileName) => {
@@ -594,6 +594,14 @@ export default function AuditFormDetailsScreen() {
           text: 'Submit',
           onPress: async () => {
             try {
+              // Add debug logging
+              console.log('Submitting form with data:', {
+                audit_id: params.auditId,
+                form_id: params.formId,
+                name: params.formName,
+                formValues
+              });
+
               await ApiClient.post('/api/mobile/audits/submit-form', {
                 audit_id: params.auditId,
                 form_id: params.formId,

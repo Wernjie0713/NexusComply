@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use App\Models\Outlet;
 use App\Models\AuditForm;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 
 class MobileAuditController extends Controller
 {
@@ -57,7 +58,7 @@ class MobileAuditController extends Controller
     public function getUserAudits(Request $request)
     {
         try {
-            $audits = Audit::with(['status', 'complianceRequirement', 'outlet'])
+            $audits = Audit::with(['status', 'complianceRequirement', 'outlet.manager'])
                 ->where('user_id', Auth::id())
                 ->orderBy('created_at', 'desc')
                 ->get()
@@ -65,10 +66,12 @@ class MobileAuditController extends Controller
                     try {
                         $outletData = $audit->outlet ? [
                             'outlet_id' => $audit->outlet->id,
-                            'outlet_name' => $audit->outlet->name
+                            'outlet_name' => $audit->outlet->name,
+                            'manager_name' => $audit->outlet->manager ? $audit->outlet->manager->name : 'No Manager Assigned'
                         ] : [
                             'outlet_id' => null,
-                            'outlet_name' => 'Unknown Outlet'
+                            'outlet_name' => 'Unknown Outlet',
+                            'manager_name' => 'No Manager Assigned'
                         ];
 
                         // Calculate due date based on frequency using start_time
@@ -92,7 +95,8 @@ class MobileAuditController extends Controller
                             'isDraft' => false,
                             'type' => 'active',
                             'outlet_id' => null,
-                            'outlet_name' => 'Error Loading Outlet'
+                            'outlet_name' => 'Error Loading Outlet',
+                            'manager_name' => 'Error Loading Manager'
                         ];
                     }
                 });
@@ -169,6 +173,14 @@ class MobileAuditController extends Controller
      */
     public function submitForm(Request $request)
     {
+        // Add debug logging
+        \Log::info('Form submission received:', [
+            'audit_id' => $request->audit_id,
+            'form_id' => $request->form_id,
+            'name' => $request->name,
+            'value' => $request->value
+        ]);
+
         $request->validate([
             'audit_id' => 'required|exists:audit,id',
             'form_id' => 'required|exists:form_templates,id',
@@ -186,7 +198,8 @@ class MobileAuditController extends Controller
                 // Update existing form
                 $existingForm->update([
                     'name' => $request->name,
-                    'value' => $request->value
+                    'value' => $request->value,
+                    'status_id' => 1 // Default status (e.g., "In Progress")
                 ]);
                 
                 $auditForm = $existingForm;
@@ -194,10 +207,19 @@ class MobileAuditController extends Controller
             } else {
                 // Create new form
                 $auditForm = AuditForm::create([
-                    'audit_id' => $request->audit_id,
+                    'audit_id' => $request->audit_id, // Keep this for backward compatibility
                     'form_id' => $request->form_id,
                     'name' => $request->name,
-                    'value' => $request->value
+                    'value' => $request->value,
+                    'status_id' => 1 // Default status (e.g., "In Progress")
+                ]);
+
+                // Create the many-to-many relationship record
+                DB::table('audit_audit_form')->insert([
+                    'audit_id' => $request->audit_id,
+                    'audit_form_id' => $auditForm->id,
+                    'created_at' => now(),
+                    'updated_at' => now()
                 ]);
                 
                 $message = 'Form submitted successfully';
@@ -236,9 +258,7 @@ class MobileAuditController extends Controller
                 $progress = ($completedForms / $totalForms) * 100;
                 
                 $audit->update([
-                    'progress' => $progress,
-                    // If all forms are completed, set status to completed (assuming status_id 2 is "Completed")
-                    'status_id' => $completedForms >= $totalForms ? 2 : 1
+                    'progress' => $progress
                 ]);
             }
         } catch (\Exception $e) {
@@ -353,6 +373,42 @@ class MobileAuditController extends Controller
                 'filename' => $filename
             ]);
             return response()->json(['error' => 'Error serving file'], 500);
+        }
+    }
+
+    /**
+     * Delete an audit.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function destroy($id)
+    {
+        try {
+            $audit = Audit::findOrFail($id);
+            
+            // Only allow deletion of drafts (Draft status)
+            if ($audit->status->name !== 'draft') {
+                return response()->json([
+                    'message' => 'Only draft audits can be deleted',
+                ], 403);
+            }
+
+            // Delete associated audit forms first
+            $audit->auditForms()->delete();
+            
+            // Delete the audit
+            $audit->delete();
+
+            return response()->json([
+                'message' => 'Audit deleted successfully'
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Failed to delete audit: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Failed to delete audit',
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 } 
