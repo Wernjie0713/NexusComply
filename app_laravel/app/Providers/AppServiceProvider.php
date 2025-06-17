@@ -9,6 +9,11 @@ use App\Models\User;
 use App\Models\Outlet;
 use App\Models\Audit;
 use App\Models\ComplianceRequirement;
+use Silber\Bouncer\BouncerServiceProvider;
+use Illuminate\Support\Facades\Route;
+use Silber\Bouncer\Middleware\RoleMiddleware;
+use App\Models\FormTemplate;
+use App\Models\AuditForm;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -17,7 +22,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->register(BouncerServiceProvider::class);
     }
 
     /**
@@ -32,5 +37,10 @@ class AppServiceProvider extends ServiceProvider
         Outlet::observe(ActivityLogObserver::class);
         Audit::observe(ActivityLogObserver::class);
         ComplianceRequirement::observe(ActivityLogObserver::class);
+        FormTemplate::observe(ActivityLogObserver::class);
+        AuditForm::observe(ActivityLogObserver::class);
+
+        // Register Bouncer middleware
+        Route::aliasMiddleware('role', RoleMiddleware::class);
     }
 }
