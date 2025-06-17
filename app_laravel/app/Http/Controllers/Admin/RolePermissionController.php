@@ -9,6 +9,7 @@ use Silber\Bouncer\Database\Permission;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Models\Role;
+use Silber\Bouncer\BouncerFacade as Bouncer;
 
 class RolePermissionController extends Controller
 {
@@ -23,6 +24,15 @@ class RolePermissionController extends Controller
             ->selectRaw('COALESCE((SELECT COUNT(*) FROM assigned_roles WHERE assigned_roles.role_id = roles.id), 0) as user_count')
             ->orderByRaw("CASE name WHEN 'admin' THEN 1 WHEN 'manager' THEN 2 WHEN 'outlet-user' THEN 3 ELSE 4 END")
             ->get();
+
+        // Define system roles that cannot be deleted or have their permissions modified
+        $systemRoles = ['admin', 'manager', 'outlet-user'];
+
+        // Add isSystem flag to each role
+        $roles->each(function ($role) use ($systemRoles) {
+            $role->isSystem = in_array($role->name, $systemRoles);
+        });
+
         return response()->json($roles);
     }
 
@@ -68,6 +78,10 @@ class RolePermissionController extends Controller
         $abilityIds = $request->input('ability_ids', []);
         // Sync abilities
         $role->abilities()->sync($abilityIds);
+
+        // Refresh Bouncer's cache to ensure changes are reflected immediately
+        Bouncer::refresh();
+
         return response()->json(['success' => true]);
     }
 
@@ -88,6 +102,12 @@ class RolePermissionController extends Controller
             ->selectRaw('COALESCE((SELECT COUNT(*) FROM assigned_roles WHERE assigned_roles.role_id = roles.id), 0) as user_count')
             ->first();
 
+        // Define system roles that cannot be deleted or have their permissions modified (must match the list in roles() method)
+        $systemRoles = ['admin', 'manager', 'outlet-user'];
+
+        // Add isSystem flag to the updated role
+        $updatedRole->isSystem = in_array($updatedRole->name, $systemRoles);
+
         return response()->json(['success' => true, 'role' => $updatedRole]);
     }
 
@@ -96,8 +116,8 @@ class RolePermissionController extends Controller
     {
         $role = Role::findOrFail($roleId);
 
-        // Prevent deletion of system roles (e.g., 'admin')
-        if (in_array($role->name, ['admin', 'manager', 'outlet_user', 'external_auditor'])) {
+        // Prevent deletion of system roles (e.g., 'admin', 'manager', 'outlet-user')
+        if (in_array($role->name, ['admin', 'manager', 'outlet-user'])) {
             return response()->json(['success' => false, 'message' => 'System roles cannot be deleted.'], 403);
         }
 

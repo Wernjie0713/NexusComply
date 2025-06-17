@@ -11,10 +11,72 @@ export default function RolesPermissionsPage() {
     const [editingRole, setEditingRole] = useState(null);
     const [selectedRoleId, setSelectedRoleId] = useState(null);
     
+    // New state for abilities
+    const [allAbilities, setAllAbilities] = useState([]); // All abilities from backend
+    const [groupedAbilities, setGroupedAbilities] = useState([]); // Abilities grouped by module
+    const [loadingAbilities, setLoadingAbilities] = useState(true);
+
+    // State for permissions of the currently selected role
+    // Using a Set for efficient lookup of assigned abilities
+    const [currentRolePermissions, setCurrentRolePermissions] = useState(new Set());
+    const [loadingRolePermissions, setLoadingRolePermissions] = useState(false);
+
     // Fetch roles from API
     const [roles, setRoles] = useState([]);
     const [loadingRoles, setLoadingRoles] = useState(true);
 
+    // Fetch all abilities
+    useEffect(() => {
+        async function fetchAllAbilities() {
+            setLoadingAbilities(true);
+            try {
+                const response = await fetch('/admin/ajax/abilities', {
+                    headers: { 'Accept': 'application/json' },
+                    credentials: 'same-origin',
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    setAllAbilities(data);
+
+                    // Group abilities by a logical category based on their title
+                    const categories = {
+                        'User Management': [],
+                        'Audit Management': [],
+                        'Compliance Framework': [],
+                        'Settings': [],
+                    };
+
+                    data.forEach(ability => {
+                        if (ability.title.includes('User')) categories['User Management'].push(ability);
+                        else if (ability.title.includes('Audit') || ability.title.includes('Reports')) categories['Audit Management'].push(ability);
+                        else if (ability.title.includes('Compliance') || ability.title.includes('Form')) categories['Compliance Framework'].push(ability);
+                        else if (ability.title.includes('Role') || ability.title.includes('Setting') || ability.title.includes('Log')) categories['Settings'].push(ability);
+                    });
+
+                    const grouped = Object.keys(categories).map((categoryName, index) => ({
+                        id: index + 1, // Simple ID for grouping
+                        name: categoryName,
+                        permissions: categories[categoryName].sort((a, b) => a.title.localeCompare(b.title)), // Sort permissions alphabetically
+                    }));
+                    setGroupedAbilities(grouped);
+                    console.log("All Abilities fetched:", data);
+                    console.log("Grouped Abilities:", grouped);
+                } else {
+                    setAllAbilities([]);
+                    setGroupedAbilities([]);
+                }
+            } catch (e) {
+                console.error("Failed to fetch abilities:", e);
+                setAllAbilities([]);
+                setGroupedAbilities([]);
+            } finally {
+                setLoadingAbilities(false);
+            }
+        }
+        fetchAllAbilities();
+    }, []); // Run once on component mount
+
+    // Fetch roles from API (existing logic)
     useEffect(() => {
         async function fetchRoles() {
             setLoadingRoles(true);
@@ -28,6 +90,10 @@ export default function RolesPermissionsPage() {
                 if (response.ok) {
                     const data = await response.json();
                     setRoles(data);
+                    // Automatically select the first role if none is selected
+                    if (data.length > 0 && selectedRoleId === null) {
+                        setSelectedRoleId(data[0].id);
+                    }
                 } else {
                     setRoles([]);
                 }
@@ -39,61 +105,39 @@ export default function RolesPermissionsPage() {
         }
         fetchRoles();
     }, []);
-    
-    // Sample permissions grouped by module
-    const permissionModules = [
-        {
-            id: 1,
-            name: 'User Management',
-            permissions: [
-                { id: 101, name: 'view_users', label: 'View Users' },
-                { id: 102, name: 'create_users', label: 'Create Users' },
-                { id: 103, name: 'edit_users', label: 'Edit Users' },
-                { id: 104, name: 'delete_users', label: 'Delete Users' },
-            ]
-        },
-        {
-            id: 2,
-            name: 'Audit Management',
-            permissions: [
-                { id: 201, name: 'view_all_audits', label: 'View All Audits' },
-                { id: 202, name: 'review_audits', label: 'Review Submitted Audits' },
-                { id: 203, name: 'approve_audits', label: 'Approve Audits' },
-                { id: 204, name: 'generate_reports', label: 'Generate Audit Reports' },
-            ]
-        },
-        {
-            id: 3,
-            name: 'Compliance Framework',
-            permissions: [
-                { id: 301, name: 'manage_categories', label: 'Manage Compliance Categories' },
-                { id: 302, name: 'manage_forms', label: 'Manage Forms' },
-                { id: 303, name: 'create_frameworks', label: 'Create Compliance Frameworks' },
-            ]
-        },
-        {
-            id: 4,
-            name: 'Settings',
-            permissions: [
-                { id: 401, name: 'manage_roles', label: 'Manage Roles & Permissions' },
-                { id: 402, name: 'system_settings', label: 'Modify System Settings' },
-                { id: 403, name: 'view_logs', label: 'View System Logs' },
-            ]
+
+    // Fetch permissions for the selected role
+    useEffect(() => {
+        async function fetchRolePermissions() {
+            if (selectedRoleId && allAbilities.length > 0) { // Ensure selectedRoleId and allAbilities are available
+                setLoadingRolePermissions(true);
+                try {
+                    const response = await fetch(`/admin/ajax/roles/${selectedRoleId}/abilities`, {
+                        headers: { 'Accept': 'application/json' },
+                        credentials: 'same-origin',
+                    });
+                    if (response.ok) {
+                        const abilityIds = await response.json(); // This returns an array of ability IDs
+                        // Convert IDs to names for the Set
+                        const assignedAbilityNames = new Set(
+                            allAbilities.filter(ability => abilityIds.includes(ability.id)).map(ability => ability.name)
+                        );
+                        setCurrentRolePermissions(assignedAbilityNames);
+                    } else {
+                        setCurrentRolePermissions(new Set());
+                    }
+                } catch (e) {
+                    console.error(`Failed to fetch permissions for role ${selectedRoleId}:`, e);
+                    setCurrentRolePermissions(new Set());
+                } finally {
+                    setLoadingRolePermissions(false);
+                }
+            } else {
+                setCurrentRolePermissions(new Set()); // Clear permissions if no role is selected or abilities are not loaded
+            }
         }
-    ];
-    
-    // Sample role permissions (what permissions each role has)
-    // In a real app, this would be fetched from the server
-    const [rolePermissions, setRolePermissions] = useState({
-        // Admin has all permissions
-        1: permissionModules.flatMap(module => module.permissions.map(p => p.id)),
-        // Manager permissions
-        2: [101, 201, 202, 203, 204, 301],
-        // Outlet User permissions
-        3: [101, 201],
-        // External Auditor permissions
-        4: [202]
-    });
+        fetchRolePermissions(); // Call the async function
+    }, [selectedRoleId, allAbilities]); // Re-run when selectedRoleId or allAbilities changes
 
     const openAddRoleModal = () => {
         setModalMode('add');
@@ -208,17 +252,14 @@ export default function RolesPermissionsPage() {
         setSelectedRoleId(roleId);
     };
 
-    const handleTogglePermission = (permissionId) => {
-        if (!selectedRoleId) return;
-        
-        // For demo purposes, just toggle the permission
-        setRolePermissions(prevPermissions => {
-            const newPermissions = { ...prevPermissions };
+    const handleTogglePermission = (permissionName) => {
+        setCurrentRolePermissions(prevPermissions => {
+            const newPermissions = new Set(prevPermissions);
             
-            if (newPermissions[selectedRoleId].includes(permissionId)) {
-                newPermissions[selectedRoleId] = newPermissions[selectedRoleId].filter(id => id !== permissionId);
+            if (newPermissions.has(permissionName)) {
+                newPermissions.delete(permissionName);
             } else {
-                newPermissions[selectedRoleId] = [...newPermissions[selectedRoleId], permissionId];
+                newPermissions.add(permissionName);
             }
             
             return newPermissions;
@@ -226,64 +267,90 @@ export default function RolesPermissionsPage() {
     };
 
     const handleToggleModulePermissions = (moduleId, isChecked) => {
-        if (!selectedRoleId) return;
-        
-        // Find all permission IDs in this module
-        const modulePermissionIds = permissionModules
+        // Find all permission names in this module
+        const modulePermissionNames = groupedAbilities
             .find(module => module.id === moduleId)
-            ?.permissions.map(p => p.id) || [];
+            ?.permissions.map(p => p.name) || [];
         
-        // For demo purposes, add or remove all permissions in the module
-        setRolePermissions(prevPermissions => {
-            const newPermissions = { ...prevPermissions };
+        setCurrentRolePermissions(prevPermissions => {
+            const newPermissions = new Set(prevPermissions);
             
             if (isChecked) {
                 // Add all module permissions that aren't already included
-                const currentPermissions = new Set(newPermissions[selectedRoleId]);
-                modulePermissionIds.forEach(id => currentPermissions.add(id));
-                newPermissions[selectedRoleId] = Array.from(currentPermissions);
+                modulePermissionNames.forEach(name => newPermissions.add(name));
             } else {
                 // Remove all module permissions
-                newPermissions[selectedRoleId] = newPermissions[selectedRoleId].filter(
-                    id => !modulePermissionIds.includes(id)
-                );
+                modulePermissionNames.forEach(name => newPermissions.delete(name));
             }
             
             return newPermissions;
         });
     };
 
-    // Get the selected role
-    const selectedRole = roles.find(role => role.id === selectedRoleId);
-    
-    // Helper to check if all permissions in a module are selected
     const isModuleFullySelected = (moduleId) => {
         if (!selectedRoleId) return false;
         
-        const modulePermissionIds = permissionModules
+        const modulePermissionNames = groupedAbilities
             .find(module => module.id === moduleId)
-            ?.permissions.map(p => p.id) || [];
+            ?.permissions.map(p => p.name) || [];
         
-        return modulePermissionIds.every(id => 
-            rolePermissions[selectedRoleId]?.includes(id)
+        return modulePermissionNames.every(name => 
+            currentRolePermissions.has(name)
         );
     };
-    
-    // Helper to check if some (but not all) permissions in a module are selected
+
     const isModulePartiallySelected = (moduleId) => {
         if (!selectedRoleId) return false;
         
-        const modulePermissionIds = permissionModules
+        const modulePermissionNames = groupedAbilities
             .find(module => module.id === moduleId)
-            ?.permissions.map(p => p.id) || [];
+            ?.permissions.map(p => p.name) || [];
         
-        const selectedCount = modulePermissionIds.filter(id => 
-            rolePermissions[selectedRoleId]?.includes(id)
+        const selectedCount = modulePermissionNames.filter(name => 
+            currentRolePermissions.has(name)
         ).length;
         
-        return selectedCount > 0 && selectedCount < modulePermissionIds.length;
+        return selectedCount > 0 && selectedCount < modulePermissionNames.length;
     };
 
+    const handleSavePermissions = async () => {
+        if (!selectedRoleId) return;
+
+        // Convert the Set of assigned ability names back to an array of ability IDs
+        const abilityIdsToSync = allAbilities
+            .filter(ability => currentRolePermissions.has(ability.name))
+            .map(ability => ability.id);
+
+        try {
+            const response = await fetch(`/admin/ajax/roles/${selectedRoleId}/abilities`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                },
+                body: JSON.stringify({ ability_ids: abilityIdsToSync }),
+            });
+
+            if (response.ok) {
+                console.log('Permissions updated successfully!');
+                alert('Permissions updated successfully!');
+                // Re-fetch role permissions to confirm changes, or rely on state being accurate
+                // (For simplicity, we'll rely on state for now, but a re-fetch might be safer in complex scenarios)
+            } else {
+                const errorData = await response.json();
+                console.error('Failed to update permissions:', errorData);
+                alert('Failed to update permissions. Please check the console for details.');
+            }
+        } catch (error) {
+            console.error('Network or other error:', error);
+            alert('An error occurred. Please try again.');
+        }
+    };
+
+    // Get the selected role
+    const selectedRole = roles.find(role => role.id === selectedRoleId);
+    
     return (
         <AuthenticatedLayout
             header={
@@ -389,7 +456,8 @@ export default function RolesPermissionsPage() {
                             
                             <div className="px-6 py-4">
                                 {/* Show message for Admin role (which has all permissions) */}
-                                {selectedRole.isSystem && selectedRole.name === 'admin' ? (
+                                {console.log("Selected Role isSystem:", selectedRole?.isSystem)}
+                                {selectedRole.isSystem ? (
                                     <div className="rounded-md bg-green-50 p-4">
                                         <div className="flex">
                                             <div className="flex-shrink-0">
@@ -399,18 +467,17 @@ export default function RolesPermissionsPage() {
                                             </div>
                                             <div className="ml-3">
                                                 <p className="text-sm font-medium text-green-800">
-                                                    The Admin role has all permissions in the system and cannot be modified.
+                                                    The {selectedRole.title} role is a system default role and its permissions cannot be modified.
                                                 </p>
                                             </div>
                                         </div>
                                     </div>
                                 ) : (
                                     <div className="space-y-6">
-                                        {permissionModules.map((module) => (
+                                        {groupedAbilities.map((module) => (
                                             <div key={module.id} className="rounded-md border border-gray-200 p-4">
                                                 <div className="mb-3 flex items-center">
                                                     <input
-                                                        id={`module-${module.id}`}
                                                         type="checkbox"
                                                         className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
                                                         checked={isModuleFullySelected(module.id)}
@@ -422,38 +489,37 @@ export default function RolesPermissionsPage() {
                                                         onChange={(e) => handleToggleModulePermissions(module.id, e.target.checked)}
                                                         disabled={selectedRole.isSystem}
                                                     />
-                                                    <label htmlFor={`module-${module.id}`} className="ml-2 text-sm font-medium text-gray-900">
+                                                    <label className="ml-2 text-md font-semibold text-gray-800">
                                                         {module.name}
                                                     </label>
                                                 </div>
-                                                
-                                                <div className="ml-6 grid grid-cols-1 gap-y-2 sm:grid-cols-2 md:grid-cols-3">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pl-6">
                                                     {module.permissions.map((permission) => (
                                                         <div key={permission.id} className="flex items-center">
                                                             <input
                                                                 id={`permission-${permission.id}`}
                                                                 type="checkbox"
                                                                 className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
-                                                                checked={rolePermissions[selectedRole.id]?.includes(permission.id) || false}
-                                                                onChange={() => handleTogglePermission(permission.id)}
+                                                                checked={currentRolePermissions.has(permission.name)}
+                                                                onChange={() => handleTogglePermission(permission.name)}
                                                                 disabled={selectedRole.isSystem}
                                                             />
                                                             <label htmlFor={`permission-${permission.id}`} className="ml-2 text-sm text-gray-700">
-                                                                {permission.label}
+                                                                {permission.title} {/* Use permission.title for display */}
                                                             </label>
                                                         </div>
                                                     ))}
                                                 </div>
                                             </div>
                                         ))}
-                                        
-                                        {!selectedRole.isSystem && (
-                                            <div className="flex justify-end pt-4">
-                                                <AdminPrimaryButton>
-                                                    Save Permissions for {selectedRole.title}
-                                                </AdminPrimaryButton>
-                                            </div>
-                                        )}
+                                        <div className="mt-6 flex justify-end">
+                                            <AdminPrimaryButton
+                                                onClick={handleSavePermissions}
+                                                disabled={!selectedRoleId || loadingRolePermissions || selectedRole.isSystem}
+                                            >
+                                                Save Permissions for {selectedRole?.title}
+                                            </AdminPrimaryButton>
+                                        </div>
                                     </div>
                                 )}
                             </div>
