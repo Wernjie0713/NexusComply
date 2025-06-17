@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
-use Barryvdh\DomPDF\Facade\Pdf;
+use Barryvdh\Snappy\Facades\SnappyPdf as PDF;
 
 class ActivityLogController extends Controller
 {
@@ -61,8 +61,8 @@ class ActivityLogController extends Controller
             }, $activitiesArray['links']);
 
             // Get unique action types and target types for filters
-            $actionTypes = ActivityLog::distinct()->pluck('action_type')->toArray();
-            $targetTypes = ActivityLog::distinct()->pluck('target_type')->toArray();
+            $actionTypes = ActivityLog::distinct()->pluck('action_type')->sort()->values()->toArray();
+            $targetTypes = ActivityLog::distinct()->pluck('target_type')->sort()->values()->toArray();
 
             Log::info('ActivityLogController: Filter types retrieved', [
                 'action_types_count' => count($actionTypes),
@@ -127,27 +127,69 @@ class ActivityLogController extends Controller
 
             // Limit to last 1000 records for better performance
             $activities = $query->limit(1000)->get();
-            
-            // Format data for export
-            $exportData = $activities->map(function ($activity, $index) {
-                return [
-                    'No.' => $index + 1,
-                    'Date/Time' => Carbon::parse($activity->created_at)->format('m/d/Y H:i:s'),
-                    'Action Type' => ucfirst($activity->action_type),
-                    'Target Type' => ucfirst($activity->target_type),
-                    'Details' => $activity->details,
-                    'User' => $activity->user ? $activity->user->name . ' (' . $activity->user->email . ')' : 'System'
-                ];
-            });
-            
+
             $fileName = 'activity_logs_' . Carbon::now()->format('Y-m-d_H-i-s');
-            
-            if ($request->format === 'csv') {
-                return $this->exportToCsv($exportData, $fileName);
-            } else {
-                return $this->exportToPdf($exportData, $fileName);
+
+            if ($request->format === 'csv' || $request->format === 'excel') {
+                // Use native CSV export for Excel/CSV format
+                $headers = [
+                    'Content-Type' => 'text/csv',
+                    'Content-Disposition' => "attachment; filename=\"$fileName.csv\"",
+                ];
+                $callback = function() use ($activities) {
+                    $handle = fopen('php://output', 'w');
+                    fputcsv($handle, ['No.', 'Date/Time', 'Action Type', 'Target Type', 'Details', 'User']);
+                    foreach ($activities as $index => $activity) {
+                        fputcsv($handle, [
+                            $index + 1,
+                            Carbon::parse($activity->created_at)->format('m/d/Y H:i:s'),
+                            ucfirst($activity->action_type),
+                            ucfirst($activity->target_type),
+                            $activity->details,
+                            $activity->user ? $activity->user->name . ' (' . $activity->user->email . ')' : 'System'
+                        ]);
+                    }
+                    fclose($handle);
+                };
+                return response()->stream($callback, 200, $headers);
+            } else { // PDF
+                $exportData = $activities->map(function ($activity, $index) {
+                    return [
+                        'No.' => $index + 1,
+                        'Date/Time' => Carbon::parse($activity->created_at)->format('m/d/Y H:i:s'),
+                        'Action Type' => ucfirst($activity->action_type),
+                        'Target Type' => ucfirst($activity->target_type),
+                        'Details' => $activity->details,
+                        'User' => $activity->user ? $activity->user->name . ' (' . $activity->user->email . ')' : 'System'
+                    ];
+                });
+                $pdf = \PDF::loadView('exports.activity_logs', [
+                    'data' => $exportData,
+                    'title' => 'Activity Logs Export',
+                    'date' => Carbon::now()->format('Y-m-d H:i:s')
+                ]);
+                $pdf->setOption('page-size', 'A4');
+                $pdf->setOption('orientation', 'landscape');
+                $pdf->setOption('page-width', '297mm');
+                $pdf->setOption('page-height', '210mm');
+                $pdf->setOption('margin-top', 10);
+                $pdf->setOption('margin-right', 10);
+                $pdf->setOption('margin-bottom', 15);
+                $pdf->setOption('margin-left', 10);
+                $pdf->setOption('encoding', 'UTF-8');
+                $pdf->setOption('dpi', 300);
+                $pdf->setOption('enable-local-file-access', true);
+                $pdf->setOption('enable-javascript', true);
+                $pdf->setOption('javascript-delay', 1000);
+                $pdf->setOption('no-stop-slow-scripts', true);
+                $pdf->setOption('enable-smart-shrinking', true);
+                $pdf->setOption('print-media-type', true);
+                $pdf->setOption('footer-left', 'Generated on: ' . Carbon::now()->format('Y-m-d H:i:s'));
+                $pdf->setOption('footer-right', '[page] of [topage]');
+                $pdf->setOption('footer-font-size', 8);
+                $pdf->setOption('footer-spacing', 5);
+                return $pdf->download($fileName . '.pdf');
             }
-            
         } catch (\Exception $e) {
             Log::error('Activity Log Export Error: ' . $e->getMessage(), [
                 'exception' => $e,
@@ -158,51 +200,83 @@ class ActivityLogController extends Controller
         }
     }
     
-    private function exportToCsv($data, $fileName)
+    /**
+     * Generate Activity Log Report
+     */
+    public function generateActivityLogReport(Request $request)
     {
-        // Create CSV file
-        $headers = [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="' . $fileName . '.csv"',
-        ];
-        
-        $callback = function() use ($data) {
-            $file = fopen('php://output', 'w');
+        try {
+            // Get date range from request
+            $startDate = $request->input('start_date', now()->subDays(30)->format('Y-m-d'));
+            $endDate = $request->input('end_date', now()->format('Y-m-d'));
             
-            // Add UTF-8 BOM for Excel compatibility
-            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+            // Get activity log data
+            $data = ActivityLog::whereBetween('created_at', [$startDate, $endDate])
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            // Generate PDF using Snappy
+            $pdf = \PDF::loadView('reports.admin.activity-log', [
+                'data' => $data,
+                'dateRange' => [
+                    'start' => Carbon::parse($startDate),
+                    'end' => Carbon::parse($endDate)
+                ]
+            ]);
+
+            // Set PDF options
+            $pdf->setOption('page-size', 'A4');
+            $pdf->setOption('orientation', 'portrait');
+            $pdf->setOption('margin-top', 10);
+            $pdf->setOption('margin-right', 10);
+            $pdf->setOption('margin-bottom', 15);
+            $pdf->setOption('margin-left', 10);
+            $pdf->setOption('encoding', 'UTF-8');
+            $pdf->setOption('dpi', 300);
+            $pdf->setOption('enable-local-file-access', true);
+            $pdf->setOption('enable-javascript', true);
+            $pdf->setOption('javascript-delay', 1000);
+            $pdf->setOption('no-stop-slow-scripts', true);
+            $pdf->setOption('enable-smart-shrinking', true);
+            $pdf->setOption('print-media-type', true);
+            $pdf->setOption('footer-font-size', 8);
+            $pdf->setOption('footer-spacing', 5);
+
+            return $pdf->download('activity-log-report.pdf');
+
+        } catch (\Exception $e) {
+            \Log::error('Activity Log Report Error: ' . $e->getMessage(), [
+                'exception' => $e,
+                'trace' => $e->getTraceAsString()
+            ]);
             
-            // Add headers
-            if (!empty($data)) {
-                fputcsv($file, array_keys($data[0]));
-            }
-            
-            // Add rows
-            foreach ($data as $row) {
-                fputcsv($file, $row);
-            }
-            
-            fclose($file);
-        };
-        
-        return response()->stream($callback, 200, $headers);
+            return back()->with('error', 'Failed to generate activity log report. Please try again.');
+        }
     }
-    
-    private function exportToPdf($data, $fileName)
+
+    public function exportCsv(Request $request)
     {
-        // Configure PDF options for better performance
-        $pdf = Pdf::setOptions([
-            'isHtml5ParserEnabled' => true,
-            'isRemoteEnabled' => false,
-            'isPhpEnabled' => false,
-            'isFontSubsettingEnabled' => true,
-            'defaultFont' => 'DejaVu Sans'
-        ])->loadView('exports.activity_logs', [
-            'data' => $data,
-            'title' => 'Activity Logs Export',
-            'date' => Carbon::now()->format('Y-m-d H:i:s')
-        ]);
-        
-        return $pdf->download($fileName . '.pdf');
+        $fileName = 'activity_logs_' . now()->format('Y-m-d_H-i-s') . '.csv';
+        $activities = \App\Models\ActivityLog::with('user')->latest('created_at')->get();
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => "attachment; filename=\"$fileName\"",
+        ];
+        $callback = function() use ($activities) {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, ['No.', 'Date/Time', 'Action Type', 'Target Type', 'Details', 'User']);
+            foreach ($activities as $index => $activity) {
+                fputcsv($handle, [
+                    $index + 1,
+                    optional($activity->created_at)->format('m/d/Y H:i:s'),
+                    ucfirst($activity->action_type),
+                    ucfirst($activity->target_type),
+                    $activity->details,
+                    $activity->user ? $activity->user->name . ' (' . $activity->user->email . ')' : 'System'
+                ]);
+            }
+            fclose($handle);
+        };
+        return response()->stream($callback, 200, $headers);
     }
 }
