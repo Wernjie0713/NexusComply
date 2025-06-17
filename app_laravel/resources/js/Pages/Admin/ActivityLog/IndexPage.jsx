@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router } from '@inertiajs/react';
 import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
+import { generateActivityLogPDF } from './ActivityLogPDF';
+import axios from 'axios';
 
 export default function ActivityLogPage({ activities = { data: [], links: [] }, filters = { action_types: [], target_types: [], current: {} } }) {
 
@@ -49,23 +51,39 @@ export default function ActivityLogPage({ activities = { data: [], links: [] }, 
         router.get(route('admin.activity-logs.index'));
     };
 
-    const handleExport = () => {
+    const handleExport = async () => {
         setExporting(true);
         
-        // Get current filter parameters
-        const params = new URLSearchParams({
-            action_type: selectedActionType,
-            target_type: selectedTargetType,
-            date_from: dateFrom,
-            date_to: dateTo,
-            format: exportFormat
-        });
-        
-        // Use direct download instead of Inertia
-        window.location.href = route('admin.activity-logs.export') + '?' + params.toString();
-        
-        // Reset exporting state after a short delay
-        setTimeout(() => setExporting(false), 1000);
+        try {
+            // Get current filter parameters
+            const params = new URLSearchParams({
+                action_type: selectedActionType,
+                target_type: selectedTargetType,
+                date_from: dateFrom,
+                date_to: dateTo,
+                format: exportFormat
+            });
+            
+            if (exportFormat === 'pdf') {
+                // Fetch data for PDF generation
+                const response = await axios.get(route('admin.activity-logs.export') + '?' + params.toString());
+                const { data, dateRange } = response.data;
+                
+                // Generate PDF
+                const pdfDoc = generateActivityLogPDF(data, dateRange);
+                
+                // Save the PDF
+                pdfDoc.save(`activity_logs_${new Date().toISOString().slice(0, 19).replace(/[:]/g, '-')}.pdf`);
+            } else {
+                // For CSV/Excel, use direct download
+                window.location.href = route('admin.activity-logs.export') + '?' + params.toString();
+            }
+        } catch (error) {
+            console.error('Export error:', error);
+            alert('Failed to export activity logs. Please try again.');
+        } finally {
+            setExporting(false);
+        }
     };
 
     return (
