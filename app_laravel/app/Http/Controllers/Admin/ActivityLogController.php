@@ -44,7 +44,7 @@ class ActivityLogController extends Controller
                         'action_type' => $activity->action_type,
                         'target_type' => $activity->target_type,
                         'details' => $activity->details,
-                        'created_at' => Carbon::parse($activity->created_at)->format('Y-m-d H:i:s'),
+                        'created_at' => Carbon::parse($activity->created_at)->format('m/d/Y H:i:s'),
                         'time_ago' => Carbon::parse($activity->created_at)->diffForHumans(),
                         'user' => $activity->user ? [
                             'name' => $activity->user->name,
