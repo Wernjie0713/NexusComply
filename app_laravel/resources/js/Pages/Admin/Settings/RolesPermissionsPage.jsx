@@ -548,10 +548,12 @@ export default function RolesPermissionsPage() {
                             <TextInput
                                 id="roleName"
                                 type="text"
-                                className="mt-1 block w-full"
+                                className={`mt-1 block w-full ${modalMode === 'edit' ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
                                 value={editingRole?.name || ''}
                                 onChange={(e) => setEditingRole({...editingRole, name: e.target.value})}
                                 placeholder="e.g., regional_manager"
+                                readOnly={modalMode === 'edit'}
+                                disabled={modalMode === 'edit'}
                             />
                             <p className="mt-1 text-xs text-gray-500">
                                 Internal name used by the system. Use lowercase and underscores.
