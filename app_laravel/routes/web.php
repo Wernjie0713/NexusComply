@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\ActivityLogController;
 use App\Http\Controllers\Admin\RolePermissionController;
+use App\Http\Controllers\Admin\AuditAnalyticsController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -150,6 +151,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/roles/{role}/details', [RolePermissionController::class, 'updateRoleDetails']);
         Route::delete('/roles/{role}', [RolePermissionController::class, 'destroyRole']);
         // Add other endpoints as needed
+    });
+
+    // Admin Audit Analytics Routes
+    Route::middleware(['auth', 'can:admin'])->prefix('admin/audit-analytics')->name('admin.audit-analytics.')->group(function () {
+        Route::get('/compliance-trends', [AuditAnalyticsController::class, 'generateComplianceTrendsReport'])->name('compliance-trends');
+        Route::get('/manager-performance', [AuditAnalyticsController::class, 'generateManagerPerformanceReport'])->name('manager-performance');
+        Route::get('/non-compliance-summary', [AuditAnalyticsController::class, 'generateNonComplianceSummary'])->name('non-compliance-summary');
+        Route::get('/standard-adherence', [AuditAnalyticsController::class, 'generateStandardAdherenceReport'])->name('standard-adherence');
     });
 });
 
