@@ -8,7 +8,6 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
-use Barryvdh\Snappy\Facades\SnappyPdf as PDF;
 
 class ActivityLogController extends Controller
 {
@@ -142,7 +141,7 @@ class ActivityLogController extends Controller
                     foreach ($activities as $index => $activity) {
                         fputcsv($handle, [
                             $index + 1,
-                            Carbon::parse($activity->created_at)->format('m/d/Y H:i:s'),
+                            Carbon::parse($activity->created_at)->format('Y-m-d H:i:s'),
                             ucfirst($activity->action_type),
                             ucfirst($activity->target_type),
                             $activity->details,
@@ -152,43 +151,28 @@ class ActivityLogController extends Controller
                     fclose($handle);
                 };
                 return response()->stream($callback, 200, $headers);
-            } else { // PDF
-                $exportData = $activities->map(function ($activity, $index) {
+            } else {
+                // For PDF format, return the data to be processed by the frontend
+                $formattedData = $activities->map(function ($activity) {
                     return [
-                        'No.' => $index + 1,
-                        'Date/Time' => Carbon::parse($activity->created_at)->format('m/d/Y H:i:s'),
-                        'Action Type' => ucfirst($activity->action_type),
-                        'Target Type' => ucfirst($activity->target_type),
-                        'Details' => $activity->details,
-                        'User' => $activity->user ? $activity->user->name . ' (' . $activity->user->email . ')' : 'System'
+                        'created_at' => Carbon::parse($activity->created_at)->format('Y-m-d H:i:s'),
+                        'action_type' => ucfirst($activity->action_type),
+                        'target_type' => ucfirst($activity->target_type),
+                        'details' => $activity->details,
+                        'user' => $activity->user ? [
+                            'name' => $activity->user->name,
+                            'email' => $activity->user->email
+                        ] : null
                     ];
                 });
-                $pdf = \PDF::loadView('exports.activity_logs', [
-                    'data' => $exportData,
-                    'title' => 'Activity Logs Export',
-                    'date' => Carbon::now()->format('Y-m-d H:i:s')
+
+                return response()->json([
+                    'data' => $formattedData,
+                    'dateRange' => [
+                        'start' => $request->date_from ? Carbon::parse($request->date_from)->format('Y-m-d') : Carbon::now()->subDays(30)->format('Y-m-d'),
+                        'end' => $request->date_to ? Carbon::parse($request->date_to)->format('Y-m-d') : Carbon::now()->format('Y-m-d')
+                    ]
                 ]);
-                $pdf->setOption('page-size', 'A4');
-                $pdf->setOption('orientation', 'landscape');
-                $pdf->setOption('page-width', '297mm');
-                $pdf->setOption('page-height', '210mm');
-                $pdf->setOption('margin-top', 10);
-                $pdf->setOption('margin-right', 10);
-                $pdf->setOption('margin-bottom', 15);
-                $pdf->setOption('margin-left', 10);
-                $pdf->setOption('encoding', 'UTF-8');
-                $pdf->setOption('dpi', 300);
-                $pdf->setOption('enable-local-file-access', true);
-                $pdf->setOption('enable-javascript', true);
-                $pdf->setOption('javascript-delay', 1000);
-                $pdf->setOption('no-stop-slow-scripts', true);
-                $pdf->setOption('enable-smart-shrinking', true);
-                $pdf->setOption('print-media-type', true);
-                $pdf->setOption('footer-left', 'Generated on: ' . Carbon::now()->format('Y-m-d H:i:s'));
-                $pdf->setOption('footer-right', '[page] of [topage]');
-                $pdf->setOption('footer-font-size', 8);
-                $pdf->setOption('footer-spacing', 5);
-                return $pdf->download($fileName . '.pdf');
             }
         } catch (\Exception $e) {
             Log::error('Activity Log Export Error: ' . $e->getMessage(), [
@@ -268,7 +252,7 @@ class ActivityLogController extends Controller
             foreach ($activities as $index => $activity) {
                 fputcsv($handle, [
                     $index + 1,
-                    optional($activity->created_at)->format('m/d/Y H:i:s'),
+                    optional($activity->created_at)->format('Y-m-d H:i:s'),
                     ucfirst($activity->action_type),
                     ucfirst($activity->target_type),
                     $activity->details,
