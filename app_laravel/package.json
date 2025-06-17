@@ -24,6 +24,8 @@
     },
     "dependencies": {
         "framer-motion": "^12.15.0",
+        "jspdf": "^3.0.1",
+        "jspdf-autotable": "^5.0.2",
         "react-beautiful-dnd": "^13.1.1",
         "react-tooltip": "^5.28.1",
         "uuid": "^11.1.0"
