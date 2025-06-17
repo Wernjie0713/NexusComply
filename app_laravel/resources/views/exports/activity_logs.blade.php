@@ -1,81 +1,71 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="page-size" content="A4">
     <title>{{ $title }}</title>
     <style>
-        body { 
-            font-family: DejaVu Sans, sans-serif;
-            font-size: 11px;
-            line-height: 1.3;
+        @page {
+            size: A4 landscape;
+            margin: 10mm;
+        }
+        body {
+            font-family: Arial, sans-serif;
             margin: 0;
-            padding: 10px;
+            padding: 20px;
         }
-        table { 
-            width: 100%; 
-            border-collapse: collapse; 
-            margin-top: 10px; 
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
         }
-        th, td { 
-            border: 1px solid #ddd; 
-            padding: 6px; 
-            text-align: left; 
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
         }
-        th { 
-            background-color: #f2f2f2; 
-            font-weight: bold;
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
         }
-        .header { 
-            margin-bottom: 15px; 
-            border-bottom: 1px solid #333;
-            padding-bottom: 5px;
-        }
-        .header h1 {
-            margin: 0;
-            font-size: 18px;
-        }
-        .header p {
-            margin: 3px 0 0 0;
-            font-size: 10px;
-        }
-        .footer { 
-            margin-top: 15px; 
-            font-size: 9px; 
-            border-top: 1px solid #ddd;
-            padding-top: 5px;
+        th {
+            background-color: #f2f2f2;
         }
         tr:nth-child(even) {
             background-color: #f9f9f9;
         }
+        .footer {
+            text-align: left;
+            font-size: 12px;
+            margin-top: 20px;
+        }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>{{ $title }}</h1>
-        <p>Generated on: {{ $date }}</p>
-    </div>
-    
+    <h1>{{ $title }}</h1>
     <table>
         <thead>
             <tr>
-                @foreach(array_keys($data[0] ?? []) as $header)
-                    <th>{{ $header }}</th>
-                @endforeach
+                <th>No.</th>
+                <th>Date/Time</th>
+                <th>Action Type</th>
+                <th>Target Type</th>
+                <th>Details</th>
+                <th>User</th>
             </tr>
         </thead>
         <tbody>
             @foreach($data as $row)
                 <tr>
-                    @foreach($row as $value)
-                        <td>{{ $value }}</td>
-                    @endforeach
+                    <td>{{ $row['No.'] }}</td>
+                    <td>{{ $row['Date/Time'] }}</td>
+                    <td>{{ $row['Action Type'] }}</td>
+                    <td>{{ $row['Target Type'] }}</td>
+                    <td>{{ $row['Details'] }}</td>
+                    <td>{{ $row['User'] }}</td>
                 </tr>
             @endforeach
         </tbody>
     </table>
-    
-    <div class="footer">
-        <p>NexusComply - Activity Logs Export</p>
-    </div>
 </body>
 </html>
