@@ -198,7 +198,6 @@ class OutletController extends Controller
      */
     public function update(Request $request, Outlet $outlet)
     {
-        Log::info('Outlet Update Request Data for Outlet ID ' . $outlet->id . ':', $request->all());
         try {
             $validated = $request->validate([
                 'name' => ['required', 'string', 'max:255'],
@@ -223,9 +222,24 @@ class OutletController extends Controller
                 'outlet_user_role_id.unique' => 'This Outlet User is already assigned to another outlet.'
             ]);
 
-            Log::info('Data before $outlet->update():', $validated);
-            $outlet->update($validated);
-            Log::info('Outlet updated successfully:', $outlet->toArray());
+            // Handle role changes separately to ensure proper logging
+            if (array_key_exists('outlet_user_role_id', $validated)) {
+                $outlet->outlet_user_role_id = $validated['outlet_user_role_id'];
+                $outlet->save();
+                unset($validated['outlet_user_role_id']);
+            }
+
+            if (array_key_exists('manager_role_id', $validated)) {
+                $outlet->manager_role_id = $validated['manager_role_id'];
+                $outlet->save();
+                unset($validated['manager_role_id']);
+            }
+
+            // Update remaining attributes
+            if (!empty($validated)) {
+                $outlet->update($validated);
+            }
+
         } catch (\Illuminate\Validation\ValidationException $e) {
             Log::error('Outlet Update Validation Failed:', $e->errors());
             throw $e;
