@@ -52,6 +52,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/audits/submit-form', [MobileAuditController::class, 'submitForm']);
         Route::post('/audits/upload-file', [MobileAuditController::class, 'uploadFile']);
         Route::get('/audits/files/{filename}', [MobileAuditController::class, 'serveFile']);
+        Route::delete('/audits/{id}', [MobileAuditController::class, 'destroy']);
     });
 
     // Admin routes for authenticated users

@@ -15,7 +15,8 @@ class AuditForm extends Model
         'name',
         'value',
         'audit_id',
-        'form_id'
+        'form_id',
+        'status_id'
     ];
 
     protected $casts = [

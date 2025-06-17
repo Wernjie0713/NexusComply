@@ -6,7 +6,8 @@ import {
   ScrollView, 
   TouchableOpacity,
   SafeAreaView,
-  ActivityIndicator
+  ActivityIndicator,
+  Alert
 } from 'react-native';
 import { useRouter, useLocalSearchParams, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -94,6 +95,7 @@ export default function ViewSubmissionScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [auditData, setAuditData] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   // Set dynamic header title from params
   useEffect(() => {
@@ -139,6 +141,43 @@ export default function ViewSubmissionScreen() {
   const handleSubmit = () => {
     // Handle submission logic here
     console.log('Submitting audit...');
+  };
+
+  const handleDelete = () => {
+    Alert.alert(
+      "Delete Audit",
+      "Are you sure you want to delete this audit?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            setIsDeleting(true);
+            try {
+              await ApiClient.delete(`/api/mobile/audits/${params.formId}`);
+              Alert.alert('Success', 'Audit deleted successfully', [
+                { 
+                  text: 'OK',
+                  onPress: () => router.back()
+                }
+              ]);
+            } catch (err) {
+              console.error('Error deleting audit:', err);
+              Alert.alert(
+                'Error',
+                err.response?.data?.message || 'Failed to delete audit. Please try again.'
+              );
+            } finally {
+              setIsDeleting(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
   if (loading) {
@@ -210,18 +249,50 @@ export default function ViewSubmissionScreen() {
           {(!auditData?.forms || auditData.forms.length === 0) && (
             <Text style={styles.noFormsText}>No forms available</Text>
           )}
+          
+          {/* Delete Button - Only show for draft status */}
+          {auditData?.status === 'draft' && (
+            <TouchableOpacity 
+              style={[
+                styles.deleteButton,
+                isDeleting && styles.disabledButton
+              ]}
+              onPress={handleDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <ActivityIndicator color="#DC2626" size="small" />
+              ) : (
+                <Text style={styles.deleteButtonText}>Delete Audit</Text>
+              )}
+            </TouchableOpacity>
+          )}
+
+          {/* Print Preview Button - Only show for approved status */}
+          {auditData?.status === 'approved' && (
+            <TouchableOpacity 
+              style={styles.printPreviewButton}
+              onPress={() => console.log('Print Preview')}
+            >
+              <Text style={styles.printPreviewButtonText}>Print Preview</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Submit Button - Only show when not approved or pending */}
+          {auditData?.status !== 'approved' && auditData?.status !== 'submitted' && (
+            <TouchableOpacity 
+              style={[
+                styles.submitButton,
+                isDeleting && styles.disabledButton
+              ]}
+              onPress={handleSubmit}
+              disabled={isDeleting}
+            >
+              <Text style={styles.submitButtonText}>Submit Audit</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
-      
-      {/* Submit Button */}
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity 
-          style={styles.submitButton}
-          onPress={handleSubmit}
-        >
-          <Text style={styles.submitButtonText}>Submit Audit</Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }
@@ -299,9 +370,24 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: 'center',
+    marginTop: 24,
   },
   submitButtonText: {
     color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  deleteButton: {
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 24,
+    borderWidth: 1,
+    borderColor: '#DC2626',
+  },
+  deleteButtonText: {
+    color: '#DC2626',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -344,5 +430,20 @@ const styles = StyleSheet.create({
     color: '#666666',
     textAlign: 'center',
     paddingVertical: 24,
+  },
+  disabledButton: {
+    opacity: 0.5
+  },
+  printPreviewButton: {
+    backgroundColor: '#1E40AF', // Deep blue color
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 24,
+  },
+  printPreviewButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   }
 }); 

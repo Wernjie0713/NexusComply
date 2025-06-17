@@ -59,7 +59,7 @@ const AuditRecordItem = ({ item, onPress }) => (
       <Text style={styles.recordDate}>Submitted: {item.submittedDate}</Text>
       
       <View style={styles.recordDetails}>
-        <Text style={styles.recordManager}>Reviewed by: John Manager</Text>
+        <Text style={styles.recordManager}>Reviewed by: {item.manager_name}</Text>
         <StatusBadge status={item.status} />
       </View>
     </View>

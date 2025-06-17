@@ -122,7 +122,7 @@ export default function PerformAuditScreen() {
 
   useEffect(() => {
     navigation.setOptions({
-      headerTitle: "Audit Preview",
+      headerTitle: "Compliance Preview",
     });
   }, [navigation]);
 
@@ -136,9 +136,9 @@ export default function PerformAuditScreen() {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
       >
         <ScrollView style={styles.scrollView}>
-          {/* Audit Details Section */}
+          {/* Compliance Details Section */}
           <View style={styles.section}>
-            <FormSectionHeader title="Audit Details" />
+            <FormSectionHeader title="Compliance Details" />
             
             <TextDisplay
               label="Title"
