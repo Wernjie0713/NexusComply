@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\UserInvitationEmail;
+use Illuminate\Support\Facades\DB;
 
 class UserController extends Controller
 {
@@ -115,6 +116,8 @@ class UserController extends Controller
         }
         $newRoleId = sprintf('%s-%03d', $rolePrefix, $nextNumber);
 
+        // Use a transaction to ensure role assignment happens before activity logging
+        DB::transaction(function () use ($validated, $newRoleId) {
         // Create the user
         $user = User::create([
             'name' => $validated['name'],
@@ -124,7 +127,7 @@ class UserController extends Controller
             'role_id' => $newRoleId,
         ]);
 
-        // Assign Bouncer role
+            // Assign Bouncer role immediately
         $user->assign($validated['role']);
 
         // Handle outlet assignments
@@ -135,9 +138,14 @@ class UserController extends Controller
                 $assignedOutlet->save();
             }
         } elseif ($validated['role'] === 'manager' && !empty($validated['outlet_ids'])) {
-            Outlet::whereIn('id', $validated['outlet_ids'])->update([
-                'manager_role_id' => $user->role_id
-            ]);
+            // Update each outlet individually to trigger activity logging
+            foreach ($validated['outlet_ids'] as $outletId) {
+                $outlet = Outlet::find($outletId);
+                if ($outlet) {
+                    $outlet->manager_role_id = $user->role_id;
+                    $outlet->save();
+                }
+            }
         }
 
         // Send invitation email
@@ -167,6 +175,7 @@ class UserController extends Controller
             $outletName,
             $assignedOutlets
         ));
+        });
 
         return redirect()->route('admin.users.index')
             ->with('success', 'User created and invitation email sent.');
@@ -271,26 +280,45 @@ class UserController extends Controller
 
         // Handle outlet assignments
         if ($validated['role'] === 'outlet-user') {
-            // Remove user from any previous outlet
-            Outlet::where('outlet_user_role_id', $user->role_id)->update(['outlet_user_role_id' => null]);
+            // Remove user from any previous outlet by loading and saving each to trigger observer
+            $previousOutlets = Outlet::where('outlet_user_role_id', $user->role_id)->get();
+            foreach ($previousOutlets as $outlet) {
+                $outlet->outlet_user_role_id = null;
+                $outlet->save();
+            }
+            
             // Assign to new outlet
             if (!empty($validated['outlet_id'])) {
                 $outlet = Outlet::find($validated['outlet_id']);
                 if ($outlet) {
                     $outlet->outlet_user_role_id = $user->role_id;
-                    $outlet->save();
+                    $outlet->save(); // This will trigger the observer
                 }
             }
         } else {
             // For manager role
-            // First, clear all previous outlet assignments for this manager
-            Outlet::where('manager_role_id', $user->role_id)->update(['manager_role_id' => null]);
+            // Get current and new outlet assignments
+            $currentOutletIds = Outlet::where('manager_role_id', $user->role_id)->pluck('id')->toArray();
+            $newOutletIds = $validated['outlet_ids'] ?? [];
 
-            // Then assign the selected outlets
-            if (!empty($validated['outlet_ids'])) {
-                Outlet::whereIn('id', $validated['outlet_ids'])->update([
-                    'manager_role_id' => $user->role_id
-                ]);
+            // Find outlets to unassign (in current but not in new)
+            $outletsToUnassign = array_diff($currentOutletIds, $newOutletIds);
+            if (!empty($outletsToUnassign)) {
+                $outlets = Outlet::whereIn('id', $outletsToUnassign)->get();
+                foreach ($outlets as $outlet) {
+                    $outlet->manager_role_id = null;
+                    $outlet->save();
+                }
+            }
+
+            // Find outlets to assign (in new but not in current)
+            $outletsToAssign = array_diff($newOutletIds, $currentOutletIds);
+            if (!empty($outletsToAssign)) {
+                $outlets = Outlet::whereIn('id', $outletsToAssign)->get();
+                foreach ($outlets as $outlet) {
+                    $outlet->manager_role_id = $user->role_id;
+                    $outlet->save();
+                }
             }
         }
 
