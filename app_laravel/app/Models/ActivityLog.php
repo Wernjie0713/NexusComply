@@ -17,6 +17,10 @@ class ActivityLog extends Model
         'created_at'
     ];
 
+    protected $casts = [
+        'created_at' => 'datetime',
+    ];
+
     public $timestamps = false; // Disable timestamps since we only have created_at
 
     public function user()
