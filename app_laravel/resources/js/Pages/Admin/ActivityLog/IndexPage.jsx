@@ -248,27 +248,51 @@ export default function ActivityLogPage({ activities = { data: [], links: [] }, 
                                 <table className="min-w-full divide-y divide-gray-200">
                                     <thead className="bg-green-50">
                                         <tr>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">No.</th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">Date/Time</th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">Action Type</th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">Target Type</th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">Details</th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">User</th>
+                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">
+                                                Action Type
+                                            </th>
+                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">
+                                                Target Type
+                                            </th>
+                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">
+                                                Details
+                                            </th>
+                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">
+                                                User
+                                            </th>
+                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">
+                                                Timestamp
+                                            </th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-200 bg-white">
-                                        {safeActivities.data.map((activity, index) => (
-                                            <tr key={activity.id} className="hover:bg-gray-50">
-                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{index + 1}</td>
-                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{activity.created_at}</td>
-                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{capitalizeFirstLetter(activity.action_type)}</td>
-                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{capitalizeFirstLetter(activity.target_type)}</td>
-                                                <td className="px-6 py-4 text-sm text-gray-500">{activity.details}</td>
-                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                                                    {activity.user ? `${activity.user.name} (${activity.user.email})` : 'System'}
+                                        {safeActivities.data.length === 0 ? (
+                                            <tr>
+                                                <td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500">
+                                                    No activity logs found
                                                 </td>
                                             </tr>
-                                        ))}
+                                        ) : (
+                                            safeActivities.data.map((activity) => (
+                                                <tr key={activity.id}>
+                                                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
+                                                        {activity.action_type}
+                                                    </td>
+                                                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
+                                                        {activity.target_type}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm text-gray-900">
+                                                        {activity.details}
+                                                    </td>
+                                                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
+                                                        {activity.user ? activity.user.name : 'System'}
+                                                    </td>
+                                                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+                                                        {activity.time_ago}
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
                                     </tbody>
                                 </table>
                             </div>
