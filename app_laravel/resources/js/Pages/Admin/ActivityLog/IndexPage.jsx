@@ -249,6 +249,9 @@ export default function ActivityLogPage({ activities = { data: [], links: [] }, 
                                     <thead className="bg-green-50">
                                         <tr>
                                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">
+                                                Date/Time
+                                            </th>
+                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">
                                                 Action Type
                                             </th>
                                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">
@@ -259,9 +262,6 @@ export default function ActivityLogPage({ activities = { data: [], links: [] }, 
                                             </th>
                                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">
                                                 User
-                                            </th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">
-                                                Timestamp
                                             </th>
                                         </tr>
                                     </thead>
@@ -275,6 +275,9 @@ export default function ActivityLogPage({ activities = { data: [], links: [] }, 
                                         ) : (
                                             safeActivities.data.map((activity) => (
                                                 <tr key={activity.id}>
+                                                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+                                                        {activity.created_at}
+                                                    </td>
                                                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
                                                         {activity.action_type}
                                                     </td>
@@ -286,9 +289,6 @@ export default function ActivityLogPage({ activities = { data: [], links: [] }, 
                                                     </td>
                                                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
                                                         {activity.user ? activity.user.name : 'System'}
-                                                    </td>
-                                                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                                                        {activity.time_ago}
                                                     </td>
                                                 </tr>
                                             ))
