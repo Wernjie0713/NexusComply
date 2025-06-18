@@ -1,9 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
+import { generateAuditReportPDF } from './AuditReportPDF';
 
-export default function AuditReportingSection() {
+export default function AuditReportingSection({ states = [], complianceCategories = [], outlets = [], managers = [] }) {
     const [generating, setGenerating] = useState(null);
     const [downloadReady, setDownloadReady] = useState(null);
+    const [customDateRange, setCustomDateRange] = useState({
+        startDate: '',
+        endDate: ''
+    });
+
+    // Debug logs for props
+    useEffect(() => {
+        console.log('States from props:', states);
+        console.log('Compliance categories from props:', complianceCategories);
+        console.log('Outlets from props:', outlets);
+        console.log('Managers from props:', managers);
+    }, [states, complianceCategories, outlets, managers]);
 
     // Dummy data for report types
     const reportTypes = [
@@ -49,25 +62,129 @@ export default function AuditReportingSection() {
         },
     ];
 
-    const handleGenerateReport = (reportId) => {
+    const handleGenerateReport = async (reportId) => {
         setGenerating(reportId);
         setDownloadReady(null);
-        
-        // Simulate report generation with a timeout
-        setTimeout(() => {
+
+        try {
+            // Initialize variables first
+            let startDate, endDate, dateRangeSelect, selectedDateRange;
+
+            // Get the selected date range
+            dateRangeSelect = document.getElementById(`dateRange-${reportId}`);
+            if (!dateRangeSelect) {
+                throw new Error('Date range selector not found');
+            }
+
+            selectedDateRange = dateRangeSelect.value;
+            const now = new Date();
+
+            // Determine date range
+            if (selectedDateRange === 'custom') {
+                if (!customDateRange.startDate || !customDateRange.endDate) {
+                    throw new Error('Please select both start and end dates for custom range');
+                }
+                startDate = customDateRange.startDate;
+                endDate = customDateRange.endDate;
+            } else {
+                switch (selectedDateRange) {
+                    case 'last30':
+                        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                        endDate = now.toISOString().split('T')[0];
+                        break;
+                    case 'lastQuarter':
+                        const quarterStart = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
+                        startDate = quarterStart.toISOString().split('T')[0];
+                        endDate = now.toISOString().split('T')[0];
+                        break;
+                    case 'yearToDate':
+                        startDate = new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0];
+                        endDate = now.toISOString().split('T')[0];
+                        break;
+                    default:
+                        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                        endDate = now.toISOString().split('T')[0];
+                }
+            }
+
+            // Debug: log the date range being sent
+            console.log('Requesting report with:', { startDate, endDate });
+
+            // Get the selected filter value
+            const filterSelect = document.getElementById(`filter-${reportId}`);
+            const selectedFilter = filterSelect.value;
+
+            // Get report data from API
+            const response = await fetch(route('admin.audits.generate-report'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify({
+                    reportType: reportTypes.find(r => r.id === reportId).name,
+                    startDate: startDate,
+                    endDate: endDate,
+                    filter: selectedFilter
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to generate report');
+            }
+
+            const data = await response.json();
+
+            // Debug: log the data received from backend
+            console.log('Report data received:', data);
+
+            // Check if there's no data available
+            if (data.noData) {
+                setGenerating(null);
+                alert(data.message || 'No data available for the selected criteria. Please try different filters or date ranges.');
+                return;
+            }
+
+            // Generate PDF
+            const pdf = await generateAuditReportPDF(data, {
+                reportType: reportTypes.find(r => r.id === reportId).name,
+                dateRange: { start: startDate, end: endDate },
+                filter: selectedFilter
+            });
+
+            // Download the PDF
+            pdf.save(`audit-report-${reportId}-${new Date().toISOString().split('T')[0]}.pdf`);
+
             setGenerating(null);
             setDownloadReady(reportId);
-        }, 1500);
+
+            // Reset download ready after 3 seconds
+            setTimeout(() => setDownloadReady(null), 3000);
+
+        } catch (error) {
+            console.error('Error generating report:', error);
+            setGenerating(null);
+            alert('Failed to generate report. Please try again.');
+        }
+    };
+
+    const handleDateRangeChange = (reportId, value) => {
+        const customDateDiv = document.getElementById(`customDateRange-${reportId}`);
+        if (value === 'custom') {
+            customDateDiv.style.display = 'block';
+        } else {
+            customDateDiv.style.display = 'none';
+        }
     };
 
     return (
         <div className="px-6 py-6">
             <h3 className="mb-4 text-lg font-semibold text-gray-800">Audit Reporting</h3>
-            
+
             <p className="mb-6 text-sm text-gray-600">
                 Generate various reports to analyze compliance trends, manager performance, and identify areas requiring attention.
             </p>
-            
+
             <div className="grid gap-6 sm:grid-cols-1 lg:grid-cols-2">
                 {reportTypes.map((report) => (
                     <div key={report.id} className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow">
@@ -81,7 +198,7 @@ export default function AuditReportingSection() {
                                     <p className="mt-1 text-sm text-gray-600">{report.description}</p>
                                 </div>
                             </div>
-                            
+
                             <div className="mt-6">
                                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                     <div>
@@ -89,81 +206,70 @@ export default function AuditReportingSection() {
                                         <select
                                             id={`dateRange-${report.id}`}
                                             className="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-green-500 focus:ring-green-500"
+                                            onChange={(e) => handleDateRangeChange(report.id, e.target.value)}
                                         >
-                                            <option>Last 30 Days</option>
-                                            <option>Last Quarter</option>
-                                            <option>Year to Date</option>
-                                            <option>Custom Range</option>
+                                            <option value="last30">Last 30 Days</option>
+                                            <option value="lastQuarter">Last Quarter</option>
+                                            <option value="yearToDate">Year to Date</option>
+                                            <option value="custom">Custom Range</option>
                                         </select>
+
+                                        {/* Custom Date Range Inputs */}
+                                        <div id={`customDateRange-${report.id}`} className="mt-2 hidden space-y-2">
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-600">Start Date</label>
+                                                <input
+                                                    type="date"
+                                                    className="mt-1 block w-full rounded-md border-gray-300 text-xs shadow-sm focus:border-green-500 focus:ring-green-500"
+                                                    value={customDateRange.startDate}
+                                                    onChange={(e) => setCustomDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-600">End Date</label>
+                                                <input
+                                                    type="date"
+                                                    className="mt-1 block w-full rounded-md border-gray-300 text-xs shadow-sm focus:border-green-500 focus:ring-green-500"
+                                                    value={customDateRange.endDate}
+                                                    onChange={(e) => setCustomDateRange(prev => ({ ...prev, endDate: e.target.value }))}
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
-                                    
+
                                     <div>
                                         <label htmlFor={`filter-${report.id}`} className="block text-sm font-medium text-gray-700">
-                                            {report.id === 2 ? 'Manager' : (report.id === 3 ? 'Outlet' : (report.id === 4 ? 'Standard' : 'Region'))}
+                                            {report.id === 2 ? 'Manager' : (report.id === 3 ? 'Outlet' : (report.id === 4 ? 'Standard' : 'State'))}
                                         </label>
                                         <select
                                             id={`filter-${report.id}`}
                                             className="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-green-500 focus:ring-green-500"
                                         >
-                                            <option>All</option>
-                                            {report.id === 2 && (
-                                                <>
-                                                    <option>John Smith</option>
-                                                    <option>Sarah Johnson</option>
-                                                    <option>Michael Wong</option>
-                                                </>
-                                            )}
-                                            {report.id === 3 && (
-                                                <>
-                                                    <option>Central Shopping Mall</option>
-                                                    <option>Downtown Plaza</option>
-                                                    <option>Riverside Complex</option>
-                                                </>
-                                            )}
-                                            {report.id === 4 && (
-                                                <>
-                                                    <option>HALAL</option>
-                                                    <option>ISO 22000</option>
-                                                    <option>HACCP</option>
-                                                    <option>Food Safety</option>
-                                                </>
-                                            )}
-                                            {report.id === 1 && (
-                                                <>
-                                                    <option>North Region</option>
-                                                    <option>South Region</option>
-                                                    <option>East Region</option>
-                                                    <option>West Region</option>
-                                                </>
-                                            )}
+                                            <option value="all">All</option>
+                                            {report.id === 2 && managers.map(manager => (
+                                                <option key={manager.id} value={manager.name}>{manager.name}</option>
+                                            ))}
+                                            {report.id === 3 && outlets.map(outlet => (
+                                                <option key={outlet.id} value={outlet.name}>{outlet.name}</option>
+                                            ))}
+                                            {report.id === 4 && complianceCategories.map(category => (
+                                                <option key={category.id} value={category.name}>{category.name}</option>
+                                            ))}
+                                            {report.id === 1 && states.map(state => (
+                                                <option key={state} value={state}>{state}</option>
+                                            ))}
                                         </select>
                                     </div>
                                 </div>
-                                
+
                                 <div className="mt-4 flex items-center justify-between">
                                     <div className="flex items-center">
                                         <label className="mr-2 block text-sm font-medium text-gray-700">Format:</label>
-                                        <div className="flex space-x-2">
-                                            <label className="inline-flex items-center">
-                                                <input
-                                                    type="radio"
-                                                    name={`format-${report.id}`}
-                                                    defaultChecked
-                                                    className="text-green-600 focus:ring-green-500"
-                                                />
-                                                <span className="ml-1 text-sm text-gray-700">PDF</span>
-                                            </label>
-                                            <label className="inline-flex items-center">
-                                                <input
-                                                    type="radio"
-                                                    name={`format-${report.id}`}
-                                                    className="text-green-600 focus:ring-green-500"
-                                                />
-                                                <span className="ml-1 text-sm text-gray-700">Excel</span>
-                                            </label>
+                                        <div className="flex items-center">
+                                            <span className="text-sm text-gray-700">PDF</span>
                                         </div>
                                     </div>
-                                    
+
                                     <div>
                                         {generating === report.id ? (
                                             <button className="flex items-center rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700" disabled>
@@ -174,16 +280,12 @@ export default function AuditReportingSection() {
                                                 Generating...
                                             </button>
                                         ) : downloadReady === report.id ? (
-                                            <a 
-                                                href="#"
-                                                className="flex items-center rounded-md bg-green-50 px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-100"
-                                                onClick={(e) => e.preventDefault()}
-                                            >
+                                            <div className="flex items-center rounded-md bg-green-50 px-4 py-2 text-sm font-medium text-green-700">
                                                 <svg className="mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                                 </svg>
-                                                Download Report
-                                            </a>
+                                                Report Generated
+                                            </div>
                                         ) : (
                                             <AdminPrimaryButton
                                                 onClick={() => handleGenerateReport(report.id)}
@@ -201,4 +303,4 @@ export default function AuditReportingSection() {
             </div>
         </div>
     );
-} 
+}
