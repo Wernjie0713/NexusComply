@@ -9,7 +9,6 @@ use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\ActivityLogController;
 use App\Http\Controllers\Admin\RolePermissionController;
-use App\Http\Controllers\Admin\AuditAnalyticsController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -45,6 +44,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Audit management pages
     Route::get('/admin/audits', [AuditController::class, 'index'])
         ->name('admin.audits.index');
+
+    // Audit report generation
+    Route::post('/admin/audits/generate-report', [AuditController::class, 'generateReport'])
+        ->name('admin.audits.generate-report');
 
     // Share form access page
     Route::get('/audits/share-form/{formId}', function ($formId) {
@@ -154,14 +157,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/roles/{roleId}/abilities', [RolePermissionController::class, 'getRoleAbilities']);
         Route::put('/roles/{roleId}/abilities', [RolePermissionController::class, 'updateRoleAbilities']);
         // Add other endpoints as needed
-    });
-
-    // Admin Audit Analytics Routes
-    Route::middleware(['auth', 'can:admin'])->prefix('admin/audit-analytics')->name('admin.audit-analytics.')->group(function () {
-        Route::get('/compliance-trends', [AuditAnalyticsController::class, 'generateComplianceTrendsReport'])->name('compliance-trends');
-        Route::get('/manager-performance', [AuditAnalyticsController::class, 'generateManagerPerformanceReport'])->name('manager-performance');
-        Route::get('/non-compliance-summary', [AuditAnalyticsController::class, 'generateNonComplianceSummary'])->name('non-compliance-summary');
-        Route::get('/standard-adherence', [AuditAnalyticsController::class, 'generateStandardAdherenceReport'])->name('standard-adherence');
     });
 });
 
