@@ -23,9 +23,10 @@
         "vite": "^6.2.4"
     },
     "dependencies": {
+        "chart.js": "^4.5.0",
         "framer-motion": "^12.15.0",
-        "jspdf": "^3.0.1",
-        "jspdf-autotable": "^5.0.2",
+        "jspdf": "^2.5.1",
+        "jspdf-autotable": "^3.5.31",
         "react-beautiful-dnd": "^13.1.1",
         "react-tooltip": "^5.28.1",
         "uuid": "^11.1.0"
