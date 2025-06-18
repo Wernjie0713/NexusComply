@@ -15,7 +15,7 @@ class ActivityLogController extends Controller
     {
         try {
             Log::info('ActivityLogController: Starting index method');
-            
+
             $query = ActivityLog::with('user')
                 ->latest('created_at');
 
@@ -84,7 +84,7 @@ class ActivityLogController extends Controller
                 'exception' => $e,
                 'trace' => $e->getTraceAsString()
             ]);
-            
+
             return Inertia::render('Admin/ActivityLog/IndexPage', [
                 'activities' => [
                     'data' => [],
@@ -98,7 +98,7 @@ class ActivityLogController extends Controller
             ]);
         }
     }
-    
+
     public function export(Request $request)
     {
         try {
@@ -106,7 +106,7 @@ class ActivityLogController extends Controller
                 'format' => $request->format,
                 'filters' => $request->only(['action_type', 'target_type', 'date_from', 'date_to'])
             ]);
-            
+
             $query = ActivityLog::with('user')
                 ->latest('created_at');
 
@@ -135,7 +135,7 @@ class ActivityLogController extends Controller
                     'Content-Type' => 'text/csv',
                     'Content-Disposition' => "attachment; filename=\"$fileName.csv\"",
                 ];
-                $callback = function() use ($activities) {
+                $callback = function () use ($activities) {
                     $handle = fopen('php://output', 'w');
                     fputcsv($handle, ['No.', 'Date/Time', 'Action Type', 'Target Type', 'Details', 'User']);
                     foreach ($activities as $index => $activity) {
@@ -179,11 +179,11 @@ class ActivityLogController extends Controller
                 'exception' => $e,
                 'trace' => $e->getTraceAsString()
             ]);
-            
+
             return back()->with('error', 'Failed to export activity logs. Please try again.');
         }
     }
-    
+
     /**
      * Generate Activity Log Report
      */
@@ -193,7 +193,7 @@ class ActivityLogController extends Controller
             // Get date range from request
             $startDate = $request->input('start_date', now()->subDays(30)->format('Y-m-d'));
             $endDate = $request->input('end_date', now()->format('Y-m-d'));
-            
+
             // Get activity log data
             $data = ActivityLog::whereBetween('created_at', [$startDate, $endDate])
                 ->orderBy('created_at', 'desc')
@@ -227,13 +227,12 @@ class ActivityLogController extends Controller
             $pdf->setOption('footer-spacing', 5);
 
             return $pdf->download('activity-log-report.pdf');
-
         } catch (\Exception $e) {
             \Log::error('Activity Log Report Error: ' . $e->getMessage(), [
                 'exception' => $e,
                 'trace' => $e->getTraceAsString()
             ]);
-            
+
             return back()->with('error', 'Failed to generate activity log report. Please try again.');
         }
     }
@@ -246,7 +245,7 @@ class ActivityLogController extends Controller
             'Content-Type' => 'text/csv',
             'Content-Disposition' => "attachment; filename=\"$fileName\"",
         ];
-        $callback = function() use ($activities) {
+        $callback = function () use ($activities) {
             $handle = fopen('php://output', 'w');
             fputcsv($handle, ['No.', 'Date/Time', 'Action Type', 'Target Type', 'Details', 'User']);
             foreach ($activities as $index => $activity) {

@@ -47,8 +47,8 @@ class DashboardController extends Controller
                         $statuses['pending']->id ?? null,
                         $statuses['rejected']->id ?? null
                     ])
-                    ->where('created_at', '>=', Carbon::now()->startOfMonth())
-                    ->count(),
+                        ->where('created_at', '>=', Carbon::now()->startOfMonth())
+                        ->count(),
                     'percentage' => 0
                 ],
                 'nonCompliant' => [
@@ -72,8 +72,20 @@ class DashboardController extends Controller
             // Get recent activities
             $recentActivities = ActivityLog::with('user')
                 ->latest('created_at')
-                ->take(5)
+                ->take(20) // fetch more to ensure all related events are included
                 ->get()
+                ->sort(function ($a, $b) {
+                    $cmp = strcmp($b->created_at, $a->created_at);
+                    if ($cmp !== 0) return $cmp;
+                    $priority = function ($activity) {
+                        if (str_contains($activity->details, 'was assigned to outlet')) return 1;
+                        if (str_contains($activity->details, 'was created')) return 2;
+                        return 3;
+                    };
+                    return $priority($a) <=> $priority($b);
+                })
+                ->values()
+                ->take(5) // now take the top 5 after sorting
                 ->map(function ($activity) {
                     return [
                         'id' => $activity->id,
