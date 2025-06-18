@@ -351,6 +351,11 @@ export default function RolesPermissionsPage() {
             if (response.ok) {
                 console.log('Permissions updated successfully!');
                 alert('Permissions updated successfully!');
+                // Update the cache for the current role with the latest permissions
+                setRolePermissionsCache(prev => ({
+                    ...prev,
+                    [selectedRoleId]: new Set(currentRolePermissions)
+                }));
                 // Re-fetch role permissions to confirm changes, or rely on state being accurate
                 // (For simplicity, we'll rely on state for now, but a re-fetch might be safer in complex scenarios)
             } else {
