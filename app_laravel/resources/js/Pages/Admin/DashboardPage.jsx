@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link, router } from '@inertiajs/react'; 
+import { Head, Link, router } from '@inertiajs/react';
 import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
 
 export default function DashboardPage({ statistics = {}, complianceData = {}, recentActivities = [] }) {
@@ -8,7 +8,7 @@ export default function DashboardPage({ statistics = {}, complianceData = {}, re
     const {
         totalOutlets = 0,
         activeUsers = 0,
-        currentMonthChecks = 0,
+        averageCompletionTime = 0,
         pendingReviews = 0
     } = statistics;
 
@@ -63,17 +63,17 @@ export default function DashboardPage({ statistics = {}, complianceData = {}, re
                             </div>
                         </div>
 
-                        {/* Current Month Checks Card */}
+                        {/* Average Completion Time Card */}
                         <div className="overflow-hidden bg-white px-6 py-6 shadow-sm sm:rounded-lg">
                             <div className="flex items-center">
                                 <div className="mr-4 rounded-full bg-green-100 p-3">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
                                 </div>
                                 <div>
-                                    <p className="text-sm font-medium text-gray-600">Compliance Checks This Month</p>
-                                    <p className="text-2xl font-bold text-green-600">{currentMonthChecks}</p>
+                                    <p className="text-sm font-medium text-gray-600">Average Audit Duration</p>
+                                    <p className="text-2xl font-bold text-green-600">{Math.round(averageCompletionTime)} H</p>
                                 </div>
                             </div>
                         </div>
@@ -99,8 +99,8 @@ export default function DashboardPage({ statistics = {}, complianceData = {}, re
                         {/* Compliance Summary Section - Takes 2/3 of the space on large screens */}
                         <div className="lg:col-span-2">
                             <div className="overflow-hidden bg-white px-6 py-6 shadow-sm sm:rounded-lg">
-                                <h2 className="mb-4 text-lg font-semibold text-gray-800">Overall Compliance Status</h2>
-                                
+                                <h2 className="mb-4 text-lg font-semibold text-gray-800">Compliance Status This Month</h2>
+
                                 {/* Compliance Bar Chart */}
                                 <div className="mb-6">
                                     <div className="mb-2 flex items-center justify-between">
@@ -108,41 +108,41 @@ export default function DashboardPage({ statistics = {}, complianceData = {}, re
                                         <span className="text-sm font-medium text-gray-900">{fullyCompliant.percentage}%</span>
                                     </div>
                                     <div className="h-4 w-full overflow-hidden rounded-full bg-gray-200">
-                                        <div 
-                                            className="h-4 rounded-full bg-green-600" 
+                                        <div
+                                            className="h-4 rounded-full bg-green-600"
                                             style={{ width: `${fullyCompliant.percentage}%` }}
                                         ></div>
                                     </div>
                                 </div>
-                                
+
                                 <div className="mb-6">
                                     <div className="mb-2 flex items-center justify-between">
                                         <span className="text-sm font-medium text-gray-600">Partially Compliant</span>
                                         <span className="text-sm font-medium text-gray-900">{partiallyCompliant.percentage}%</span>
                                     </div>
                                     <div className="h-4 w-full overflow-hidden rounded-full bg-gray-200">
-                                        <div 
-                                            className="h-4 rounded-full bg-green-300" 
+                                        <div
+                                            className="h-4 rounded-full bg-green-300"
                                             style={{ width: `${partiallyCompliant.percentage}%` }}
                                         ></div>
                                     </div>
                                 </div>
-                                
+
                                 <div className="mb-6">
                                     <div className="mb-2 flex items-center justify-between">
                                         <span className="text-sm font-medium text-gray-600">Non-Compliant</span>
                                         <span className="text-sm font-medium text-gray-900">{nonCompliant.percentage}%</span>
                                     </div>
                                     <div className="h-4 w-full overflow-hidden rounded-full bg-gray-200">
-                                        <div 
-                                            className="h-4 rounded-full bg-red-500" 
+                                        <div
+                                            className="h-4 rounded-full bg-red-500"
                                             style={{ width: `${nonCompliant.percentage}%` }}
                                         ></div>
                                     </div>
                                 </div>
 
                                 {/* Donut Chart Representation (Visual placeholder) */}
-                                <div className="mt-8 flex justify-center">
+                                <div className="mt-8 flex flex-col items-center">
                                     <div className="relative h-48 w-48">
                                         {/* This is a simplified visual representation of a donut chart */}
                                         <svg viewBox="0 0 36 36" className="h-full w-full">
@@ -183,20 +183,20 @@ export default function DashboardPage({ statistics = {}, complianceData = {}, re
                                                 strokeLinecap="round"
                                             />
                                             {/* Center text */}
-                                            <text 
-                                                x="18" 
-                                                y="20.35" 
-                                                fill="#374151" 
-                                                fontSize="5px" 
-                                                fontWeight="bold" 
+                                            <text
+                                                x="18"
+                                                y="20.35"
+                                                fill="#374151"
+                                                fontSize="5px"
+                                                fontWeight="bold"
                                                 textAnchor="middle"
                                             >
                                                 {fullyCompliant.percentage}%
                                             </text>
                                         </svg>
-                                        <div className="absolute bottom-0 left-0 right-0 text-center text-sm font-medium text-gray-600">
-                                            Fully Compliant
-                                        </div>
+                                    </div>
+                                    <div className="mt-2 text-center text-base font-bold text-green-700">
+                                        Fully Compliant
                                     </div>
                                 </div>
                             </div>
@@ -244,7 +244,7 @@ export default function DashboardPage({ statistics = {}, complianceData = {}, re
                                     </Link>
                                     <Link href={route('settings.roles-permissions')}>
                                         <AdminPrimaryButton className="w-full justify-center">
-                                            View System Settings
+                                            Manage Roles & Permissions
                                         </AdminPrimaryButton>
                                     </Link>
                                     <Link href={route('admin.form-templates.create')}>
@@ -255,7 +255,7 @@ export default function DashboardPage({ statistics = {}, complianceData = {}, re
                                 </div>
                             </div>
 
-                            {/* System Health Section */}
+                            {/* System Health Section - Commented out as system monitoring is not implemented yet
                             <div className="overflow-hidden bg-white px-6 py-6 shadow-sm sm:rounded-lg">
                                 <h2 className="mb-4 text-lg font-semibold text-gray-800">System Status</h2>
                                 <div className="space-y-3">
@@ -280,6 +280,7 @@ export default function DashboardPage({ statistics = {}, complianceData = {}, re
                                     </div>
                                 </div>
                             </div>
+                            */}
                         </div>
                     </div>
                 </div>
