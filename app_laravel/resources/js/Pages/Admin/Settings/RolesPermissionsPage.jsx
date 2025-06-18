@@ -28,6 +28,10 @@ export default function RolesPermissionsPage() {
     // Add a cache for role permissions
     const [rolePermissionsCache, setRolePermissionsCache] = useState({});
 
+    // Add at the top, after other useState imports
+    const [saving, setSaving] = useState(false);
+    const [saveSuccess, setSaveSuccess] = useState(false);
+
     // Fetch all abilities
     useEffect(() => {
         async function fetchAllAbilities() {
@@ -331,12 +335,12 @@ export default function RolesPermissionsPage() {
 
     const handleSavePermissions = async () => {
         if (!selectedRoleId) return;
-
+        setSaving(true);
+        setSaveSuccess(false);
         // Convert the Set of assigned ability names back to an array of ability IDs
         const abilityIdsToSync = allAbilities
             .filter(ability => currentRolePermissions.has(ability.name))
             .map(ability => ability.id);
-
         try {
             const response = await fetch(`/admin/ajax/roles/${selectedRoleId}/abilities`, {
                 method: 'PUT',
@@ -347,25 +351,24 @@ export default function RolesPermissionsPage() {
                 },
                 body: JSON.stringify({ ability_ids: abilityIdsToSync }),
             });
-
             if (response.ok) {
-                console.log('Permissions updated successfully!');
-                alert('Permissions updated successfully!');
-                // Update the cache for the current role with the latest permissions
+                // Success: show indicator
                 setRolePermissionsCache(prev => ({
                     ...prev,
                     [selectedRoleId]: new Set(currentRolePermissions)
                 }));
-                // Re-fetch role permissions to confirm changes, or rely on state being accurate
-                // (For simplicity, we'll rely on state for now, but a re-fetch might be safer in complex scenarios)
+                setSaveSuccess(true);
+                setTimeout(() => setSaveSuccess(false), 2000);
             } else {
                 const errorData = await response.json();
                 console.error('Failed to update permissions:', errorData);
-                alert('Failed to update permissions. Please check the console for details.');
+                // Optionally show error UI here
             }
         } catch (error) {
             console.error('Network or other error:', error);
-            alert('An error occurred. Please try again.');
+            // Optionally show error UI here
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -536,9 +539,26 @@ export default function RolesPermissionsPage() {
                                         <div className="mt-6 flex justify-end">
                                             <AdminPrimaryButton
                                                 onClick={handleSavePermissions}
-                                                disabled={!selectedRoleId || loadingRolePermissions || selectedRole.isSystem}
+                                                disabled={!selectedRoleId || loadingRolePermissions || selectedRole.isSystem || saving}
                                             >
-                                                Save Permissions for {selectedRole?.title}
+                                                {saving ? (
+                                                    <>
+                                                        <svg className="mr-2 h-4 w-4 animate-spin text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                        </svg>
+                                                        Saving...
+                                                    </>
+                                                ) : saveSuccess ? (
+                                                    <>
+                                                        <svg className="mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                                        </svg>
+                                                        Saved
+                                                    </>
+                                                ) : (
+                                                    <>Save Permissions for {selectedRole?.title}</>
+                                                )}
                                             </AdminPrimaryButton>
                                         </div>
                                     </div>
