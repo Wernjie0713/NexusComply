@@ -2,7 +2,7 @@ import { Link, router } from '@inertiajs/react';
 import { Tooltip } from 'react-tooltip';
 import { useState } from 'react';
 
-export default function ManagerTable({ managers, onDelete }) {
+export default function ManagerTable({ managers, onDelete, onEdit }) {
     const [perPage, setPerPage] = useState(managers?.per_page || 5);
 
     const handlePerPageChange = (e) => {
@@ -75,12 +75,12 @@ export default function ManagerTable({ managers, onDelete }) {
                                         />
                                     </td>
                                     <td className="whitespace-nowrap px-6 py-4 text-sm font-medium">
-                                        <Link
-                                            href={route('admin.users.edit', manager.id)}
+                                        <button
+                                            onClick={() => onEdit(manager)}
                                             className="mr-2 rounded bg-green-50 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-100"
                                         >
                                             Edit
-                                        </Link>
+                                        </button>
                                         <button
                                             onClick={() => onDelete(manager)}
                                             className="rounded bg-red-50 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-100"

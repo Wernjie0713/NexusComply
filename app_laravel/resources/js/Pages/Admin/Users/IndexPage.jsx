@@ -7,6 +7,7 @@ import CreateUserForm from './Partials/CreateUserForm';
 import ManagerTable from './Partials/ManagerTable';
 import OutletUserTable from './Partials/OutletUserTable';
 import CustomRoleUserTable from './Partials/CustomRoleUserTable';
+import EditUserForm from './Partials/EditUserForm';
 
 export default function IndexPage({ managers, outletUsers, customRoleUsers = [], adminUsers }) {
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -14,6 +15,8 @@ export default function IndexPage({ managers, outletUsers, customRoleUsers = [],
     const [deletingUserId, setDeletingUserId] = useState(null);
     const [roles, setRoles] = useState([]);
     const [loadingRoles, setLoadingRoles] = useState(true);
+    const [editingUser, setEditingUser] = useState(null);
+    const [showEditModal, setShowEditModal] = useState(false);
 
     useEffect(() => {
         async function fetchRoles() {
@@ -46,6 +49,11 @@ export default function IndexPage({ managers, outletUsers, customRoleUsers = [],
                 onError: () => setDeletingUserId(null),
             });
         }
+    };
+
+    const handleEdit = (user) => {
+        setEditingUser(user);
+        setShowEditModal(true);
     };
 
     // Group customRoleUsers by role
@@ -90,21 +98,21 @@ export default function IndexPage({ managers, outletUsers, customRoleUsers = [],
                             return (
                                 <div key={role.name} className="mb-8 overflow-hidden bg-white px-6 py-6 shadow-sm sm:rounded-lg">
                                     <h3 className="mb-4 text-lg font-semibold text-gray-800">{role.title || 'Admin'}</h3>
-                                    <CustomRoleUserTable users={adminUsers} onDelete={handleDelete} />
+                                    <CustomRoleUserTable users={adminUsers} onDelete={handleDelete} onEdit={handleEdit} />
                                 </div>
                             );
                         } else if (role.name === 'manager') {
                             return (
                                 <div key={role.name} className="mb-8 overflow-hidden bg-white px-6 py-6 shadow-sm sm:rounded-lg">
                                     <h3 className="mb-4 text-lg font-semibold text-gray-800">{role.title || 'Managers'}</h3>
-                                    <ManagerTable managers={managers} onDelete={handleDelete} />
+                                    <ManagerTable managers={managers} onDelete={handleDelete} onEdit={handleEdit} />
                                 </div>
                             );
                         } else if (role.name === 'outlet-user') {
                             return (
                                 <div key={role.name} className="mb-8 overflow-hidden bg-white px-6 py-6 shadow-sm sm:rounded-lg">
                                     <h3 className="mb-4 text-lg font-semibold text-gray-800">{role.title || 'Outlet Users'}</h3>
-                                    <OutletUserTable outletUsers={outletUsers} onDelete={handleDelete} />
+                                    <OutletUserTable outletUsers={outletUsers} onDelete={handleDelete} onEdit={handleEdit} />
                                 </div>
                             );
                         } else if (customRoleGroupsMap[role.title || role.name]) {
@@ -113,7 +121,7 @@ export default function IndexPage({ managers, outletUsers, customRoleUsers = [],
                             return (
                                 <div key={role.name} className="mb-8 overflow-hidden bg-white px-6 py-6 shadow-sm sm:rounded-lg">
                                     <h3 className="mb-4 text-lg font-semibold text-gray-800">{role.title || role.name}</h3>
-                                    <CustomRoleUserTable users={paginatedGroup} onDelete={handleDelete} />
+                                    <CustomRoleUserTable users={paginatedGroup} onDelete={handleDelete} onEdit={handleEdit} />
                                 </div>
                             );
                         } else {
@@ -127,6 +135,12 @@ export default function IndexPage({ managers, outletUsers, customRoleUsers = [],
                 <div className="p-6">
                     <h2 className="mb-4 text-lg font-semibold text-gray-800">Create New User</h2>
                     <CreateUserForm onClose={() => setShowCreateModal(false)} roles={roles} loadingRoles={loadingRoles} />
+                </div>
+            </Modal>
+            <Modal show={showEditModal} onClose={() => setShowEditModal(false)} maxWidth="md">
+                <div className="p-6">
+                    <h2 className="mb-4 text-lg font-semibold text-gray-800">Edit User</h2>
+                    <EditUserForm user={editingUser} onClose={() => setShowEditModal(false)} roles={roles} loadingRoles={loadingRoles} />
                 </div>
             </Modal>
         </AuthenticatedLayout>

@@ -2,45 +2,83 @@ import { useState, useEffect } from 'react';
 import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
 import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
+import { useForm } from '@inertiajs/react';
+import InputError from '@/Components/InputError';
+import OutletSelector from './OutletSelector';
+import axios from 'axios';
+import SearchableSelect from '@/Components/SearchableSelect';
 
-export default function EditUserForm({ user, onClose }) {
-    const [data, setData] = useState({
-        name: '',
-        email: '',
-        status: '',
-        outlet: '',
-        region: '',
+export default function EditUserForm({ user, onClose, roles = [], loadingRoles = false }) {
+    const { data, setData, put, processing, errors, reset } = useForm({
+        name: user?.name || '',
+        email: user?.email || '',
+        role: user?.role || '',
+        outlet_id: user?.assigned_outlet_id || '',
+        outlet_ids: user?.managed_outlet_ids || [],
     });
+    const [availableOutlets, setAvailableOutlets] = useState([]);
+    const [loadingOutlets, setLoadingOutlets] = useState(false);
 
-    // Pre-fill form with user data when component mounts
     useEffect(() => {
-        if (user) {
+        if (user && roles.length > 0) {
+            // Find the matching role by comparing either the name or title
+            const matchingRole = roles.find(r => 
+                r.name === user.role || 
+                r.title === user.role ||
+                // Handle case where user.role might be a display name
+                r.title?.toLowerCase() === user.role?.toLowerCase()
+            );
+            
             setData({
                 name: user.name || '',
                 email: user.email || '',
-                status: user.status || 'Active',
-                outlet: user.outlet || '',
-                region: user.region || '',
+                role: matchingRole ? matchingRole.name : user.role || '',
+                outlet_id: user.assigned_outlet_id || '',
+                outlet_ids: user.managed_outlet_ids || [],
             });
         }
-    }, [user]);
+    }, [user, roles]);
+
+    useEffect(() => {
+        // Only set default role if creating (no user or no user.role)
+        if (!user && !data.role && roles.length > 0 && !loadingRoles) {
+            const systemRole = roles.find(r => r.name === 'manager');
+            setData('role', systemRole ? systemRole.name : roles[0].name);
+        }
+    }, [roles, loadingRoles, user]);
+
+    useEffect(() => {
+        if (!data.role) return;
+        if (data.role !== 'manager' && data.role !== 'outlet-user') return;
+        setLoadingOutlets(true);
+        const params = new URLSearchParams();
+        if (data.role) {
+            params.append('for_role', data.role);
+        }
+        axios.get(`${route('admin.available-outlets')}?${params.toString()}`)
+            .then(res => setAvailableOutlets(res.data))
+            .finally(() => setLoadingOutlets(false));
+    }, [data.role]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setData(prevData => ({
-            ...prevData,
-            [name]: value,
-        }));
+        setData(name, value);
     };
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        // In a real implementation, this would send the data to the server
-        console.log('Form submitted:', data);
-        onClose();
+        put(route('admin.users.update', user.id), {
+            onSuccess: () => { onClose(); },
+            onError: (err) => console.error('User update error:', err),
+        });
     };
 
-    const isRegionalManager = !!user.region;
+    const systemRoles = ['admin', 'manager', 'outlet-user'];
+    const sortedRoles = [
+        ...roles.filter(r => systemRoles.includes(r.name)),
+        ...roles.filter(r => !systemRoles.includes(r.name)),
+    ];
+    const isSystemRole = (roleName) => systemRoles.includes(roleName);
 
     return (
         <form onSubmit={handleSubmit}>
@@ -54,6 +92,7 @@ export default function EditUserForm({ user, onClose }) {
                     onChange={handleChange}
                     required
                 />
+                <InputError message={errors.name} className="mt-2" />
             </div>
 
             <div className="mb-4">
@@ -67,75 +106,61 @@ export default function EditUserForm({ user, onClose }) {
                     onChange={handleChange}
                     required
                 />
+                <InputError message={errors.email} className="mt-2" />
             </div>
 
             <div className="mb-4">
-                <InputLabel htmlFor="status" value="Status" />
-                <div className="mt-2 flex items-center">
-                    <label className="inline-flex items-center mr-6">
-                        <input
-                            type="radio"
-                            name="status"
-                            value="Active"
-                            checked={data.status === 'Active'}
-                            onChange={handleChange}
-                            className="text-green-600 focus:ring-green-500"
-                        />
-                        <span className="ml-2 text-sm text-gray-700">Active</span>
-                    </label>
-                    <label className="inline-flex items-center">
-                        <input
-                            type="radio"
-                            name="status"
-                            value="Inactive"
-                            checked={data.status === 'Inactive'}
-                            onChange={handleChange}
-                            className="text-green-600 focus:ring-green-500"
-                        />
-                        <span className="ml-2 text-sm text-gray-700">Inactive</span>
-                    </label>
+                <InputLabel value="Role" />
+                <div className="mt-2 flex flex-col space-y-2">
+                    {loadingRoles ? (
+                        <div>Loading roles...</div>
+                    ) : (
+                        sortedRoles.map(role => (
+                            <label key={role.name} className="inline-flex items-center">
+                                <input
+                                    type="radio"
+                                    name="role"
+                                    value={role.name}
+                                    checked={data.role === role.name}
+                                    onChange={handleChange}
+                                    className="text-green-600 focus:ring-green-500"
+                                />
+                                <span className="ml-2 text-sm text-gray-700">{role.title || role.name.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
+                            </label>
+                        ))
+                    )}
                 </div>
+                <InputError message={errors.role} className="mt-2" />
             </div>
 
-            {/* Display role-specific fields */}
-            {isRegionalManager ? (
-                <div className="mb-4">
-                    <InputLabel htmlFor="region" value="Region" />
-                    <select
-                        id="region"
-                        name="region"
-                        value={data.region}
-                        onChange={handleChange}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-                        required
-                    >
-                        <option value="">Select a region</option>
-                        <option value="North Region">North Region</option>
-                        <option value="East Region">East Region</option>
-                        <option value="South Region">South Region</option>
-                        <option value="West Region">West Region</option>
-                    </select>
-                </div>
-            ) : (
-                <div className="mb-4">
-                    <InputLabel htmlFor="outlet" value="Outlet" />
-                    <select
-                        id="outlet"
-                        name="outlet"
-                        value={data.outlet}
-                        onChange={handleChange}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-                        required
-                    >
-                        <option value="">Select an outlet</option>
-                        <option value="Central Shopping Mall">Central Shopping Mall</option>
-                        <option value="Downtown Plaza">Downtown Plaza</option>
-                        <option value="Riverside Complex">Riverside Complex</option>
-                        <option value="Sunset Boulevard">Sunset Boulevard</option>
-                        <option value="Harbor Center">Harbor Center</option>
-                        <option value="Greenfield Mall">Greenfield Mall</option>
-                    </select>
-                </div>
+            {/* Only show outlet assignment for system roles (but not for admin) */}
+            {isSystemRole(data.role) && data.role !== 'admin' && (
+                data.role === 'outlet-user' ? (
+                    <div className="mb-4">
+                        <InputLabel htmlFor="outlet_id" value="Assign to Outlet" />
+                        <SearchableSelect
+                            options={availableOutlets}
+                            value={data.outlet_id}
+                            onChange={(value) => setData('outlet_id', value)}
+                            placeholder="Select an outlet"
+                            disabled={loadingOutlets}
+                            className="mt-1"
+                            getOptionLabel={(option) => option.name}
+                            getOptionValue={(option) => option.id}
+                            getOptionDescription={() => ''}
+                        />
+                        {loadingOutlets && <div className="text-xs text-gray-500 mt-1">Loading outlets...</div>}
+                        <InputError message={errors.outlet_id} className="mt-2" />
+                    </div>
+                ) : (
+                    <OutletSelector
+                        outlets={availableOutlets}
+                        selectedIds={data.outlet_ids}
+                        onSelectionChange={(ids) => setData('outlet_ids', ids)}
+                        disabled={loadingOutlets}
+                        error={errors.outlet_ids}
+                    />
+                )
             )}
 
             <div className="mt-6 flex justify-end space-x-3">
@@ -146,10 +171,10 @@ export default function EditUserForm({ user, onClose }) {
                 >
                     Cancel
                 </button>
-                <AdminPrimaryButton type="submit">
+                <AdminPrimaryButton type="submit" disabled={processing}>
                     Save Changes
                 </AdminPrimaryButton>
             </div>
         </form>
     );
-} 
+}

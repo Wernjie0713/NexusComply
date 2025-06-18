@@ -1,7 +1,7 @@
 import { Link, router } from '@inertiajs/react';
 import { useState } from 'react';
 
-export default function CustomRoleUserTable({ users, onDelete }) {
+export default function CustomRoleUserTable({ users, onDelete, onEdit }) {
     const [perPage, setPerPage] = useState(users?.per_page || 5);
 
     const handlePerPageChange = (e) => {
@@ -50,12 +50,12 @@ export default function CustomRoleUserTable({ users, onDelete }) {
                                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{user.email}</td>
                                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{user.role_id}</td>
                                     <td className="whitespace-nowrap px-6 py-4 text-sm font-medium">
-                                        <Link
-                                            href={route('admin.users.edit', user.id)}
+                                        <button
+                                            onClick={() => onEdit(user)}
                                             className="mr-2 rounded bg-green-50 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-100"
                                         >
                                             Edit
-                                        </Link>
+                                        </button>
                                         <button
                                             onClick={() => onDelete(user)}
                                             className="rounded bg-red-50 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
