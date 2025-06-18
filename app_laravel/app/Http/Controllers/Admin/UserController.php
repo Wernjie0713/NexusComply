@@ -14,6 +14,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\UserInvitationEmail;
 use Illuminate\Support\Facades\DB;
+use App\Models\Role;
 
 class UserController extends Controller
 {
@@ -26,15 +27,27 @@ class UserController extends Controller
     {
         $managersPerPage = $request->input('managers_per_page', 5);
         $outletUsersPerPage = $request->input('outlet_users_per_page', 5);
+        $customRoleUsersPerPage = $request->input('custom_role_users_per_page', 5);
+        $adminUsersPerPage = $request->input('admin_users_per_page', 5);
 
         $managersQuery = User::with(['roles', 'managedOutlets'])
-            ->whereHas('roles', function($query) {
+            ->whereHas('roles', function ($query) {
                 $query->where('name', 'manager');
             });
 
         $outletUsersQuery = User::with(['roles', 'outletUserOutlet'])
-            ->whereHas('roles', function($query) {
+            ->whereHas('roles', function ($query) {
                 $query->where('name', 'outlet-user');
+            });
+
+        $customRoleUsersQuery = User::with(['roles'])
+            ->whereHas('roles', function ($query) {
+                $query->whereNotIn('name', ['manager', 'outlet-user', 'admin']);
+            });
+
+        $adminUsersQuery = User::with(['roles'])
+            ->whereHas('roles', function ($query) {
+                $query->where('name', 'admin');
             });
 
         $managers = $managersQuery->paginate($managersPerPage, ['*'], 'managers_page', $request->input('managers_page'))
@@ -67,9 +80,33 @@ class UserController extends Controller
                 ];
             });
 
+        $customRoleUsers = $customRoleUsersQuery->paginate($customRoleUsersPerPage, ['*'], 'custom_role_users_page', $request->input('custom_role_users_page'))
+            ->through(function ($user) {
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role_id' => $user->role_id,
+                    'role' => $user->roles->first() ? ($user->roles->first()->title ?? $user->roles->first()->name) : '',
+                ];
+            });
+
+        $adminUsers = $adminUsersQuery->paginate($adminUsersPerPage, ['*'], 'admin_users_page', $request->input('admin_users_page'))
+            ->through(function ($user) {
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role_id' => $user->role_id,
+                    'role' => $user->roles->first() ? ($user->roles->first()->title ?? $user->roles->first()->name) : '',
+                ];
+            });
+
         return Inertia::render('Admin/Users/IndexPage', [
             'managers' => $managers,
             'outletUsers' => $outletUsers,
+            'customRoleUsers' => $customRoleUsers,
+            'adminUsers' => $adminUsers,
         ]);
     }
 
@@ -93,17 +130,18 @@ class UserController extends Controller
     {
         Log::info('Request data for User creation:', $request->all());
         Log::info('Admin User Create Request:', $request->all());
+        $allowedRoles = Role::pluck('name')->toArray();
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-            'role' => ['required', Rule::in(['manager', 'outlet-user'])],
+            'role' => ['required', Rule::in($allowedRoles)],
             'outlet_id' => ['nullable', 'required_if:role,outlet-user', 'exists:outlets,id'],
             'outlet_ids' => ['nullable', 'required_if:role,manager', 'array'],
             'outlet_ids.*' => ['exists:outlets,id'],
         ]);
 
-        // Generate next role_id
-        $rolePrefix = $validated['role'] === 'manager' ? 'M' : 'O';
+        // Generate next role_id for each role type
+        $rolePrefix = $validated['role'] === 'manager' ? 'M' : ($validated['role'] === 'outlet-user' ? 'O' : ($validated['role'] === 'admin' ? 'A' : 'C'));
         $maxRoleId = User::where('role_id', 'like', $rolePrefix . '-%')
             ->orderByRaw("CAST(SUBSTRING(role_id, 3) AS INTEGER) DESC")
             ->value('role_id');
@@ -116,65 +154,52 @@ class UserController extends Controller
         }
         $newRoleId = sprintf('%s-%03d', $rolePrefix, $nextNumber);
 
-        // Use a transaction to ensure role assignment happens before activity logging
         DB::transaction(function () use ($validated, $newRoleId) {
-        // Create the user
-        $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => Hash::make('password'),
-            'email_verified_at' => now(),
-            'role_id' => $newRoleId,
-        ]);
+            $user = User::create([
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'password' => Hash::make('password'),
+                'email_verified_at' => now(),
+                'role_id' => $newRoleId,
+            ]);
 
             // Assign Bouncer role immediately
-        $user->assign($validated['role']);
+            $user->assign($validated['role']);
 
-        // Handle outlet assignments
-        if ($validated['role'] === 'outlet-user' && !empty($validated['outlet_id'])) {
-            $assignedOutlet = Outlet::find($validated['outlet_id']);
-            if ($assignedOutlet) {
-                $assignedOutlet->outlet_user_role_id = $user->role_id;
-                $assignedOutlet->save();
-            }
-        } elseif ($validated['role'] === 'manager' && !empty($validated['outlet_ids'])) {
-            // Update each outlet individually to trigger activity logging
-            foreach ($validated['outlet_ids'] as $outletId) {
-                $outlet = Outlet::find($outletId);
-                if ($outlet) {
-                    $outlet->manager_role_id = $user->role_id;
-                    $outlet->save();
+            // Handle outlet assignments only for system roles
+            if ($validated['role'] === 'outlet-user' && !empty($validated['outlet_id'])) {
+                $assignedOutlet = Outlet::find($validated['outlet_id']);
+                if ($assignedOutlet) {
+                    $assignedOutlet->outlet_user_role_id = $user->role_id;
+                    $assignedOutlet->save();
+                }
+            } elseif ($validated['role'] === 'manager' && !empty($validated['outlet_ids'])) {
+                foreach ($validated['outlet_ids'] as $outletId) {
+                    $outlet = Outlet::find($outletId);
+                    if ($outlet) {
+                        $outlet->manager_role_id = $user->role_id;
+                        $outlet->save();
+                    }
                 }
             }
-        }
 
-        // Send invitation email
-        $roleTitle = $validated['role'] === 'manager' ? 'Manager' : 'Outlet User';
-        $outletName = isset($assignedOutlet) ? $assignedOutlet->name : null;
-        $defaultPassword = 'password';
-
-        // Get assigned outlets for managers
-        $assignedOutlets = null;
-        if ($validated['role'] === 'manager' && !empty($validated['outlet_ids'])) {
-            $assignedOutlets = Outlet::whereIn('id', $validated['outlet_ids'])
-                ->orderBy('name')
-                ->get(['id', 'name']);
-
-            Log::info('Assigned outlets for new manager', [
-                'manager_id' => $user->id,
-                'manager_role_id' => $user->role_id,
-                'outlet_count' => $assignedOutlets->count(),
-                'outlet_names' => $assignedOutlets->pluck('name')
-            ]);
-        }
-
-        Mail::to($user->email)->send(new UserInvitationEmail(
-            $user,
-            $roleTitle,
-            $defaultPassword,
-            $outletName,
-            $assignedOutlets
-        ));
+            // Send invitation email (roleTitle logic for system roles, fallback for custom)
+            $roleTitle = ($validated['role'] === 'manager' ? 'Manager' : ($validated['role'] === 'outlet-user' ? 'Outlet User' : ucfirst(str_replace('-', ' ', $validated['role']))));
+            $outletName = isset($assignedOutlet) ? $assignedOutlet->name : null;
+            $defaultPassword = 'password';
+            $assignedOutlets = null;
+            if ($validated['role'] === 'manager' && !empty($validated['outlet_ids'])) {
+                $assignedOutlets = Outlet::whereIn('id', $validated['outlet_ids'])
+                    ->orderBy('name')
+                    ->get(['id', 'name']);
+            }
+            Mail::to($user->email)->send(new UserInvitationEmail(
+                $user,
+                $roleTitle,
+                $defaultPassword,
+                $outletName,
+                $assignedOutlets
+            ));
         });
 
         return redirect()->route('admin.users.index')
@@ -286,7 +311,7 @@ class UserController extends Controller
                 $outlet->outlet_user_role_id = null;
                 $outlet->save();
             }
-            
+
             // Assign to new outlet
             if (!empty($validated['outlet_id'])) {
                 $outlet = Outlet::find($validated['outlet_id']);
