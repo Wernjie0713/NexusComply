@@ -35,7 +35,7 @@ class AbilitySeeder extends Seeder
             // Settings
             ['name' => 'manage-roles-permissions', 'title' => 'Manage Roles & Permissions'],
             ['name' => 'modify-system-settings', 'title' => 'Modify System Settings'],
-            ['name' => 'view-system-logs', 'title' => 'View System Logs'],
+            ['name' => 'view-system-logs', 'title' => 'View System Activity'],
         ];
 
         foreach ($abilities as $ability) {

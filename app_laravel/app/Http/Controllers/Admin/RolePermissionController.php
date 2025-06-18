@@ -67,7 +67,7 @@ class RolePermissionController extends Controller
     public function getRoleAbilities($roleId)
     {
         $role = Role::findOrFail($roleId);
-        $abilityIds = $role->abilities()->pluck('id');
+        $abilityIds = $role->abilities()->pluck('abilities.id');
         return response()->json($abilityIds);
     }
 

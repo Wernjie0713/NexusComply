@@ -25,6 +25,9 @@ export default function RolesPermissionsPage() {
     const [roles, setRoles] = useState([]);
     const [loadingRoles, setLoadingRoles] = useState(true);
 
+    // Add a cache for role permissions
+    const [rolePermissionsCache, setRolePermissionsCache] = useState({});
+
     // Fetch all abilities
     useEffect(() => {
         async function fetchAllAbilities() {
@@ -50,7 +53,12 @@ export default function RolesPermissionsPage() {
                         if (ability.title.includes('User')) categories['User Management'].push(ability);
                         else if (ability.title.includes('Audit') || ability.title.includes('Reports')) categories['Audit Management'].push(ability);
                         else if (ability.title.includes('Compliance') || ability.title.includes('Form')) categories['Compliance Framework'].push(ability);
-                        else if (ability.title.includes('Role') || ability.title.includes('Setting') || ability.title.includes('Log')) categories['Settings'].push(ability);
+                        else if (
+                            ability.title.includes('Role') ||
+                            ability.title.includes('Setting') ||
+                            ability.title.includes('Log') ||
+                            ability.name === 'view-system-logs' // Always include this ability in Settings
+                        ) categories['Settings'].push(ability);
                     });
 
                     const grouped = Object.keys(categories).map((categoryName, index) => ({
@@ -109,35 +117,43 @@ export default function RolesPermissionsPage() {
     // Fetch permissions for the selected role
     useEffect(() => {
         async function fetchRolePermissions() {
-            if (selectedRoleId && allAbilities.length > 0) { // Ensure selectedRoleId and allAbilities are available
-                setLoadingRolePermissions(true);
-                try {
-                    const response = await fetch(`/admin/ajax/roles/${selectedRoleId}/abilities`, {
-                        headers: { 'Accept': 'application/json' },
-                        credentials: 'same-origin',
-                    });
-                    if (response.ok) {
-                        const abilityIds = await response.json(); // This returns an array of ability IDs
-                        // Convert IDs to names for the Set
-                        const assignedAbilityNames = new Set(
-                            allAbilities.filter(ability => abilityIds.includes(ability.id)).map(ability => ability.name)
-                        );
-                        setCurrentRolePermissions(assignedAbilityNames);
-                    } else {
+            if (selectedRoleId && allAbilities.length > 0) {
+                // Check cache first
+                if (rolePermissionsCache[selectedRoleId]) {
+                    setCurrentRolePermissions(rolePermissionsCache[selectedRoleId]);
+                } else {
+                    setLoadingRolePermissions(true);
+                    try {
+                        const response = await fetch(`/admin/ajax/roles/${selectedRoleId}/abilities`, {
+                            headers: { 'Accept': 'application/json' },
+                            credentials: 'same-origin',
+                        });
+                        if (response.ok) {
+                            const abilityIds = await response.json();
+                            const assignedAbilityNames = new Set(
+                                allAbilities.filter(ability => abilityIds.includes(ability.id)).map(ability => ability.name)
+                            );
+                            setCurrentRolePermissions(assignedAbilityNames);
+                            setRolePermissionsCache(prev => ({
+                                ...prev,
+                                [selectedRoleId]: assignedAbilityNames
+                            }));
+                        } else {
+                            setCurrentRolePermissions(new Set());
+                        }
+                    } catch (e) {
+                        console.error(`Failed to fetch permissions for role ${selectedRoleId}:`, e);
                         setCurrentRolePermissions(new Set());
+                    } finally {
+                        setLoadingRolePermissions(false);
                     }
-                } catch (e) {
-                    console.error(`Failed to fetch permissions for role ${selectedRoleId}:`, e);
-                    setCurrentRolePermissions(new Set());
-                } finally {
-                    setLoadingRolePermissions(false);
                 }
             } else {
-                setCurrentRolePermissions(new Set()); // Clear permissions if no role is selected or abilities are not loaded
+                setCurrentRolePermissions(new Set());
             }
         }
-        fetchRolePermissions(); // Call the async function
-    }, [selectedRoleId, allAbilities]); // Re-run when selectedRoleId or allAbilities changes
+        fetchRolePermissions();
+    }, [selectedRoleId, allAbilities]);
 
     const openAddRoleModal = () => {
         setModalMode('add');
