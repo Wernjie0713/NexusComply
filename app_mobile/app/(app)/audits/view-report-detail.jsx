@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   View, 
   Text, 
@@ -6,11 +6,19 @@ import {
   ScrollView, 
   TouchableOpacity,
   SafeAreaView,
-  Image
+  Image,
+  ActivityIndicator,
+  Platform,
+  Alert
 } from 'react-native';
 import { useRouter, useLocalSearchParams, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import ApiClient from '../../../utils/apiClient';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system';
+import * as IntentLauncher from 'expo-intent-launcher';
 
 // Define our primary green color for consistent use
 const PRIMARY_GREEN = '#4CAF50';
@@ -39,7 +47,6 @@ const ActionItem = ({ item }) => (
         </Text>
       </View>
     </View>
-    <Text style={styles.actionDescription}>{item.description}</Text>
     <Text style={styles.actionDue}>Due: {item.dueDate}</Text>
   </View>
 );
@@ -177,6 +184,11 @@ export default function ViewReportDetailScreen() {
   const navigation = useNavigation();
   const params = useLocalSearchParams();
   
+  const [auditSummaryData, setAuditSummaryData] = useState(null);
+  const [actionItemsData, setActionItemsData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
   // Get report details from params
   const reportName = params.reportName || 'Report';
   const reportId = params.reportId || '1';
@@ -188,48 +200,57 @@ export default function ViewReportDetailScreen() {
       headerTitle: reportName,
     });
   }, [navigation, reportName]);
-  
-  // Mock data for compliance summary report
-  const summaryData = {
-    complianceChart: {
-      currentScore: 87,
-      previousScore: 83,
-      trend: 4
-    },
-    auditSummary: {
-      totalAudits: 12,
-      pendingAudits: 2,
-      completedAudits: 10,
-      passedAudits: 8,
-      failedAudits: 1,
-      partialAudits: 3
+
+  useEffect(() => {
+    const fetchAuditData = async () => {
+      try {
+        setLoading(true);
+        const response = await ApiClient.get('/api/mobile/audits');
+        
+        const audits = response || [];
+
+        const totalAudits = audits.length;
+        const pendingAudits = audits.filter(a => a.status === 'pending').length;
+        const completedAudits = audits.filter(a => a.status === 'approved').length;
+        const passedAudits = audits.filter(a => a.status === 'approved').length; // Assuming completed is passed
+        const failedAudits = audits.filter(a => a.status === 'rejected').length;
+        const partialAudits = audits.filter(a => a.status === 'draft').length;
+
+        setAuditSummaryData({
+          totalAudits,
+          pendingAudits,
+          completedAudits,
+          passedAudits,
+          failedAudits,
+          partialAudits,
+        });
+
+        const recentActionItems = audits
+          .filter(a => a.status === 'pending' || a.status === 'rejected')
+          .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
+          .map(audit => ({
+            id: audit.id,
+            title: audit.title,
+            status: audit.status === 'pending' ? 'pending' : 'overdue', // Map status
+            dueDate: audit.dueDate
+          }));
+        
+        setActionItemsData(recentActionItems);
+
+      } catch (err) {
+        setError('Failed to load audit data.');
+        console.error('Error fetching audit data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (reportType === 'summary') {
+      fetchAuditData();
+    } else {
+      setLoading(false);
     }
-  };
-  
-  // Mock data for action items report
-  const actionItemsData = [
-    {
-      id: '1',
-      title: 'Staff PPE Training',
-      description: 'Schedule refresher training for all staff on proper PPE usage and requirements.',
-      status: 'pending',
-      dueDate: 'June 15, 2025'
-    },
-    {
-      id: '2',
-      title: 'Freezer Unit #2 Repair',
-      description: 'Follow up with maintenance on repair of leaking freezer unit identified in last audit.',
-      status: 'overdue',
-      dueDate: 'June 10, 2025'
-    },
-    {
-      id: '3',
-      title: 'Temperature Log Update',
-      description: 'Update temperature logging procedure to include new storage areas.',
-      status: 'pending',
-      dueDate: 'June 30, 2025'
-    }
-  ];
+  }, [reportType]);
   
   // Mock data for submission history report
   const historyData = [
@@ -279,17 +300,152 @@ export default function ViewReportDetailScreen() {
     ]
   };
   
+  const generatePdfHtml = () => {
+    if (!auditSummaryData) return '';
+
+    const actionItemsHtml = actionItemsData.map(item => `
+        <div class="action-item">
+            <div class="action-header">
+                <p class="action-title">${item.title}</p>
+                <p class="action-status ${item.status}">${item.status}</p>
+            </div>
+            <p class="action-due">Due: ${item.dueDate}</p>
+        </div>
+    `).join('');
+
+    const auditSummaryHtml = `
+        <div class="summary-grid">
+            <div class="summary-item">
+                <p class="summary-value">${auditSummaryData.totalAudits}</p>
+                <p class="summary-label">Total Audits</p>
+            </div>
+            <div class="summary-item">
+                <p class="summary-value">${auditSummaryData.pendingAudits}</p>
+                <p class="summary-label">Pending</p>
+            </div>
+            <div class="summary-item">
+                <p class="summary-value">${auditSummaryData.completedAudits}</p>
+                <p class="summary-label">Completed</p>
+            </div>
+            <div class="summary-item">
+                <p class="summary-value pass">${auditSummaryData.passedAudits}</p>
+                <p class="summary-label">Passed</p>
+            </div>
+            <div class="summary-item">
+                <p class="summary-value fail">${auditSummaryData.failedAudits}</p>
+                <p class="summary-label">Failed</p>
+            </div>
+            <div class="summary-item">
+                <p class="summary-value partial">${auditSummaryData.partialAudits}</p>
+                <p class="summary-label">Partial</p>
+            </div>
+        </div>
+    `;
+
+    return `
+      <html>
+        <head>
+          <style>
+            body { font-family: sans-serif; margin: 20px; color: #333; }
+            h1 { color: #4CAF50; font-size: 24px; text-align: center; margin-bottom: 20px; }
+            h2 { font-size: 18px; font-weight: bold; color: #333333; margin-top: 30px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+            .summary-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; text-align: center; margin-bottom: 20px; }
+            .summary-item { padding: 10px; background-color: #f9f9f9; border-radius: 8px; }
+            .summary-value { font-size: 22px; font-weight: bold; margin: 0 0 5px 0; color: #333; }
+            .summary-value.pass { color: #4CAF50; }
+            .summary-value.fail { color: #F44336; }
+            .summary-value.partial { color: #FF9800; }
+            .summary-label { font-size: 12px; color: #666; margin: 0; }
+            .action-item { border: 1px solid #eee; border-radius: 8px; padding: 15px; margin-bottom: 10px; }
+            .action-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+            .action-title { font-size: 16px; font-weight: 600; color: #333; flex: 1; }
+            .action-status { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
+            .action-status.pending { background-color: #FFEB3B20; color: #FF9800; }
+            .action-status.overdue { background-color: #F4433620; color: #F44336; }
+            .action-due { font-size: 14px; color: #333; }
+          </style>
+        </head>
+        <body>
+          <h1>${reportName} Report</h1>
+          
+          <h2>Audit Summary</h2>
+          ${auditSummaryHtml}
+          
+          <h2>Recent Action Items</h2>
+          ${actionItemsHtml.length > 0 ? actionItemsHtml : '<p>No open action items found.</p>'}
+        </body>
+      </html>
+    `;
+  };
+
+  const generatePDF = async () => {
+    if (!auditSummaryData) {
+      Alert.alert('Error', 'No data available to generate a report.');
+      return;
+    }
+
+    try {
+      const htmlContent = generatePdfHtml();
+      if (!htmlContent) {
+        Alert.alert('Error', 'Could not generate PDF content');
+        return;
+      }
+      
+      const { uri } = await Print.printToFileAsync({
+        html: htmlContent,
+        base64: false,
+      });
+
+      if (Platform.OS === 'android') {
+        try {
+          const contentUri = await FileSystem.getContentUriAsync(uri);
+          await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+            data: contentUri,
+            flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+            type: 'application/pdf',
+          });
+        } catch (e) {
+          console.error('Error opening PDF with IntentLauncher:', e);
+          if (await Sharing.isAvailableAsync()) {
+            await Sharing.shareAsync(uri, {
+              mimeType: 'application/pdf',
+              dialogTitle: 'Share or open the report',
+            });
+          } else {
+            Alert.alert("Error", "No app available to open PDF.");
+          }
+        }
+      } else {
+        if (!(await Sharing.isAvailableAsync())) {
+          Alert.alert("Error", "Sharing is not available on this device.");
+          return;
+        }
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: 'Share or open the report',
+        });
+      }
+
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      Alert.alert('Error', 'Failed to generate PDF');
+    }
+  };
+
   // Render report content based on type
   const renderReportContent = () => {
     switch (reportType) {
       case 'summary':
+        if (loading) {
+          return <ActivityIndicator size="large" color={PRIMARY_GREEN} style={{ marginTop: 20 }} />;
+        }
+        if (error) {
+          return <Text style={styles.emptyText}>{error}</Text>;
+        }
         return (
           <>
-            <SectionHeader title="Compliance Overview" />
-            <ComplianceChart data={summaryData.complianceChart} />
-            
             <SectionHeader title="Audit Summary" />
-            <AuditSummary data={summaryData.auditSummary} />
+            <AuditSummary data={auditSummaryData} />
             
             <SectionHeader title="Recent Action Items" />
             {actionItemsData.map((item) => (
@@ -382,9 +538,7 @@ export default function ViewReportDetailScreen() {
       <View style={styles.actionButtonsContainer}>
         <TouchableOpacity 
           style={styles.exportButton}
-          onPress={() => {
-            alert('This would export the report to PDF in a real implementation.');
-          }}
+          onPress={generatePDF}
         >
           <Ionicons name="download-outline" size={20} color="#333333" />
           <Text style={styles.exportButtonText}>Export Report</Text>
@@ -548,11 +702,6 @@ const styles = StyleSheet.create({
   actionStatusText: {
     fontSize: 12,
     fontWeight: '500',
-  },
-  actionDescription: {
-    fontSize: 14,
-    color: '#666666',
-    marginBottom: 8,
   },
   actionDue: {
     fontSize: 14,

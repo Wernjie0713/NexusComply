@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../../contexts/AuthContext';
 import { useRouter } from 'expo-router';
 
 export default function ProfileScreen() {
@@ -79,6 +79,15 @@ export default function ProfileScreen() {
             From here you can access settings and manage your account.
           </Text>
         </View>
+        
+        <TouchableOpacity 
+          style={styles.menuItem}
+          onPress={() => router.push('/profile/outlet-details')}
+        >
+          <Ionicons name="business-outline" size={24} color="#666666" style={styles.menuIcon} />
+          <Text style={styles.menuText}>Outlet Details</Text>
+          <Ionicons name="chevron-forward" size={20} color="#CCCCCC" />
+        </TouchableOpacity>
         
         <TouchableOpacity 
           style={styles.menuItem}
@@ -196,4 +205,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333333',
   },
-});
+}); 

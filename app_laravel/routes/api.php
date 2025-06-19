@@ -35,6 +35,9 @@ Route::middleware('auth:sanctum')->group(function () {
         // User profile routes
         Route::get('/profile', [MobileProfileController::class, 'show']);
         Route::put('/profile', [MobileProfileController::class, 'update']);
+        
+        // Get current user's outlet
+        Route::get('/outlet', [MobileProfileController::class, 'getOutlet']);
 
         // Dashboard data
         Route::get('/dashboard', [MobileDashboardController::class, 'getData']);
@@ -51,8 +54,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/outlets/{id}', [MobileAuditController::class, 'getOutlet']);
         Route::post('/audits/submit-form', [MobileAuditController::class, 'submitForm']);
         Route::post('/audits/upload-file', [MobileAuditController::class, 'uploadFile']);
-        Route::get('/audits/files/{filename}', [MobileAuditController::class, 'serveFile']);
+        Route::delete('/audits/delete-file', [MobileAuditController::class, 'deleteFile']);
+        Route::get('/audits/{id}', [MobileAuditController::class, 'show']);
         Route::delete('/audits/{id}', [MobileAuditController::class, 'destroy']);
+        Route::put('/audits/{id}/submit', [MobileAuditController::class, 'submit']);
     });
 
     // Admin routes for authenticated users

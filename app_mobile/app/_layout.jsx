@@ -4,6 +4,7 @@ import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { AuthProvider } from '../contexts/AuthContext';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
@@ -24,19 +25,21 @@ export default function RootLayout() {
   }
 
   return (
-    <AuthProvider>
-      <StatusBar style="auto" />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: 'white' },
-          animation: 'slide_from_right',
-        }}
-      >
-        <Stack.Screen name="(auth)" options={{ animation: 'fade' }} />
-        <Stack.Screen name="(app)" options={{ animation: 'fade' }} />
-      </Stack>
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <StatusBar style="auto" />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: 'white' },
+            animation: 'slide_from_right',
+          }}
+        >
+          <Stack.Screen name="(auth)" options={{ animation: 'fade' }} />
+          <Stack.Screen name="(app)" options={{ animation: 'fade' }} />
+        </Stack>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }
 

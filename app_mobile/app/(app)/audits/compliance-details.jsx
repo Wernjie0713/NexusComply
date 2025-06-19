@@ -57,6 +57,7 @@ export default function PerformAuditScreen() {
   const [loading, setLoading] = useState(true);
   const [formTemplates, setFormTemplates] = useState([]);
   const [error, setError] = useState(null);
+  const [isAddingAudit, setIsAddingAudit] = useState(false);
 
   // Function to fetch form templates
   const fetchFormTemplates = async () => {
@@ -94,6 +95,7 @@ export default function PerformAuditScreen() {
           text: "Add",
           onPress: async () => {
             try {
+              setIsAddingAudit(true);
               const response = await ApiClient.post('/api/mobile/audits', {
                 compliance_id: complianceId,
                 outlet_id: 1, // TODO: Get this from user's context or selection
@@ -113,6 +115,8 @@ export default function PerformAuditScreen() {
                 "Failed to create audit. Please try again.",
                 [{ text: "OK" }]
               );
+            } finally {
+              setIsAddingAudit(false);
             }
           }
         }
@@ -194,8 +198,16 @@ export default function PerformAuditScreen() {
             <TouchableOpacity 
               style={[styles.actionButton, styles.addButton]}
               onPress={handleAddAudit}
+              disabled={isAddingAudit}
             >
-              <Text style={styles.addButtonText}>Add Audit</Text>
+              {isAddingAudit ? (
+                <View style={styles.loadingButtonContent}>
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <Text style={[styles.addButtonText, styles.loadingButtonText]}>Adding...</Text>
+                </View>
+              ) : (
+                <Text style={styles.addButtonText}>Add Audit</Text>
+              )}
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -327,5 +339,13 @@ const styles = StyleSheet.create({
     color: '#666666',
     fontSize: 14,
     padding: 20,
+  },
+  loadingButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingButtonText: {
+    marginLeft: 8,
   },
 }); 

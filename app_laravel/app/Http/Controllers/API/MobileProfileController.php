@@ -64,4 +64,51 @@ class MobileProfileController extends Controller
             'user' => $user
         ]);
     }
+
+    /**
+     * Get the current user's outlet information.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getOutlet(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        \Log::info('User requesting outlet:', [
+            'user_id' => $user->id,
+            'role_id' => $user->role_id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'roles' => $user->getRoles()
+        ]);
+
+        // Use the relationship defined in User model
+        $outlet = $user->outletUserOutlet;
+        
+        \Log::info('Outlet query result:', [
+            'outlet_found' => $outlet ? true : false,
+            'outlet_details' => $outlet ? $outlet->toArray() : null
+        ]);
+
+        if (!$outlet) {
+            return response()->json([
+                'message' => 'No outlet assigned to this user',
+                'debug_info' => [
+                    'user_role_id' => $user->role_id,
+                    'roles' => $user->getRoles()
+                ]
+            ], 404);
+        }
+
+        return response()->json([
+            'id' => $outlet->id,
+            'name' => $outlet->name,
+            'address' => $outlet->address,
+            'city' => $outlet->city,
+            'state' => $outlet->state,
+            'postal_code' => $outlet->postal_code,
+            'phone_number' => $outlet->phone_number,
+            'operating_hours_info' => $outlet->operating_hours_info
+        ]);
+    }
 } 

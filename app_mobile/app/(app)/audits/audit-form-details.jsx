@@ -12,7 +12,8 @@ import {
   Alert,
   Image,
   Dimensions,
-  Linking
+  Linking,
+  Share
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,7 +22,9 @@ import * as DocumentPicker from 'expo-document-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import ApiClient from '../../../utils/apiClient';
 import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
+import * as IntentLauncher from 'expo-intent-launcher';
 
 const PRIMARY_GREEN = '#4CAF50';
 const windowWidth = Dimensions.get('window').width;
@@ -34,40 +37,23 @@ const isImageFile = (fileName) => {
   return imageExtensions.includes(extension);
 };
 
-// File Preview Component
-const FilePreview = ({ filePath, fileName }) => {
-  if (!filePath) return null;
-
-  const isImage = isImageFile(fileName);
-  const fileUrl = `${API_BASE_URL}/api/mobile/audits/files/${filePath.split('/').pop()}`;
-
-  if (isImage) {
-    return (
-      <View style={styles.previewContainer}>
-        <Image
-          source={{ 
-            uri: fileUrl,
-            headers: {
-              'Accept': '*/*'
-            }
-          }}
-          style={styles.imagePreview}
-          resizeMode="contain"
-        />
-      </View>
-    );
-  }
-
-  return (
-    <TouchableOpacity 
-      style={styles.filePreviewContainer}
-      onPress={() => Linking.openURL(fileUrl)}
-    >
-      <Ionicons name="document-outline" size={24} color={PRIMARY_GREEN} />
-      <Text style={styles.fileNameText}>{fileName}</Text>
-      <Text style={styles.openFileText}>Tap to open</Text>
-    </TouchableOpacity>
-  );
+// Function to get MIME type based on file extension
+const getMimeType = (fileName) => {
+  const extension = fileName.split('.').pop().toLowerCase();
+  const mimeTypes = {
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'png': 'image/png',
+    'gif': 'image/gif',
+    'pdf': 'application/pdf',
+    'doc': 'application/msword',
+    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'xls': 'application/vnd.ms-excel',
+    'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'ppt': 'application/vnd.ms-powerpoint',
+    'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  };
+  return mimeTypes[extension] || 'application/octet-stream';
 };
 
 // Function to handle file upload
@@ -91,9 +77,9 @@ const uploadFile = async (fileUri, fileName, fieldId) => {
     });
     console.log('API Response:', response);
 
-    if (response && response.path) {
-      console.log('Upload successful, path:', response.path);
-      return response.path;
+    if (response && (response.url || response.path)) {
+      console.log('Upload successful:', response);
+      return response;
     } else {
       console.log('Invalid response:', response);
       throw new Error('Invalid response from server');
@@ -104,6 +90,161 @@ const uploadFile = async (fileUri, fileName, fieldId) => {
   }
 };
 
+// Function to handle file download and opening
+const downloadAndOpenFile = async (fileUri, fileName) => {
+  try {
+    console.log('Starting download process for:', fileName);
+    console.log('File URI:', fileUri);
+
+    if (!fileUri) {
+      throw new Error('File URI is missing');
+    }
+
+    // For images, we can still open directly since they're loaded with headers
+    if (isImageFile(fileName)) {
+      await Linking.openURL(fileUri);
+      return;
+    }
+
+    // Create a unique local file path in the documents directory
+    const localFilePath = `${FileSystem.documentDirectory}${Date.now()}-${fileName}`;
+    console.log('Downloading to:', localFilePath);
+    
+    // Download the file
+    const downloadResult = await FileSystem.downloadAsync(
+      fileUri,
+      localFilePath,
+      {
+        headers: {
+          'Accept': '*/*',
+          'Cache-Control': 'no-cache'
+        },
+        cache: false
+      }
+    );
+
+    console.log('Download result:', downloadResult);
+
+    if (downloadResult.status === 200) {
+      if (Platform.OS === 'android') {
+        try {
+          // Get proper MIME type
+          const mimeType = getMimeType(fileName);
+          console.log('MIME type:', mimeType);
+
+          // Ensure the file exists and is readable
+          const fileInfo = await FileSystem.getInfoAsync(downloadResult.uri);
+          console.log('File info:', fileInfo);
+
+          if (!fileInfo.exists) {
+            throw new Error('Downloaded file not found');
+          }
+
+          // Get content URI for the file
+          const contentUri = await FileSystem.getContentUriAsync(downloadResult.uri);
+          console.log('Content URI:', contentUri);
+
+          // Launch the file with Intent
+          await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+            data: contentUri,
+            flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+            type: mimeType
+          });
+        } catch (error) {
+          console.error('Error in file handling:', error);
+          throw error;
+        }
+      } else {
+        // iOS handling
+        await Linking.openURL(downloadResult.uri);
+      }
+    } else {
+      throw new Error(`Download failed with status ${downloadResult.status}`);
+    }
+
+    // Clean up the temporary file after a delay
+    setTimeout(async () => {
+      try {
+        await FileSystem.deleteAsync(downloadResult.uri, { idempotent: true });
+        console.log('Temporary file cleaned up');
+      } catch (error) {
+        console.error('Error cleaning up file:', error);
+      }
+    }, 5000); // 5 second delay to ensure file is opened before cleanup
+  } catch (error) {
+    console.error('Error handling file:', error);
+    Alert.alert(
+      'Error',
+      `Could not open the file. Error: ${error.message}`,
+      [{ text: 'OK' }]
+    );
+  }
+};
+
+// Consolidated function for opening files
+const openFile = async (fileUri, fileName, isExisting) => {
+  try {
+    console.log('Opening file:', { fileUri, fileName, isExisting });
+    
+    if (isExisting) {
+      // For existing files from backend, use the download function
+      await downloadAndOpenFile(fileUri, fileName);
+    } else {
+      // For local files, use content URI
+      const contentUri = await FileSystem.getContentUriAsync(fileUri);
+      await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+        data: contentUri,
+        flags: 1,
+        type: getMimeType(fileName)
+      });
+    }
+  } catch (error) {
+    console.error('Error opening file:', error);
+    Alert.alert(
+      'Error',
+      'Could not open the file. Please make sure you have an app installed that can open this type of file.',
+      [{ text: 'OK' }]
+    );
+  }
+};
+
+// File Preview Component
+const FilePreview = ({ filePath, fileName, isExisting }) => {
+  if (!filePath) return null;
+
+  const isImage = isImageFile(fileName);
+  console.log('File URL in preview:', filePath, 'isExisting:', isExisting);
+
+  if (isImage) {
+    return (
+      <View style={styles.previewContainer}>
+        <Image
+          source={{ 
+            uri: filePath,
+            headers: isExisting ? {
+              'Accept': '*/*',
+              'Cache-Control': 'no-cache'
+            } : undefined
+          }}
+          style={styles.imagePreview}
+          resizeMode="contain"
+        />
+      </View>
+    );
+  }
+
+  return (
+    <TouchableOpacity 
+      style={styles.filePreviewContainer}
+      onPress={() => openFile(filePath, fileName, isExisting)}
+    >
+      <Ionicons name="document-outline" size={24} color={PRIMARY_GREEN} />
+      <Text style={styles.fileNameText}>{fileName}</Text>
+      <Text style={styles.openFileText}>Tap to open</Text>
+    </TouchableOpacity>
+  );
+};
+
 // Form Field Component
 const FormField = ({ field, value, onChange, isReadOnly }) => {
   const [selectedFile, setSelectedFile] = useState(() => {
@@ -111,7 +252,8 @@ const FormField = ({ field, value, onChange, isReadOnly }) => {
     if (value && typeof value === 'string') {
       return {
         name: value.split('/').pop(), // Get filename from path
-        uri: value
+        uri: value,
+        isExisting: true // Flag to indicate this is an existing file from backend
       };
     }
     return null;
@@ -132,34 +274,36 @@ const FormField = ({ field, value, onChange, isReadOnly }) => {
         const file = result.assets[0];
         console.log('Selected file:', file);
         
-        setUploading(true);
-        try {
-          // Generate a unique filename using field ID
-          const fileExtension = file.name.split('.').pop();
-          const newFileName = `${field.id}.${fileExtension}`;
-          console.log('Generated filename:', newFileName);
-          
-          // Upload the file and get the path
-          const filePath = await uploadFile(file.uri, newFileName, field.id);
-          console.log('File uploaded, path received:', filePath);
-          
-          const newFile = {
-            name: file.name,
-            uri: filePath
-          };
-          setSelectedFile(newFile);
-          // Store the file path in form values
-          onChange(filePath);
-        } catch (error) {
-          console.error('Upload failed:', error);
-          Alert.alert(
-            'Upload Error',
-            'Failed to upload file. Please try again.',
-            [{ text: 'OK' }]
-          );
-        } finally {
-          setUploading(false);
+        // Ensure the file is copied to app's cache directory for reliable access
+        const fileUri = file.uri;
+        const fileName = file.name;
+        
+        // For Android, we need to copy the file to our app's cache directory
+        // to ensure we can access it later
+        let finalUri = fileUri;
+        if (Platform.OS === 'android') {
+          const cacheFilePath = `${FileSystem.cacheDirectory}${Date.now()}-${fileName}`;
+          await FileSystem.copyAsync({
+            from: fileUri,
+            to: cacheFilePath
+          });
+          finalUri = cacheFilePath;
         }
+        
+        // Store the file locally without uploading
+        const newFile = {
+          name: fileName,
+          uri: finalUri,
+          isExisting: false, // Flag to indicate this is a new local file
+          fieldId: field.id
+        };
+        setSelectedFile(newFile);
+        // Store the local file info in form values
+        onChange({
+          localUri: finalUri,
+          fileName: fileName,
+          fieldId: field.id
+        });
       }
     } catch (err) {
       console.error('Error picking document:', err);
@@ -171,55 +315,8 @@ const FormField = ({ field, value, onChange, isReadOnly }) => {
     }
   };
 
-  const downloadAndOpenFile = async (fileUri, fileName) => {
-    try {
-      setDownloading(true);
-      console.log('Starting download process for:', fileName);
-      console.log('File URI:', fileUri);
-
-      const fileUrl = `${API_BASE_URL}/api/mobile/audits/files/${fileUri.split('/').pop()}`;
-
-      if (isImageFile(fileName)) {
-        // For images, open directly
-        await Linking.openURL(fileUrl);
-        Alert.alert(
-          'Success',
-          'File opened successfully',
-          [{ text: 'OK' }]
-        );
-      } else {
-        // For other files, download first
-        const downloadResult = await FileSystem.downloadAsync(
-          fileUrl,
-          `${FileSystem.cacheDirectory}${fileName}`,
-          {
-            headers: {
-              'Accept': '*/*'
-            }
-          }
-        );
-
-        if (downloadResult.status === 200) {
-          await Linking.openURL(downloadResult.uri);
-          Alert.alert(
-            'Success',
-            'File opened successfully',
-            [{ text: 'OK' }]
-          );
-        } else {
-          throw new Error(`Download failed with status ${downloadResult.status}`);
-        }
-      }
-    } catch (error) {
-      console.error('Error handling file:', error);
-      Alert.alert(
-        'Error',
-        'Could not open the file. Please try again later.',
-        [{ text: 'OK' }]
-      );
-    } finally {
-      setDownloading(false);
-    }
+  const handleFilePreview = async (fileUri, fileName, isExisting) => {
+    await openFile(fileUri, fileName, isExisting);
   };
 
   switch (field.type) {
@@ -437,7 +534,11 @@ const FormField = ({ field, value, onChange, isReadOnly }) => {
                 <Text style={styles.fileName}>{selectedFile.name}</Text>
               </View>
               
-              <FilePreview filePath={selectedFile.uri} fileName={selectedFile.name} />
+              <FilePreview 
+                filePath={selectedFile.uri} 
+                fileName={selectedFile.name} 
+                isExisting={selectedFile.isExisting}
+              />
               
               <View style={styles.fileActionsContainer}>
                 <TouchableOpacity 
@@ -445,7 +546,7 @@ const FormField = ({ field, value, onChange, isReadOnly }) => {
                     styles.fileActionButton,
                     downloading && styles.fileActionButtonDisabled
                   ]}
-                  onPress={() => downloadAndOpenFile(selectedFile.uri, selectedFile.name)}
+                  onPress={() => handleFilePreview(selectedFile.uri, selectedFile.name, selectedFile.isExisting)}
                   disabled={downloading}
                 >
                   <Ionicons 
@@ -457,18 +558,31 @@ const FormField = ({ field, value, onChange, isReadOnly }) => {
                     styles.fileActionText,
                     downloading && styles.fileActionTextDisabled
                   ]}>
-                    {downloading ? 'Downloading...' : 'View'}
+                    {downloading ? 'Opening...' : 'View'}
                   </Text>
                 </TouchableOpacity>
                 {!isReadOnly && (
-                  <TouchableOpacity 
-                    style={[styles.fileActionButton, styles.editButton]}
-                    onPress={handleFilePick}
-                    disabled={downloading}
-                  >
-                    <Ionicons name="pencil-outline" size={20} color={PRIMARY_GREEN} />
-                    <Text style={styles.fileActionText}>Change</Text>
-                  </TouchableOpacity>
+                  <>
+                    <TouchableOpacity 
+                      style={[styles.fileActionButton, styles.editButton]}
+                      onPress={handleFilePick}
+                      disabled={downloading}
+                    >
+                      <Ionicons name="pencil-outline" size={20} color={PRIMARY_GREEN} />
+                      <Text style={styles.fileActionText}>Change</Text>
+                    </TouchableOpacity>
+                        <TouchableOpacity 
+        style={[styles.fileActionButton, styles.deleteButton]}
+        onPress={() => {
+          setSelectedFile(null);
+          onChange(null);
+        }}
+        disabled={downloading}
+      >
+        <Ionicons name="trash-outline" size={20} color="#FF4444" />
+        <Text style={[styles.fileActionText, styles.deleteButtonText]}>Delete</Text>
+      </TouchableOpacity>
+                  </>
                 )}
               </View>
             </View>
@@ -594,19 +708,59 @@ export default function AuditFormDetailsScreen() {
           text: 'Submit',
           onPress: async () => {
             try {
+              // Process form values and upload files
+              const processedFormValues = { ...formValues };
+              
+              // Find all file fields that need to be uploaded
+              const fileUploads = Object.entries(formValues).filter(([_, value]) => 
+                value && typeof value === 'object' && value.localUri
+              );
+
+              if (fileUploads.length > 0) {
+                // Show upload progress
+                Alert.alert(
+                  'Uploading Files',
+                  'Please wait while we upload your files...',
+                  [{ text: 'OK' }]
+                );
+
+                // Upload each file
+                for (const [fieldId, fileInfo] of fileUploads) {
+                  try {
+                    const fileExtension = fileInfo.fileName.split('.').pop();
+                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                    const newFileName = `${fileInfo.fieldId}_${timestamp}.${fileExtension}`;
+                    
+                    // Upload the file
+                    const response = await uploadFile(fileInfo.localUri, newFileName, fileInfo.fieldId);
+                    
+                    // Replace the local file info with the uploaded file URL
+                    const fileUrl = response.downloadUrl || response.url || response.path;
+                    if (!fileUrl) {
+                      throw new Error('No file URL in response');
+                    }
+                    processedFormValues[fieldId] = fileUrl;
+                  } catch (error) {
+                    console.error('Error uploading file:', error);
+                    throw new Error(`Failed to upload file: ${fileInfo.fileName}`);
+                  }
+                }
+              }
+
               // Add debug logging
-              console.log('Submitting form with data:', {
+              console.log('Submitting form with processed data:', {
                 audit_id: params.auditId,
                 form_id: params.formId,
                 name: params.formName,
-                formValues
+                processedFormValues
               });
 
+              // Submit the form with processed values
               await ApiClient.post('/api/mobile/audits/submit-form', {
                 audit_id: params.auditId,
                 form_id: params.formId,
                 name: params.formName,
-                value: formValues
+                value: processedFormValues
               });
 
               // If we reach here, it means the API call was successful
@@ -616,13 +770,13 @@ export default function AuditFormDetailsScreen() {
                 [{ 
                   text: 'OK',
                   onPress: () => {
-                    // Replace current route with audit-details to refresh the page with all necessary params
+                    // Replace current route with audit-details to refresh the page
                     router.replace({
                       pathname: '/(app)/audits/audit-details',
                       params: {
                         formId: params.auditId,
                         outletId: params.outletId,
-                        headerTitle: params.originalTitle, // Use the original audit title
+                        headerTitle: params.originalTitle,
                         dueDate: params.dueDate,
                         outletName: params.outletName
                       }
@@ -634,7 +788,7 @@ export default function AuditFormDetailsScreen() {
               console.error('Error submitting form:', error);
               Alert.alert(
                 'Error',
-                'Failed to submit form. Please try again.',
+                error.message || 'Failed to submit form. Please try again.',
                 [{ text: 'OK' }]
               );
             }
@@ -962,5 +1116,11 @@ const styles = StyleSheet.create({
   },
   readOnlySelectedText: {
     color: '#666666',
+  },
+  deleteButton: {
+    backgroundColor: '#FFEBEE',
+  },
+  deleteButtonText: {
+    color: '#FF4444',
   },
 }); 

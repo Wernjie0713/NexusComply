@@ -50,20 +50,6 @@ export default function MyReportsScreen() {
       description: 'Overview of your outlet\'s compliance status for the last 30 days',
       icon: 'pie-chart',
       type: 'summary'
-    },
-    {
-      id: '2',
-      title: 'Open Action Items',
-      description: 'List of pending corrective actions for your outlet',
-      icon: 'list',
-      type: 'action-items'
-    },
-    {
-      id: '3',
-      title: 'Submission History',
-      description: 'Timeline of all audit submissions in the last 90 days',
-      icon: 'time',
-      type: 'history'
     }
   ];
   

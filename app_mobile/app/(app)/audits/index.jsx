@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -11,11 +11,13 @@ import {
   Alert
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import ApiClient from '../../../utils/apiClient';
 
 // Define our primary green color for consistent use
 const PRIMARY_GREEN = '#4CAF50';
+const WARNING_RED = '#DC2626';
 
 // Status Badge Component
 const StatusBadge = ({ status }) => {
@@ -26,7 +28,7 @@ const StatusBadge = ({ status }) => {
       text: 'Approved',
       icon: 'checkmark-circle' 
     },
-    'submitted': { 
+    'pending': { 
       color: '#FFEB3B', 
       text: 'Pending Manager Review',
       icon: 'time' 
@@ -48,7 +50,7 @@ const StatusBadge = ({ status }) => {
     }
   };
 
-  const config = statusConfig[status] || statusConfig['Draft'];
+  const config = statusConfig[status] || statusConfig['draft'];
 
   return (
     <View style={[styles.badgeContainer, { backgroundColor: `${config.color}20` }]}>
@@ -67,7 +69,7 @@ const AuditListItem = ({ item, onPress }) => (
     <View style={styles.auditContent}>
       <Text style={styles.auditTitle}>{item.title}</Text>
       <Text style={styles.auditDate}>
-        {item.isDraft ? `Due: ${item.dueDate}` : `Submitted: ${item.submittedDate}`}
+        {item.isDraft ? `Due: ${item.dueDate}` : `Due Date: ${item.dueDate}`}
       </Text>
       <StatusBadge status={item.status} />
     </View>
@@ -82,6 +84,41 @@ const SectionHeader = ({ title, count }) => (
     {count > 0 && <Text style={styles.sectionCount}>{count}</Text>}
   </View>
 );
+
+// Reminder Section Component
+const ReminderSection = ({ audits }) => {
+  const pendingAudits = audits.filter(audit => 
+    audit.status === 'draft' || audit.status === 'rejected' || audit.status === 'overdue'
+  );
+
+  if (pendingAudits.length === 0) return null;
+
+  return (
+    <View style={styles.reminderContainer}>
+      <View style={styles.reminderHeader}>
+        <Ionicons name="alert-circle" size={20} color={WARNING_RED} />
+        <Text style={styles.reminderTitle}>Pending Actions Required</Text>
+      </View>
+      {pendingAudits.map((audit, index) => (
+        <View key={index} style={styles.reminderItem}>
+          <Ionicons 
+            name={audit.status === 'rejected' ? 'close-circle' : 'time'} 
+            size={16} 
+            color={audit.status === 'rejected' ? WARNING_RED : '#FFEB3B'} 
+          />
+          <Text style={styles.reminderText}>
+            {audit.status === 'rejected' 
+              ? `"${audit.title}" was rejected - requires revision`
+              : audit.status === 'overdue'
+              ? `"${audit.title}" is overdue - due date: ${audit.dueDate}`
+              : `"${audit.title}" needs to be completed - due date: ${audit.dueDate}`
+            }
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+};
 
 export default function AuditsScreen() {
   const router = useRouter();
@@ -117,10 +154,12 @@ export default function AuditsScreen() {
     }
   };
 
-  // Fetch audits when component mounts
-  useEffect(() => {
-    fetchActiveAudits();
-  }, []);
+  // Reload data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchActiveAudits();
+    }, [])
+  );
 
   // Handle audit item press
   const handleAuditPress = (item) => {
@@ -206,6 +245,9 @@ export default function AuditsScreen() {
     </View>
   );
 
+  // Get all active audits for reminder
+  const allActiveAudits = auditData.find(section => section.title === 'Active Audits')?.data || [];
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
@@ -215,6 +257,21 @@ export default function AuditsScreen() {
         renderItem={renderSection}
         keyExtractor={(item) => item.title}
         style={styles.list}
+        ListHeaderComponent={
+          <>
+            <View style={styles.reminderSection}>
+              <Text style={styles.reminderSectionTitle}>Reminders</Text>
+              {loading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color={PRIMARY_GREEN} />
+                  <Text style={styles.loadingText}>Loading reminders...</Text>
+                </View>
+              ) : (
+                <ReminderSection audits={allActiveAudits} />
+              )}
+            </View>
+          </>
+        }
         ListFooterComponent={
           <View style={styles.footer}>
             <View style={styles.actionButtons}>
@@ -401,5 +458,46 @@ const styles = StyleSheet.create({
     color: '#374151',
     fontSize: 14,
     fontWeight: '500',
+  },
+  reminderSection: {
+    paddingTop: 16,
+    paddingHorizontal: 16,
+  },
+  reminderSectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333333',
+    marginBottom: 12,
+  },
+  reminderContainer: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+  },
+  reminderHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  reminderTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: WARNING_RED,
+    marginLeft: 8,
+  },
+  reminderItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#FEE2E2',
+  },
+  reminderText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#333333',
+    marginLeft: 8,
   },
 }); 

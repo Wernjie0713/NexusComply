@@ -9,11 +9,18 @@ use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use App\Models\Outlet;
 use App\Models\AuditForm;
-use Illuminate\Support\Facades\Storage;
+use App\Services\SupabaseStorageService;
 use Illuminate\Support\Facades\DB;
 
 class MobileAuditController extends Controller
 {
+    private $storageService;
+
+    public function __construct(SupabaseStorageService $storageService)
+    {
+        $this->storageService = $storageService;
+    }
+
     /**
      * Create a new audit.
      *
@@ -272,7 +279,9 @@ class MobileAuditController extends Controller
             \Log::info('File upload request received', [
                 'fileName' => $request->fileName,
                 'fieldId' => $request->fieldId,
-                'hasFile' => !empty($request->file)
+                'hasFile' => !empty($request->file),
+                'fileSize' => strlen($request->file ?? ''),
+                'requestData' => $request->all()
             ]);
 
             $request->validate([
@@ -280,13 +289,6 @@ class MobileAuditController extends Controller
                 'fileName' => 'required|string',
                 'fieldId' => 'required|string'
             ]);
-
-            // Ensure storage directory exists
-            $directory = 'audit_files';
-            if (!Storage::disk('public')->exists($directory)) {
-                Storage::disk('public')->makeDirectory($directory);
-                \Log::info('Created audit_files directory');
-            }
 
             // Check if the file data is valid base64
             if (!preg_match('/^[a-zA-Z0-9\/\r\n+]*={0,2}$/', $request->file)) {
@@ -301,39 +303,32 @@ class MobileAuditController extends Controller
                 throw new \Exception('Failed to decode file data');
             }
 
-            // Store file in storage/app/public/audit_files
-            $path = $directory . '/' . $request->fileName;
-            \Log::info('Attempting to store file', [
-                'path' => $path,
-                'fileSize' => strlen($fileData)
+            \Log::info('File decoded successfully', [
+                'decodedSize' => strlen($fileData)
             ]);
-            
-            $stored = Storage::disk('public')->put($path, $fileData);
-            
-            if (!$stored) {
-                \Log::error('Failed to store file', [
-                    'path' => $path,
-                    'diskFree' => disk_free_space(storage_path('app/public'))
+
+            // Upload to Supabase storage
+            try {
+                $result = $this->storageService->uploadFile($fileData, $request->fileName);
+                \Log::info('Supabase upload response', [
+                    'result' => $result
                 ]);
-                throw new \Exception('Failed to store file');
+            } catch (\Exception $e) {
+                \Log::error('Supabase upload error', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+                throw $e;
             }
 
-            // Verify file exists and is readable
-            if (!Storage::disk('public')->exists($path)) {
-                \Log::error('File not found after storage');
-                throw new \Exception('File not found after storage');
-            }
-
-            \Log::info('File stored successfully', [
-                'path' => $path,
-                'size' => Storage::disk('public')->size($path),
-                'url' => Storage::disk('public')->url($path)
+            \Log::info('File uploaded successfully', [
+                'path' => $result['path'],
+                'url' => $result['url']
             ]);
 
-            // Return the file path and URL
             return response()->json([
-                'path' => $path,
-                'url' => Storage::disk('public')->url($path),
+                'path' => $result['path'],
+                'url' => $result['url'],
                 'message' => 'File uploaded successfully'
             ], 201);
         } catch (\Exception $e) {
@@ -349,22 +344,13 @@ class MobileAuditController extends Controller
         }
     }
 
-    // Add a method to serve files
     public function serveFile($filename)
     {
         try {
-            $path = 'audit_files/' . $filename;
-            
-            if (!Storage::disk('public')->exists($path)) {
-                \Log::error('File not found', ['path' => $path]);
-                return response()->json(['error' => 'File not found'], 404);
-            }
+            $file = $this->storageService->getFile($filename);
 
-            $file = Storage::disk('public')->get($path);
-            $mimeType = Storage::disk('public')->mimeType($path);
-
-            return response($file)
-                ->header('Content-Type', $mimeType)
+            return response($file['contents'])
+                ->header('Content-Type', $file['mime_type'])
                 ->header('Content-Disposition', 'inline; filename="' . $filename . '"')
                 ->header('Cache-Control', 'public, max-age=300');
         } catch (\Exception $e) {
@@ -407,6 +393,46 @@ class MobileAuditController extends Controller
             \Log::error('Failed to delete audit: ' . $e->getMessage());
             return response()->json([
                 'message' => 'Failed to delete audit',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Submit an audit for review.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function submit($id)
+    {
+        try {
+            $audit = Audit::findOrFail($id);
+            
+            // Check if all forms are completed
+            $totalForms = $audit->complianceRequirement->formTemplates->count();
+            $completedForms = AuditForm::where('audit_id', $id)->count();
+            
+            if ($completedForms < $totalForms) {
+                return response()->json([
+                    'message' => 'All forms must be completed before submitting the audit',
+                ], 400);
+            }
+
+            // Update audit status to submitted (id: 6)
+            $audit->update([
+                'status_id' => 6, // submitted status
+                'end_time' => now()
+            ]);
+
+            return response()->json([
+                'message' => 'Audit submitted successfully',
+                'success' => true
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Failed to submit audit: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Failed to submit audit',
                 'error' => $e->getMessage()
             ], 500);
         }

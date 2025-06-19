@@ -138,9 +138,42 @@ export default function ViewSubmissionScreen() {
     fetchData();
   }, [params.outletId, params.formId]);
 
-  const handleSubmit = () => {
-    // Handle submission logic here
-    console.log('Submitting audit...');
+  const handleSubmit = async () => {
+    // Check if all forms are completed
+    const allFormsCompleted = auditData?.forms?.every(form => form.is_created) ?? false;
+    
+    if (!allFormsCompleted) {
+      Alert.alert(
+        "Incomplete Audit",
+        "Please complete all forms before submitting the audit.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
+    try {
+      // Submit the audit
+      const response = await ApiClient.put(`/api/mobile/audits/${params.formId}/submit`);
+      
+      if (response.success) {
+        Alert.alert(
+          "Success",
+          "Audit submitted successfully",
+          [
+            {
+              text: "OK",
+              onPress: () => router.back()
+            }
+          ]
+        );
+      }
+    } catch (err) {
+      console.error('Error submitting audit:', err);
+      Alert.alert(
+        "Error",
+        err.response?.data?.message || "Failed to submit audit. Please try again."
+      );
+    }
   };
 
   const handleDelete = () => {
@@ -272,14 +305,20 @@ export default function ViewSubmissionScreen() {
           {auditData?.status === 'approved' && (
             <TouchableOpacity 
               style={styles.printPreviewButton}
-              onPress={() => console.log('Print Preview')}
+              onPress={() => router.push({
+                pathname: '/(app)/audits/print-preview',
+                params: { 
+                  auditId: params.formId,
+                  outletId: params.outletId
+                }
+              })}
             >
               <Text style={styles.printPreviewButtonText}>Print Preview</Text>
             </TouchableOpacity>
           )}
 
           {/* Submit Button - Only show when not approved or pending */}
-          {auditData?.status !== 'approved' && auditData?.status !== 'submitted' && (
+          {auditData?.status !== 'approved' && auditData?.status !== 'pending' && (
             <TouchableOpacity 
               style={[
                 styles.submitButton,

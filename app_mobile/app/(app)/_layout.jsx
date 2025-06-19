@@ -2,12 +2,15 @@ import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Define our primary green color for consistent use
 const PRIMARY_GREEN = '#4CAF50';
 const INACTIVE_COLOR = '#777777';
 
 export default function AppLayout() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tabs
       initialRouteName="dashboard"
@@ -48,7 +51,7 @@ export default function AppLayout() {
         },
         tabBar: ({ state, descriptors, navigation }) => {
           return (
-            <View style={styles.tabBarContainer}>
+            <View style={[styles.tabBarContainer, { height: 60 + insets.bottom, paddingBottom: insets.bottom }]}>
               {state.routes.map((route, index) => {
                 // Only render tabs for our three main routes
                 if (!['dashboard', 'audits', 'profile'].includes(route.name)) {
@@ -130,7 +133,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderTopColor: '#eeeeee',
     borderTopWidth: 1,
-    height: 60,
   },
   tabItem: {
     flex: 1,
