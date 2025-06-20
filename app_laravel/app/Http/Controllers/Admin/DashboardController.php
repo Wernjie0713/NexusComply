@@ -20,17 +20,28 @@ class DashboardController extends Controller
             // Get all statuses in one query
             $statuses = Status::all()->keyBy('name');
 
-            // Get all statistics in one query
+            // Get all audits in one query
+            $audits = Audit::whereNotNull('end_time')
+                ->whereNotNull('start_time')
+                ->whereBetween('end_time', ['2025-06-01 00:00:00', '2025-06-30 23:59:59'])
+                ->get();
+
+            $averageCompletionTime = $audits
+                ->filter(function ($audit) {
+                    $start = \Carbon\Carbon::parse($audit->start_time)->setTimezone('UTC');
+                    $end = \Carbon\Carbon::parse($audit->end_time)->setTimezone('UTC');
+                    return $end->greaterThanOrEqualTo($start);
+                })
+                ->avg(function ($audit) {
+                    $start = \Carbon\Carbon::parse($audit->start_time)->setTimezone('UTC');
+                    $end = \Carbon\Carbon::parse($audit->end_time)->setTimezone('UTC');
+                    return $start->diffInSeconds($end) / 3600;
+                });
+
             $statistics = [
                 'totalOutlets' => Outlet::where('is_active', true)->count(),
                 'activeUsers' => User::where('email_verified_at', '!=', null)->count(),
-                'averageCompletionTime' => Audit::whereNotNull('end_time')
-                    ->whereNotNull('start_time')
-                    ->where('end_time', '>=', Carbon::now()->subMonths(3))
-                    ->get()
-                    ->avg(function ($audit) {
-                        return Carbon::parse($audit->end_time)->diffInHours(Carbon::parse($audit->start_time));
-                    }),
+                'averageCompletionTime' => $averageCompletionTime > 0 ? $averageCompletionTime : 0,
                 'pendingReviews' => Audit::where('status_id', $statuses['pending']->id ?? null)->count()
             ];
 
