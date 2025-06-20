@@ -63,21 +63,6 @@ export default function DashboardPage({ statistics = {}, complianceData = {}, re
                             </div>
                         </div>
 
-                        {/* Average Completion Time Card */}
-                        <div className="overflow-hidden bg-white px-6 py-6 shadow-sm sm:rounded-lg">
-                            <div className="flex items-center">
-                                <div className="mr-4 rounded-full bg-green-100 p-3">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-gray-600">Average Audit Duration</p>
-                                    <p className="text-2xl font-bold text-green-600">{Math.round(averageCompletionTime)} H</p>
-                                </div>
-                            </div>
-                        </div>
-
                         {/* Pending Reviews Card */}
                         <div className="overflow-hidden bg-white px-6 py-6 shadow-sm sm:rounded-lg">
                             <div className="flex items-center">
@@ -89,6 +74,25 @@ export default function DashboardPage({ statistics = {}, complianceData = {}, re
                                 <div>
                                     <p className="text-sm font-medium text-gray-600">Pending Reviews</p>
                                     <p className="text-2xl font-bold text-green-600">{pendingReviews}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Average Completion Time Card */}
+                        <div className="overflow-hidden bg-white px-6 py-6 shadow-sm sm:rounded-lg">
+                            <div className="flex items-center">
+                                <div className="mr-4 rounded-full bg-green-100 p-3">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p className="text-sm font-medium text-gray-600">Average Audit Duration</p>
+                                    <p className="text-2xl font-bold text-green-600">
+                                        {Number.isFinite(averageCompletionTime) && averageCompletionTime > 0
+                                            ? averageCompletionTime.toFixed(2) + " H"
+                                            : "0 H"}
+                                    </p>
                                 </div>
                             </div>
                         </div>
