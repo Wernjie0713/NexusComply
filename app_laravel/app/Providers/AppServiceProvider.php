@@ -48,6 +48,7 @@ class AppServiceProvider extends ServiceProvider
 
         // Register Bouncer middleware
         $this->app->afterResolving(Bouncer::class, function ($bouncer) {
+            $bouncer->useRoleModel(\App\Models\Role::class);
             $bouncer->useRoleMiddleware('role');
         });
     }

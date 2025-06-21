@@ -60,15 +60,13 @@ class LoginRequest extends FormRequest
             ]);
         }
 
-        // Check if the authenticated user has the required roles
+        // Check if the authenticated user has at least one role
         $user = Auth::user();
-        if (!(Bouncer::is($user)->an('admin') || Bouncer::is($user)->a('manager') || Bouncer::is($user)->a('outlet-user'))) {
+        if (\Silber\Bouncer\BouncerFacade::role()->whereAssignedTo($user)->count() === 0) {
             // Log the user out immediately
             Auth::logout();
-            
             // Hit rate limiter to be consistent with failed login attempts
             RateLimiter::hit($this->throttleKey());
-            
             // Return the same generic error message as invalid credentials
             throw ValidationException::withMessages([
                 'email' => trans('auth.failed'),
@@ -106,6 +104,6 @@ class LoginRequest extends FormRequest
      */
     public function throttleKey(): string
     {
-        return Str::transliterate(Str::lower($this->string('email')).'|'.$this->ip());
+        return Str::transliterate(Str::lower($this->string('email')) . '|' . $this->ip());
     }
 }

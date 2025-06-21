@@ -15,9 +15,46 @@ use Illuminate\Support\Facades\Mail;
 use App\Mail\UserInvitationEmail;
 use Illuminate\Support\Facades\DB;
 use App\Models\Role;
+use Illuminate\Support\Facades\Gate;
+use App\Models\ActivityLog;
 
 class UserController extends Controller
 {
+    /**
+     * Check if current user has only custom roles
+     */
+    private function hasOnlyCustomRoles()
+    {
+        $systemRoles = ['admin', 'manager', 'outlet-user'];
+        $userRoles = Auth::user()->roles->pluck('name')->toArray();
+
+        return count($userRoles) > 0 && !array_intersect($userRoles, $systemRoles);
+    }
+
+    /**
+     * Check permission for custom role users
+     */
+    private function checkPermission($permission)
+    {
+        // If user has system roles, they have full access.
+        if (!$this->hasOnlyCustomRoles()) {
+            return true;
+        }
+
+        // For custom roles, use our reliable manual method instead of the failing Gate.
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        $userAbilities = $user->getAbilitiesManually();
+
+        // Special case for view-users: allow if user has ANY user management permission.
+        if ($permission === 'view-users') {
+            return $userAbilities->intersect(['view-users', 'create-users', 'edit-users', 'delete-users'])->isNotEmpty();
+        }
+
+        // For other permissions, check for the specific ability.
+        return $userAbilities->contains($permission);
+    }
+
     /**
      * Display the user management index page with all users and their roles/outlets.
      *
@@ -25,6 +62,11 @@ class UserController extends Controller
      */
     public function index(Request $request)
     {
+        // Check view permission (now includes implicit check for any user management permission)
+        if (!$this->checkPermission('view-users')) {
+            abort(403, 'Unauthorized');
+        }
+
         $managersPerPage = $request->input('managers_per_page', 5);
         $outletUsersPerPage = $request->input('outlet_users_per_page', 5);
         $customRoleUsersPerPage = $request->input('custom_role_users_per_page', 5);
@@ -33,22 +75,26 @@ class UserController extends Controller
         $managersQuery = User::with(['roles', 'managedOutlets'])
             ->whereHas('roles', function ($query) {
                 $query->where('name', 'manager');
-            });
+            })
+            ->orderBy('id');
 
         $outletUsersQuery = User::with(['roles', 'outletUserOutlet'])
             ->whereHas('roles', function ($query) {
                 $query->where('name', 'outlet-user');
-            });
+            })
+            ->orderBy('id');
 
         $customRoleUsersQuery = User::with(['roles'])
             ->whereHas('roles', function ($query) {
                 $query->whereNotIn('name', ['manager', 'outlet-user', 'admin']);
-            });
+            })
+            ->orderBy('id');
 
         $adminUsersQuery = User::with(['roles'])
             ->whereHas('roles', function ($query) {
                 $query->where('name', 'admin');
-            });
+            })
+            ->orderBy('id');
 
         $managers = $managersQuery->paginate($managersPerPage, ['*'], 'managers_page', $request->input('managers_page'))
             ->through(function ($user) {
@@ -118,6 +164,11 @@ class UserController extends Controller
      */
     public function activityLog($userId)
     {
+        // Activity log viewing is tied to view-users permission
+        if (!$this->checkPermission('view-users')) {
+            abort(403, 'Unauthorized');
+        }
+
         return Inertia::render('Admin/Users/ActivityLogPage', [
             'userId' => $userId,
         ]);
@@ -128,6 +179,11 @@ class UserController extends Controller
      */
     public function store(Request $request)
     {
+        // Check create permission
+        if (!$this->checkPermission('create-users')) {
+            abort(403, 'Unauthorized');
+        }
+
         Log::info('Request data for User creation:', $request->all());
         Log::info('Admin User Create Request:', $request->all());
         $allowedRoles = Role::pluck('name')->toArray();
@@ -211,6 +267,11 @@ class UserController extends Controller
      */
     public function edit(User $user)
     {
+        // Check edit permission
+        if (!$this->checkPermission('edit-users')) {
+            abort(403, 'Unauthorized');
+        }
+
         $user->load('roles', 'outletUserOutlet', 'managedOutlets');
         $role = $user->roles->first() ? $user->roles->first()->name : null;
 
@@ -268,12 +329,19 @@ class UserController extends Controller
      */
     public function update(Request $request, User $user)
     {
-        Log::info('User Update Request Data:', $request->all());
+        // Check edit permission
+        if (!$this->checkPermission('edit-users')) {
+            abort(403, 'Unauthorized');
+        }
 
+        $oldRole = $user->roles->first();
+        $oldRoleTitle = $oldRole ? ($oldRole->title ?? $oldRole->name) : 'N/A';
+
+        $allowedRoles = Role::pluck('name')->toArray();
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
-            'role' => ['required', Rule::in(['manager', 'outlet-user'])],
+            'role' => ['required', Rule::in($allowedRoles)],
             'outlet_id' => ['nullable', 'required_if:role,outlet-user', 'exists:outlets,id'],
             'outlet_ids' => ['nullable', 'required_if:role,manager', 'array'],
             'outlet_ids.*' => ['exists:outlets,id'],
@@ -299,9 +367,22 @@ class UserController extends Controller
         $user->email = $validated['email'];
         $user->save();
 
-        // Update Bouncer role
+        // Detach old role and assign new one
         $user->roles()->detach();
         $user->assign($validated['role']);
+
+        $newRoleName = $validated['role'];
+        if ($oldRole->name !== $newRoleName) {
+            $newRole = Role::where('name', $newRoleName)->first();
+            $newRoleTitle = $newRole ? ($newRole->title ?? $newRole->name) : 'N/A';
+
+            ActivityLog::create([
+                'target_type' => 'User',
+                'action_type' => 'Update',
+                'details' => "Role for user \"{$user->name}\" was changed from \"{$oldRoleTitle}\" to \"{$newRoleTitle}\".",
+                'user_id' => Auth::id(),
+            ]);
+        }
 
         // Handle outlet assignments
         if ($validated['role'] === 'outlet-user') {
@@ -355,10 +436,16 @@ class UserController extends Controller
      */
     public function destroy(User $user)
     {
+        // Check delete permission
+        if (!$this->checkPermission('delete-users')) {
+            abort(403, 'Unauthorized');
+        }
+
         // Prevent deletion of primary admin
         if ($user->email === 'admin@example.com') {
             return redirect()->route('admin.users.index')->with('error', 'Cannot delete the primary admin user.');
         }
+
         // Clear outlet assignments
         Outlet::where('outlet_user_role_id', $user->role_id)
             ->orWhere('manager_role_id', $user->role_id)
@@ -366,8 +453,10 @@ class UserController extends Controller
                 'outlet_user_role_id' => null,
                 'manager_role_id' => null
             ]);
+
         $user->roles()->detach();
         $user->delete();
+
         return redirect()->route('admin.users.index')->with('success', 'User deleted successfully.');
     }
 }

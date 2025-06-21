@@ -8,6 +8,7 @@ import ManagerTable from './Partials/ManagerTable';
 import OutletUserTable from './Partials/OutletUserTable';
 import CustomRoleUserTable from './Partials/CustomRoleUserTable';
 import EditUserForm from './Partials/EditUserForm';
+import { useAuth } from '@/Hooks/useAuth';
 
 export default function IndexPage({ managers, outletUsers, customRoleUsers = [], adminUsers }) {
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -17,6 +18,18 @@ export default function IndexPage({ managers, outletUsers, customRoleUsers = [],
     const [loadingRoles, setLoadingRoles] = useState(true);
     const [editingUser, setEditingUser] = useState(null);
     const [showEditModal, setShowEditModal] = useState(false);
+    
+    // In IndexPage.jsx, modify the permission checks:
+    const { can, isAdmin, isManager, hasOnlyCustomRoles } = useAuth();
+
+    // Permission checks
+    const canViewUsers = hasOnlyCustomRoles() ? can('view-users') : true;
+    const canCreateUsers = hasOnlyCustomRoles() ? can('create-users') : true;
+    const canEditUsers = hasOnlyCustomRoles() ? can('edit-users') : true;
+    const canDeleteUsers = hasOnlyCustomRoles() ? can('delete-users') : true;
+    // If user has any action permission, they should be able to view users
+    const hasAnyActionPermission = canCreateUsers || canEditUsers || canDeleteUsers;
+    const effectiveCanViewUsers = canViewUsers || hasAnyActionPermission;
 
     useEffect(() => {
         async function fetchRoles() {
@@ -42,6 +55,12 @@ export default function IndexPage({ managers, outletUsers, customRoleUsers = [],
     }, []);
 
     const handleDelete = (user) => {
+        // Check permission before deleting (only for custom roles)
+        if (!canDeleteUsers) {
+            alert('You do not have permission to delete users.');
+            return;
+        }
+        
         if (confirm(`Are you sure you want to delete user '${user.name}'?`)) {
             setDeletingUserId(user.id);
             deleteUser(route('admin.users.destroy', user.id), {
@@ -52,6 +71,12 @@ export default function IndexPage({ managers, outletUsers, customRoleUsers = [],
     };
 
     const handleEdit = (user) => {
+        // Check permission before editing (only for custom roles)
+        if (!canEditUsers) {
+            alert('You do not have permission to edit users.');
+            return;
+        }
+        
         setEditingUser(user);
         setShowEditModal(true);
     };
@@ -78,15 +103,58 @@ export default function IndexPage({ managers, outletUsers, customRoleUsers = [],
             links: base.links,
         };
     }
+    
+    // If user cannot view users (only applies to custom roles), show appropriate message
+    if (!effectiveCanViewUsers) {
+        return (
+            <AuthenticatedLayout
+                header={
+                    <h2 className="text-xl font-semibold text-gray-800">User Management</h2>
+                }
+            >
+                <Head title="User Management" />
+                <div className="py-12">
+                    <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
+                        <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                            <div className="p-6 text-gray-900">
+                                <p className="text-center text-gray-500">
+                                    You do not have permission to view users.
+                                </p>
+                                {canCreateUsers && (
+                                    <div className="mt-4 text-center">
+                                        <AdminPrimaryButton onClick={() => setShowCreateModal(true)}>
+                                            Create User
+                                        </AdminPrimaryButton>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                {/* Create User Modal - still available if user has create permission */}
+                {canCreateUsers && (
+                    <Modal show={showCreateModal} onClose={() => setShowCreateModal(false)} maxWidth="md">
+                        <div className="p-6">
+                            <h2 className="mb-4 text-lg font-semibold text-gray-800">Create New User</h2>
+                            <CreateUserForm onClose={() => setShowCreateModal(false)} roles={roles} loadingRoles={loadingRoles} />
+                        </div>
+                    </Modal>
+                )}
+            </AuthenticatedLayout>
+        );
+    }
 
     return (
         <AuthenticatedLayout
             header={
                 <div className="flex items-center leading-tight justify-between">
                     <h2 className="text-xl font-semibold text-gray-800">User Management</h2>
-                    <AdminPrimaryButton onClick={() => setShowCreateModal(true)}>
-                        Create User
-                    </AdminPrimaryButton>
+                    {canCreateUsers && (
+                        <AdminPrimaryButton onClick={() => setShowCreateModal(true)}>
+                            Create User
+                        </AdminPrimaryButton>
+                    )}
                 </div>
             }
         >
@@ -98,21 +166,39 @@ export default function IndexPage({ managers, outletUsers, customRoleUsers = [],
                             return (
                                 <div key={role.name} className="mb-8 overflow-hidden bg-white px-6 py-6 shadow-sm sm:rounded-lg">
                                     <h3 className="mb-4 text-lg font-semibold text-gray-800">{role.title || 'Admin'}</h3>
-                                    <CustomRoleUserTable users={adminUsers} onDelete={handleDelete} onEdit={handleEdit} />
+                                    <CustomRoleUserTable 
+                                        users={adminUsers} 
+                                        onDelete={canDeleteUsers ? handleDelete : null} 
+                                        onEdit={canEditUsers ? handleEdit : null} 
+                                        canEditUsers={canEditUsers}
+                                        canDeleteUsers={canDeleteUsers}
+                                    />
                                 </div>
                             );
                         } else if (role.name === 'manager') {
                             return (
                                 <div key={role.name} className="mb-8 overflow-hidden bg-white px-6 py-6 shadow-sm sm:rounded-lg">
                                     <h3 className="mb-4 text-lg font-semibold text-gray-800">{role.title || 'Managers'}</h3>
-                                    <ManagerTable managers={managers} onDelete={handleDelete} onEdit={handleEdit} />
+                                    <ManagerTable 
+                                        managers={managers} 
+                                        onDelete={canDeleteUsers ? handleDelete : null} 
+                                        onEdit={canEditUsers ? handleEdit : null} 
+                                        canEditUsers={canEditUsers}
+                                        canDeleteUsers={canDeleteUsers}
+                                    />
                                 </div>
                             );
                         } else if (role.name === 'outlet-user') {
                             return (
                                 <div key={role.name} className="mb-8 overflow-hidden bg-white px-6 py-6 shadow-sm sm:rounded-lg">
                                     <h3 className="mb-4 text-lg font-semibold text-gray-800">{role.title || 'Outlet Users'}</h3>
-                                    <OutletUserTable outletUsers={outletUsers} onDelete={handleDelete} onEdit={handleEdit} />
+                                    <OutletUserTable 
+                                        outletUsers={outletUsers} 
+                                        onDelete={canDeleteUsers ? handleDelete : null} 
+                                        onEdit={canEditUsers ? handleEdit : null} 
+                                        canEditUsers={canEditUsers}
+                                        canDeleteUsers={canDeleteUsers}
+                                    />
                                 </div>
                             );
                         } else if (customRoleGroupsMap[role.title || role.name]) {
@@ -121,7 +207,13 @@ export default function IndexPage({ managers, outletUsers, customRoleUsers = [],
                             return (
                                 <div key={role.name} className="mb-8 overflow-hidden bg-white px-6 py-6 shadow-sm sm:rounded-lg">
                                     <h3 className="mb-4 text-lg font-semibold text-gray-800">{role.title || role.name}</h3>
-                                    <CustomRoleUserTable users={paginatedGroup} onDelete={handleDelete} onEdit={handleEdit} />
+                                    <CustomRoleUserTable 
+                                        users={paginatedGroup} 
+                                        onDelete={canDeleteUsers ? handleDelete : null} 
+                                        onEdit={canEditUsers ? handleEdit : null} 
+                                        canEditUsers={canEditUsers}
+                                        canDeleteUsers={canDeleteUsers}
+                                    />
                                 </div>
                             );
                         } else {
@@ -130,19 +222,26 @@ export default function IndexPage({ managers, outletUsers, customRoleUsers = [],
                     })}
                 </div>
             </div>
-            {/* Create User Modal */}
-            <Modal show={showCreateModal} onClose={() => setShowCreateModal(false)} maxWidth="md">
-                <div className="p-6">
-                    <h2 className="mb-4 text-lg font-semibold text-gray-800">Create New User</h2>
-                    <CreateUserForm onClose={() => setShowCreateModal(false)} roles={roles} loadingRoles={loadingRoles} />
-                </div>
-            </Modal>
-            <Modal show={showEditModal} onClose={() => setShowEditModal(false)} maxWidth="md">
-                <div className="p-6">
-                    <h2 className="mb-4 text-lg font-semibold text-gray-800">Edit User</h2>
-                    <EditUserForm user={editingUser} onClose={() => setShowEditModal(false)} roles={roles} loadingRoles={loadingRoles} />
-                </div>
-            </Modal>
+            
+            {/* Create User Modal - only show if user has create permission */}
+            {canCreateUsers && (
+                <Modal show={showCreateModal} onClose={() => setShowCreateModal(false)} maxWidth="md">
+                    <div className="p-6">
+                        <h2 className="mb-4 text-lg font-semibold text-gray-800">Create New User</h2>
+                        <CreateUserForm onClose={() => setShowCreateModal(false)} roles={roles} loadingRoles={loadingRoles} />
+                    </div>
+                </Modal>
+            )}
+            
+            {/* Edit User Modal - only show if user has edit permission */}
+            {canEditUsers && (
+                <Modal show={showEditModal} onClose={() => setShowEditModal(false)} maxWidth="md">
+                    <div className="p-6">
+                        <h2 className="mb-4 text-lg font-semibold text-gray-800">Edit User</h2>
+                        <EditUserForm user={editingUser} onClose={() => setShowEditModal(false)} roles={roles} loadingRoles={loadingRoles} />
+                    </div>
+                </Modal>
+            )}
         </AuthenticatedLayout>
     );
 }

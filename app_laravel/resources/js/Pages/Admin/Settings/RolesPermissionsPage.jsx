@@ -278,8 +278,22 @@ export default function RolesPermissionsPage() {
             
             if (newPermissions.has(permissionName)) {
                 newPermissions.delete(permissionName);
+                
+                // If unchecking a user management permission, check if view-users should be removed
+                if (['create-users', 'edit-users', 'delete-users'].includes(permissionName)) {
+                    const hasOtherUserPermissions = ['create-users', 'edit-users', 'delete-users']
+                        .some(p => p !== permissionName && newPermissions.has(p));
+                    
+                    // Only keep view-users if explicitly checked or other user permissions exist
+                    // This allows for read-only access if needed
+                }
             } else {
                 newPermissions.add(permissionName);
+                
+                // If checking any user management permission, automatically add view-users
+                if (['create-users', 'edit-users', 'delete-users'].includes(permissionName)) {
+                    newPermissions.add('view-users');
+                }
             }
             
             return newPermissions;
@@ -296,8 +310,15 @@ export default function RolesPermissionsPage() {
             const newPermissions = new Set(prevPermissions);
             
             if (isChecked) {
-                // Add all module permissions that aren't already included
-                modulePermissionNames.forEach(name => newPermissions.add(name));
+                // Add all module permissions
+                modulePermissionNames.forEach(name => {
+                    newPermissions.add(name);
+                    
+                    // Special handling for User Management module
+                    if (moduleId === 1 && ['create-users', 'edit-users', 'delete-users'].includes(name)) {
+                        newPermissions.add('view-users');
+                    }
+                });
             } else {
                 // Remove all module permissions
                 modulePermissionNames.forEach(name => newPermissions.delete(name));
@@ -526,10 +547,15 @@ export default function RolesPermissionsPage() {
                                                                 className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
                                                                 checked={currentRolePermissions.has(permission.name)}
                                                                 onChange={() => handleTogglePermission(permission.name)}
-                                                                disabled={selectedRole.isSystem}
+                                                                disabled={selectedRole.isSystem || 
+                                                                    (permission.name === 'view-users' && 
+                                                                     ['create-users', 'edit-users', 'delete-users'].some(p => currentRolePermissions.has(p)))}
                                                             />
                                                             <label htmlFor={`permission-${permission.id}`} className="ml-2 text-sm text-gray-700">
-                                                                {permission.title} {/* Use permission.title for display */}
+                                                                {permission.title}
+                                                                {permission.name === 'view-users' && 
+                                                                 ['create-users', 'edit-users', 'delete-users'].some(p => currentRolePermissions.has(p)) && 
+                                                                 <span className="ml-1 text-xs text-gray-500">(auto-enabled)</span>}
                                                             </label>
                                                         </div>
                                                     ))}

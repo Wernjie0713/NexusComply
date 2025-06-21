@@ -1,8 +1,10 @@
-import { Link, router } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { Tooltip } from 'react-tooltip';
 import { useState } from 'react';
 
-export default function ManagerTable({ managers, onDelete, onEdit }) {
+export default function ManagerTable({ managers, onDelete, onEdit, canEditUsers, canDeleteUsers }) {
+    const { auth } = usePage().props;
+    const currentUserId = auth.user?.id;
     const [perPage, setPerPage] = useState(managers?.per_page || 5);
 
     const handlePerPageChange = (e) => {
@@ -46,9 +48,10 @@ export default function ManagerTable({ managers, onDelete, onEdit }) {
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">Name</th>
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">Email</th>
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">Role ID</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">Role</th>
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">Overseeing Outlets</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">Actions</th>
+                            {(canEditUsers || canDeleteUsers) && (
+                                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">Actions</th>
+                            )}
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200 bg-white">
@@ -58,7 +61,6 @@ export default function ManagerTable({ managers, onDelete, onEdit }) {
                                     <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">{manager.name}</td>
                                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{manager.email}</td>
                                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{manager.role_id}</td>
-                                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{manager.role}</td>
                                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
                                         <div 
                                             className="cursor-pointer underline decoration-dotted"
@@ -74,25 +76,61 @@ export default function ManagerTable({ managers, onDelete, onEdit }) {
                                             style={{ whiteSpace: 'pre-line' }}
                                         />
                                     </td>
-                                    <td className="whitespace-nowrap px-6 py-4 text-sm font-medium">
-                                        <button
-                                            onClick={() => onEdit(manager)}
-                                            className="mr-2 rounded bg-green-50 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-100"
-                                        >
-                                            Edit
-                                        </button>
-                                        <button
-                                            onClick={() => onDelete(manager)}
-                                            className="rounded bg-red-50 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
-                                        >
-                                            Delete
-                                        </button>
-                                    </td>
+                                    {(canEditUsers || canDeleteUsers) && (
+                                        <td className="whitespace-nowrap px-6 py-4 text-sm font-medium">
+                                            {canEditUsers && (
+                                                manager.id === currentUserId ? (
+                                                    <>
+                                                        <button
+                                                            disabled
+                                                            className="mr-2 rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-400 cursor-not-allowed"
+                                                            data-tooltip-id={`edit-self-${manager.id}`}
+                                                        >
+                                                            Edit
+                                                        </button>
+                                                        <Tooltip id={`edit-self-${manager.id}`} place="top">
+                                                            You cannot edit your own account.
+                                                        </Tooltip>
+                                                    </>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => onEdit(manager)}
+                                                        className="mr-2 rounded bg-green-50 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-100"
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                )
+                                            )}
+                                            {canDeleteUsers && (
+                                                manager.id === currentUserId ? (
+                                                    <>
+                                                        <button
+                                                            disabled
+                                                            className="rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-400 cursor-not-allowed"
+                                                            data-tooltip-id={`delete-self-${manager.id}`}
+                                                        >
+                                                            Delete
+                                                        </button>
+                                                        <Tooltip id={`delete-self-${manager.id}`} place="top">
+                                                            You cannot delete your own account.
+                                                        </Tooltip>
+                                                    </>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => onDelete(manager)}
+                                                        className="rounded bg-red-50 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                )
+                                            )}
+                                        </td>
+                                    )}
                                 </tr>
                             ))
                         ) : (
                             <tr>
-                                <td colSpan="6" className="px-6 py-4 text-center text-sm text-gray-500">
+                                <td colSpan={4 + ((canEditUsers || canDeleteUsers) ? 1 : 0)} className="px-6 py-4 text-center text-sm text-gray-500">
                                     No managers found.
                                 </td>
                             </tr>
