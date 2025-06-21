@@ -1,7 +1,10 @@
-import { Link, router } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
+import { Tooltip } from 'react-tooltip';
 
-export default function CustomRoleUserTable({ users, onDelete, onEdit }) {
+export default function CustomRoleUserTable({ users, onDelete, onEdit, canEditUsers, canDeleteUsers }) {
+    const { auth } = usePage().props;
+    const currentUserId = auth.user?.id;
     const [perPage, setPerPage] = useState(users?.per_page || 5);
 
     const handlePerPageChange = (e) => {
@@ -39,7 +42,9 @@ export default function CustomRoleUserTable({ users, onDelete, onEdit }) {
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">Name</th>
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">Email</th>
                             <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">Role ID</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">Actions</th>
+                            {(canEditUsers || canDeleteUsers) && (
+                                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">Actions</th>
+                            )}
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200 bg-white">
@@ -49,25 +54,61 @@ export default function CustomRoleUserTable({ users, onDelete, onEdit }) {
                                     <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">{user.name}</td>
                                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{user.email}</td>
                                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{user.role_id}</td>
-                                    <td className="whitespace-nowrap px-6 py-4 text-sm font-medium">
-                                        <button
-                                            onClick={() => onEdit(user)}
-                                            className="mr-2 rounded bg-green-50 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-100"
-                                        >
-                                            Edit
-                                        </button>
-                                        <button
-                                            onClick={() => onDelete(user)}
-                                            className="rounded bg-red-50 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
-                                        >
-                                            Delete
-                                        </button>
-                                    </td>
+                                    {(canEditUsers || canDeleteUsers) && (
+                                        <td className="whitespace-nowrap px-6 py-4 text-sm font-medium">
+                                            {canEditUsers && (
+                                                user.id === currentUserId ? (
+                                                    <>
+                                                        <button
+                                                            disabled
+                                                            className="mr-2 rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-400 cursor-not-allowed"
+                                                            data-tooltip-id={`edit-self-${user.id}`}
+                                                        >
+                                                            Edit
+                                                        </button>
+                                                        <Tooltip id={`edit-self-${user.id}`} place="top">
+                                                            You cannot edit your own account.
+                                                        </Tooltip>
+                                                    </>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => onEdit(user)}
+                                                        className="mr-2 rounded bg-green-50 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-100"
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                )
+                                            )}
+                                            {canDeleteUsers && (
+                                                user.id === currentUserId ? (
+                                                    <>
+                                                        <button
+                                                            disabled
+                                                            className="rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-400 cursor-not-allowed"
+                                                            data-tooltip-id={`delete-self-${user.id}`}
+                                                        >
+                                                            Delete
+                                                        </button>
+                                                        <Tooltip id={`delete-self-${user.id}`} place="top">
+                                                            You cannot delete your own account.
+                                                        </Tooltip>
+                                                    </>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => onDelete(user)}
+                                                        className="rounded bg-red-50 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                )
+                                            )}
+                                        </td>
+                                    )}
                                 </tr>
                             ))
                         ) : (
                             <tr>
-                                <td colSpan="4" className="px-6 py-4 text-center text-sm text-gray-500">
+                                <td colSpan={3 + ((canEditUsers || canDeleteUsers) ? 1 : 0)} className="px-6 py-4 text-center text-sm text-gray-500">
                                     No users found.
                                 </td>
                             </tr>

@@ -9,6 +9,8 @@ use Silber\Bouncer\Database\Permission;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Models\Role;
+use App\Models\ActivityLog;
+use Illuminate\Support\Facades\Auth;
 use Silber\Bouncer\BouncerFacade as Bouncer;
 
 class RolePermissionController extends Controller
@@ -76,8 +78,19 @@ class RolePermissionController extends Controller
     {
         $role = Role::findOrFail($roleId);
         $abilityIds = $request->input('ability_ids', []);
-        // Sync abilities
-        $role->abilities()->sync($abilityIds);
+
+        // Sync abilities and get changes
+        $changes = $role->abilities()->sync($abilityIds);
+
+        // Log activity if there were any changes in permissions
+        if (!empty($changes['attached']) || !empty($changes['detached'])) {
+            ActivityLog::create([
+                'target_type' => 'Role',
+                'action_type' => 'Update',
+                'details' => "Permissions for role \"{$role->title}\" were updated.",
+                'user_id' => Auth::id(),
+            ]);
+        }
 
         // Refresh Bouncer's cache to ensure changes are reflected immediately
         Bouncer::refresh();

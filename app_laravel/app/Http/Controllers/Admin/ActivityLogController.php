@@ -17,7 +17,8 @@ class ActivityLogController extends Controller
             Log::info('ActivityLogController: Starting index method');
 
             $query = ActivityLog::with('user')
-                ->latest('created_at');
+                ->latest('created_at')
+                ->latest('id');
 
             // Apply filters if provided
             if ($request->has('action_type') && $request->action_type) {
@@ -108,7 +109,8 @@ class ActivityLogController extends Controller
             ]);
 
             $query = ActivityLog::with('user')
-                ->latest('created_at');
+                ->latest('created_at')
+                ->latest('id');
 
             // Apply filters if provided
             if ($request->has('action_type') && $request->action_type) {
@@ -197,6 +199,7 @@ class ActivityLogController extends Controller
             // Get activity log data
             $data = ActivityLog::whereBetween('created_at', [$startDate, $endDate])
                 ->orderBy('created_at', 'desc')
+                ->orderBy('id', 'desc')
                 ->get();
 
             // Generate PDF using Snappy

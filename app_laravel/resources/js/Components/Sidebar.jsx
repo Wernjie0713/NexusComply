@@ -4,9 +4,24 @@ import ApplicationLogo from '@/Components/ApplicationLogo';
 import { useAuth } from '@/Hooks/useAuth';
 
 export default function Sidebar({ onClose }) {
-    const { user, isAdmin, isManager } = useAuth();
+    const { user, isAdmin, isManager, isOutletUser, hasRole, can } = useAuth();
     const isActive = (routeName) => route().current(routeName);
     const isActiveGroup = (routeNames) => routeNames.some(name => route().current(name));
+    
+    // Define system roles
+    const systemRoles = ['admin', 'manager', 'outlet-user'];
+    
+    // Check if user has a custom role
+    const hasCustomRole = () => {
+        const userRoles = user?.roles || [];
+        return userRoles.some(role => !systemRoles.includes(role.name));
+    };
+    
+    // Check if user ONLY has custom roles (no system roles)
+    const hasOnlyCustomRoles = () => {
+        const userRoles = user?.roles || [];
+        return userRoles.length > 0 && userRoles.every(role => !systemRoles.includes(role.name));
+    };
     
     // Common navigation items for all authenticated users
     const commonNavigation = [
@@ -16,6 +31,126 @@ export default function Sidebar({ onClose }) {
             icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6'
         },
     ];
+    
+    // Permission-based navigation for custom roles
+    const permissionBasedNavigation = () => {
+        const navigation = [];
+        
+        // User Management (using actual ability names from your database)
+        const userManagementPermissions = [
+            'create-users',
+            'view-users',
+            'edit-users',
+            'delete-users'
+        ];
+        
+        const hasUserManagementPermission = userManagementPermissions.some(permission => can(permission));
+        
+        if (hasUserManagementPermission) {
+            if (!navigation.find(n => n.heading === 'MANAGEMENT')) {
+                navigation.push({
+                    heading: 'MANAGEMENT',
+                    items: []
+                });
+            }
+            const managementSection = navigation.find(n => n.heading === 'MANAGEMENT');
+            managementSection.items.push({
+                name: 'User Management',
+                route: 'users.index',
+                icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z'
+            });
+        }
+        
+        // Audit Management
+        const auditManagementPermissions = [
+            'approve-audits',
+            'view-all-audits',
+            'generate-audit-reports',
+            'review-submitted-audits'
+        ];
+        
+        const hasAuditManagementPermission = auditManagementPermissions.some(permission => can(permission));
+        
+        if (hasAuditManagementPermission) {
+            if (!navigation.find(n => n.heading === 'MANAGEMENT')) {
+                navigation.push({
+                    heading: 'MANAGEMENT',
+                    items: []
+                });
+            }
+            const managementSection = navigation.find(n => n.heading === 'MANAGEMENT');
+            managementSection.items.push({
+                name: 'Audit Management',
+                route: 'manager.audits',
+                icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01'
+            });
+        }
+        
+        // Compliance Framework
+        const compliancePermissions = [
+            'create-compliance-frameworks',
+            'manage-compliance-categories',
+            'manage-forms'
+        ];
+        
+        const hasCompliancePermission = compliancePermissions.some(permission => can(permission));
+        
+        if (hasCompliancePermission) {
+            if (!navigation.find(n => n.heading === 'SETUP')) {
+                navigation.push({
+                    heading: 'SETUP',
+                    items: []
+                });
+            }
+            const setupSection = navigation.find(n => n.heading === 'SETUP');
+            
+            if (can('create-compliance-frameworks') || can('manage-compliance-categories')) {
+                setupSection.items.push({
+                    name: 'Compliance Requirements',
+                    route: 'admin.compliance-requirements.index',
+                    icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10'
+                });
+            }
+            
+            if (can('manage-forms')) {
+                setupSection.items.push({
+                    name: 'Form Builder',
+                    route: 'admin.form-templates.create',
+                    params: { from_compliance: true },
+                    icon: 'M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z'
+                });
+            }
+        }
+        
+        // Settings
+        const settingsPermissions = [
+            'manage-roles-permissions',
+            'modify-system-settings',
+            'view-system-logs'
+        ];
+        
+        const hasSettingsPermission = settingsPermissions.some(permission => can(permission));
+        
+        if (hasSettingsPermission) {
+            if (!navigation.find(n => n.heading === 'SYSTEM')) {
+                navigation.push({
+                    heading: 'SYSTEM',
+                    items: []
+                });
+            }
+            const systemSection = navigation.find(n => n.heading === 'SYSTEM');
+            
+            if (can('manage-roles-permissions')) {
+                systemSection.items.push({
+                    name: 'Roles & Permissions',
+                    route: 'settings.roles-permissions',
+                    icon: 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z'
+                });
+            }
+        }
+        
+        return navigation;
+    };
     
     // Admin-specific navigation items
     const adminNavigation = [
@@ -105,12 +240,24 @@ export default function Sidebar({ onClose }) {
     };
     
     // Combine navigation based on user role
-    const navigationItems = [
-        ...commonNavigation,
-        ...(isAdmin() ? adminNavigation : []),
-        ...(isManager() ? managerNavigation : []),
-        userSettings
-    ];
+    let navigationItems = [...commonNavigation];
+    
+    if (hasOnlyCustomRoles()) {
+        // User has ONLY custom roles - use permission-based navigation
+        navigationItems = [
+            ...navigationItems,
+            ...permissionBasedNavigation(),
+            userSettings
+        ];
+    } else {
+        // User has system roles (or mix of system and custom) - use role-based navigation
+        navigationItems = [
+            ...navigationItems,
+            ...(isAdmin() ? adminNavigation : []),
+            ...(isManager() ? managerNavigation : []),
+            userSettings
+        ];
+    }
 
     return (
         <div className="h-full w-64 bg-gray-50 shadow-sm">

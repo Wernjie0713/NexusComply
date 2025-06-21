@@ -9,6 +9,7 @@ use Illuminate\Notifications\Notifiable;
 use Silber\Bouncer\Database\HasRolesAndAbilities;
 use Laravel\Sanctum\HasApiTokens;
 use App\Notifications\CustomResetPassword;
+use Illuminate\Support\Facades\DB;
 
 class User extends Authenticatable
 {
@@ -69,5 +70,22 @@ class User extends Authenticatable
     public function sendPasswordResetNotification($token)
     {
         $this->notify(new CustomResetPassword($token));
+    }
+
+    /**
+     * A manual, reliable way to get a user's abilities, bypassing Bouncer's failing API.
+     *
+     * @return \Illuminate\Support\Collection
+     */
+    public function getAbilitiesManually()
+    {
+        return DB::table('permissions')
+            ->join('assigned_roles', 'permissions.entity_id', '=', 'assigned_roles.role_id')
+            ->join('abilities', 'permissions.ability_id', '=', 'abilities.id')
+            ->where('permissions.entity_type', config('bouncer.models.role'))
+            ->where('assigned_roles.entity_id', $this->id)
+            ->where('assigned_roles.entity_type', self::class)
+            ->pluck('abilities.name')
+            ->unique();
     }
 }

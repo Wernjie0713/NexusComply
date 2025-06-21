@@ -4,7 +4,7 @@ export default function ApplicationLogo(props) {
     
     return (
         <img
-            src={`${baseUrl}/storage/images/Logo.png`}
+            src={`${baseUrl}/logo.png`}
             alt="NexusComply Logo"
             className="h-20 w-auto"
             {...props}

@@ -9,6 +9,8 @@ use App\Models\FormTemplate;
 use App\Models\Status;
 use App\Models\ComplianceRequirement;
 use App\Models\AuditForm;
+use App\Models\Audit;
+use App\Models\Role;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -30,6 +32,8 @@ class ActivityLogObserver
             $this->logComplianceRequirementCreation($model);
         } elseif ($model instanceof AuditForm) {
             $this->logAuditFormCreation($model);
+        } elseif ($model instanceof Role) {
+            $this->logActivity($model, 'created');
         } else {
             $this->logActivity($model, 'created');
         }
@@ -51,6 +55,8 @@ class ActivityLogObserver
             $this->logComplianceRequirementUpdate($model);
         } elseif ($model instanceof AuditForm) {
             $this->logAuditFormUpdate($model);
+        } elseif ($model instanceof Role) {
+            $this->logActivity($model, 'updated');
         } else {
             // Default logging for other models
             $this->logActivity($model, 'updated');
@@ -92,18 +98,19 @@ class ActivityLogObserver
         if ($model instanceof ComplianceRequirement) {
             $model = $model->fresh();
         }
-        
+
         $targetType = $this->getTargetType($model);
         // Get proper name for the model
-        $targetName = match(true) {
+        $targetName = match (true) {
             $model instanceof ComplianceRequirement => $model->getAttribute('title'),
             $model instanceof User => $model->name,
             $model instanceof Outlet => $model->name,
             $model instanceof FormTemplate => $model->name,
-            $model instanceof Audit => $model->outlet ? "Audit for {$model->outlet->name}" : "Audit #{$model->id}",
+            $model instanceof Role => $model->name,
+            $model instanceof Audit => $model->complianceRequirement ? $model->complianceRequirement->title : "Audit #{$model->id}",
             default => $model->name ?? get_class($model) . '#' . $model->getKey()
         };
-        
+
         $details = "";
 
         if ($model instanceof User) {
@@ -121,13 +128,13 @@ class ActivityLogObserver
         } else {
             // For non-User models (Outlet, FormTemplate, Audit, ComplianceRequirement, etc.)
             $displayTargetType = $this->getDisplayTargetType($targetType);
-            
+
             // Customize the action verb based on the action type
             $actionVerb = 'was ' . $this->getActionVerb($actionType);
-            
+
             $details = "{$displayTargetType} \"{$targetName}\" {$actionVerb}";
         }
-        
+
         $this->createLogEntry(
             $targetType,
             $actionType,
@@ -140,7 +147,7 @@ class ActivityLogObserver
     {
         // Convert target type to user-friendly format
         $displayTargetType = $this->getDisplayTargetType($targetType);
-        
+
         // Convert action type to user-friendly format
         $displayActionType = $this->getDisplayActionType($actionType);
 
@@ -158,10 +165,11 @@ class ActivityLogObserver
             return 'unknown';
         }
 
-        return match(true) {
+        return match (true) {
             $model instanceof User => $model->role ?? 'user',
             $model instanceof Outlet => 'outlet',
             $model instanceof FormTemplate => 'form_template',
+            $model instanceof Role => 'role',
             $model instanceof Audit => 'audit',
             $model instanceof ComplianceRequirement => 'compliance_requirement',
             default => strtolower(class_basename($model))
@@ -170,7 +178,7 @@ class ActivityLogObserver
 
     protected function getDisplayTargetType(string $targetType): string
     {
-        return match($targetType) {
+        return match ($targetType) {
             'admin' => 'Admin',
             'manager' => 'Manager',
             'outlet_user' => 'Outlet User',
@@ -179,6 +187,7 @@ class ActivityLogObserver
             'form_template' => 'Form Template',
             'compliance_requirement' => 'Compliance Requirement',
             'audit' => 'Audit',
+            'role' => 'Role',
             'compliance_category' => 'Compliance Category',
             default => ucwords(str_replace(['_', '-'], ' ', $targetType))
         };
@@ -186,7 +195,7 @@ class ActivityLogObserver
 
     protected function getDisplayActionType(string $actionType): string
     {
-        return match($actionType) {
+        return match ($actionType) {
             'created' => 'Creation',
             'updated' => 'Update',
             'deleted' => 'Deletion',
@@ -204,7 +213,7 @@ class ActivityLogObserver
 
     protected function getActionVerb(string $actionType): string
     {
-        return match($actionType) {
+        return match ($actionType) {
             'created' => 'created',
             'updated' => 'updated',
             'deleted' => 'deleted',
@@ -455,7 +464,7 @@ class ActivityLogObserver
     protected function logAssignment(string $roleType, Model $model, User $user, bool $isUnassignment = false): void
     {
         $displayRoleType = $this->getRoleDisplayName($roleType);
-        
+
         // For unassignment, we need to get the user's name from the model's original state
         $userName = 'Unknown User';
         if ($user instanceof User) {
@@ -473,14 +482,14 @@ class ActivityLogObserver
                 }
             }
         }
-        
+
         // Handle both string and Model inputs for model name
         $modelName = is_string($model) ? $model : $model->name;
-        
+
         $details = $isUnassignment
             ? "{$displayRoleType} \"{$userName}\" was unassigned from outlet \"{$modelName}\""
             : "{$displayRoleType} \"{$userName}\" was assigned to outlet \"{$modelName}\"";
-        
+
         $this->createLogEntry(
             'outlet',
             $isUnassignment ? 'unassign_' . $roleType : 'assign_' . $roleType,
@@ -509,7 +518,7 @@ class ActivityLogObserver
 
         // Exclude timestamp fields and role ID fields from logging
         $excludedFields = [
-            'updated_at', 
+            'updated_at',
             'created_at',
             'manager_role_id',
             'outlet_user_role_id'
@@ -521,7 +530,7 @@ class ActivityLogObserver
         }
 
         $displayTargetType = $this->getDisplayTargetType($targetType);
-        $targetName = match(true) {
+        $targetName = match (true) {
             $model instanceof ComplianceRequirement => $model->title,
             default => $model->name ?? $model->getKey()
         };
@@ -531,16 +540,16 @@ class ActivityLogObserver
         foreach ($dirtyAttributes as $attribute => $newValue) {
             $oldValue = $model->getOriginal($attribute);
             $displayAttribute = $this->formatAttributeName($attribute);
-            
+
             // Format the values for display
             $oldValueDisplay = $this->formatAttributeValue($oldValue);
             $newValueDisplay = $this->formatAttributeValue($newValue);
-            
+
             $changes[] = "{$displayAttribute} was changed from {$oldValueDisplay} to {$newValueDisplay}";
         }
 
         $details = "{$displayTargetType} \"{$targetName}\" was updated: " . implode(', ', $changes);
-        
+
         $this->createLogEntry(
             $targetType,
             'updated',
@@ -620,7 +629,7 @@ class ActivityLogObserver
     protected function logUserUpdate(User $model): void
     {
         $dirtyAttributes = $model->getDirty();
-        
+
         // Exclude timestamp fields from logging
         $excludedFields = ['updated_at', 'created_at'];
         $dirtyAttributes = array_diff_key($dirtyAttributes, array_flip($excludedFields));
@@ -636,16 +645,16 @@ class ActivityLogObserver
         foreach ($dirtyAttributes as $attribute => $newValue) {
             $oldValue = $model->getOriginal($attribute);
             $displayAttribute = $this->formatAttributeName($attribute);
-            
+
             // Format the values for display
             $oldValueDisplay = $this->formatAttributeValue($oldValue);
             $newValueDisplay = $this->formatAttributeValue($newValue);
-            
+
             $changes[] = "{$displayAttribute} was changed from {$oldValueDisplay} to {$newValueDisplay}";
         }
 
         $details = "{$this->getRoleDisplayName($roleName)} \"{$userName}\" was updated: " . implode(', ', $changes);
-        
+
         $this->createLogEntry(
             $roleName,
             'updated',
@@ -661,9 +670,9 @@ class ActivityLogObserver
         $formTemplate = $model->formTemplate;
         $outlet = $audit->outlet;
         $compliance = $audit->complianceRequirement;
-        
+
         $details = "Audit form \"{$formTemplate->name}\" was submitted for outlet \"{$outlet->name}\" (Compliance: {$compliance->title})";
-        
+
         $this->createLogEntry(
             'audit_form',
             'created',
@@ -679,9 +688,9 @@ class ActivityLogObserver
         $formTemplate = $model->formTemplate;
         $outlet = $audit->outlet;
         $compliance = $audit->complianceRequirement;
-        
+
         $details = "Audit form \"{$formTemplate->name}\" was updated for outlet \"{$outlet->name}\" (Compliance: {$compliance->title})";
-        
+
         $this->createLogEntry(
             'audit_form',
             'updated',
@@ -689,4 +698,4 @@ class ActivityLogObserver
             Auth::id()
         );
     }
-} 
+}
