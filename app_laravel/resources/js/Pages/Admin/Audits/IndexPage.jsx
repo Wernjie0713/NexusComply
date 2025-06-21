@@ -8,7 +8,7 @@ import SubmittedFormsSection from './Partials/SubmittedFormsSection';
 import AuditReportingSection from './Partials/AuditReportingSection';
 import FormReviewModal from './Partials/FormReviewModal';
 
-export default function IndexPage({ audits, filters, summaryData }) {
+export default function IndexPage({ audits, filters, summaryData, states, complianceCategories, outlets, managers }) {
     const [activeTab, setActiveTab] = useState('progress');
     const [dateFilter, setDateFilter] = useState(filters.dateFilter || 'all');
     const [statusFilter, setStatusFilter] = useState(filters.statusFilter || 'all');
@@ -71,10 +71,10 @@ export default function IndexPage({ audits, filters, summaryData }) {
                                         className="rounded-md border-gray-300 text-sm shadow-sm focus:border-green-500 focus:ring-green-500"
                                     >
                                         <option value="all">All Status</option>
-                                        <option value="In Progress">In Progress</option>
-                                        <option value="Pending Review">Pending Review</option>
-                                        <option value="Completed">Completed</option>
-                                        <option value="Requires Attention">Requires Attention</option>
+                                        <option value="draft">Draft</option>
+                                        <option value="pending">Pending Review</option>
+                                        <option value="approved">Approved</option>
+                                        <option value="rejected">Rejected</option>
                                     </select>
                                 </div>
                             </div>
@@ -133,7 +133,7 @@ export default function IndexPage({ audits, filters, summaryData }) {
                             />
                         )}
                         {activeTab === 'forms' && <SubmittedFormsSection onReviewForm={handleFormReview} />}
-                        {activeTab === 'reports' && <AuditReportingSection />}
+                        {activeTab === 'reports' && <AuditReportingSection states={states} complianceCategories={complianceCategories} outlets={outlets} managers={managers} />}
                     </div>
                 </div>
             </div>
