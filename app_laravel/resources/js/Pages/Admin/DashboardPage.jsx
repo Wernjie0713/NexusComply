@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
 
 export default function DashboardPage({ statistics = {}, complianceData = {}, recentActivities = [] }) {
@@ -19,6 +19,9 @@ export default function DashboardPage({ statistics = {}, complianceData = {}, re
         nonCompliant = { count: 0, percentage: 0 }
     } = complianceData;
 
+    const { auth } = usePage().props;
+    const adminName = auth?.user?.name || 'Admin';
+
     return (
         <AuthenticatedLayout>
             <Head title="Admin Dashboard" />
@@ -27,7 +30,7 @@ export default function DashboardPage({ statistics = {}, complianceData = {}, re
                 <div className="mx-auto max-w-7xl sm:px-6 lg:px-0 px-0">
                     {/* Welcome Section */}
                     <div className="mb-6 overflow-hidden bg-white px-6 py-6 shadow-sm sm:rounded-lg">
-                        <h1 className="text-2xl font-bold text-gray-900">Welcome back, Admin!</h1>
+                        <h1 className="text-2xl font-bold text-gray-900">Welcome back, {adminName}!</h1>
                         <p className="mt-1 text-gray-600">Here's an overview of your system's current status.</p>
                     </div>
 
