@@ -14,6 +14,9 @@ use Illuminate\Support\Facades\Route;
 use Silber\Bouncer\Middleware\RoleMiddleware;
 use App\Models\FormTemplate;
 use App\Models\AuditForm;
+use App\Models\Role;
+use Illuminate\Support\Facades\Schema;
+use Silber\Bouncer\Bouncer;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -32,6 +35,8 @@ class AppServiceProvider extends ServiceProvider
     {
         Vite::prefetch(concurrency: 3);
 
+        Schema::defaultStringLength(191);
+
         // Register activity log observers
         User::observe(ActivityLogObserver::class);
         Outlet::observe(ActivityLogObserver::class);
@@ -39,8 +44,11 @@ class AppServiceProvider extends ServiceProvider
         ComplianceRequirement::observe(ActivityLogObserver::class);
         FormTemplate::observe(ActivityLogObserver::class);
         AuditForm::observe(ActivityLogObserver::class);
+        Role::observe(ActivityLogObserver::class);
 
         // Register Bouncer middleware
-        Route::aliasMiddleware('role', RoleMiddleware::class);
+        $this->app->afterResolving(Bouncer::class, function ($bouncer) {
+            $bouncer->useRoleMiddleware('role');
+        });
     }
 }
