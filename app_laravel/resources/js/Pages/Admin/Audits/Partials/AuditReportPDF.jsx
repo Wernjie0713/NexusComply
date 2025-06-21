@@ -1,9 +1,6 @@
+// Clean, structured AuditReportPDF implementation
 import { jsPDF } from "jspdf";
 import autoTable from 'jspdf-autotable';
-import { Chart, registerables } from 'chart.js';
-
-// Register Chart.js components
-Chart.register(...registerables);
 
 // Constants for PDF styling
 const PDF_STYLES = {
@@ -27,97 +24,10 @@ const PDF_STYLES = {
     }
 };
 
-// Helper function to generate chart image
-const generateChartImage = (trendData) => {
-    return new Promise((resolve, reject) => {
-        try {
-            // Create a container for the chart
-            const container = document.createElement('div');
-            container.style.width = '600px';
-            container.style.height = '300px';
-            container.style.position = 'absolute';
-            container.style.left = '-9999px';  // Move off-screen
-            document.body.appendChild(container);
+const EXEC_BOX_PADDING = 20;
 
-            // Initialize canvas
-            const canvas = document.createElement('canvas');
-            canvas.width = 600;
-            canvas.height = 300;
-            container.appendChild(canvas);
-            const ctx = canvas.getContext('2d');
+const summaryLineHeight = 11; // reduced line height for tighter spacing
 
-            // Ensure we have valid data
-            const validData = Array.isArray(trendData) ? trendData : [];
-
-            // Initialize chart configuration
-            const chartConfig = {
-                type: 'line',
-                data: {
-                    labels: validData.map(item => item.date || ''),
-                    datasets: [{
-                        label: 'Compliance Rate (%)',
-                        data: validData.map(item => Number(item.complianceRate) || 0),
-                        borderColor: '#27ae60',
-                        backgroundColor: 'rgba(39, 174, 96, 0.1)',
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    animation: false, // Disable animations for PDF
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: 'Compliance Rate Trend Analysis',
-                            font: {
-                                size: 16,
-                                weight: 'bold'
-                            }
-                        },
-                        legend: {
-                            display: true,
-                            position: 'bottom'
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            max: 100,
-                            ticks: {
-                                stepSize: 20
-                            }
-                        },
-                        x: {
-                            ticks: {
-                                maxRotation: 45,
-                                minRotation: 45
-                            }
-                        }
-                    }
-                }
-            };
-
-            // Create the chart
-            const chart = new Chart(ctx, chartConfig);
-
-            // Wait for chart to render
-            setTimeout(() => {
-                // Convert to image and clean up
-                const imageData = canvas.toDataURL('image/png');
-                document.body.removeChild(container);
-                resolve(imageData);
-            }, 500);
-        } catch (error) {
-            console.error('Chart generation error:', error);
-            reject(error);
-        }
-    });
-}
-
-// Define page dimensions and margins at the top
 const definePageLayout = (doc) => {
     const pageWidth = doc.internal.pageSize.width;
     const pageHeight = doc.internal.pageSize.height;
@@ -126,7 +36,6 @@ const definePageLayout = (doc) => {
     return { pageWidth, pageHeight, margin, availableWidth };
 };
 
-// Helper function to add page header
 const addPageHeader = (doc, text, y = 20, margin = 14) => {
     doc.setFontSize(14);
     doc.setTextColor(39, 174, 96);
@@ -134,14 +43,12 @@ const addPageHeader = (doc, text, y = 20, margin = 14) => {
     return y + 15;
 };
 
-// Helper function to add page footer
 const addPageFooter = (doc, pageNumber, pageHeight, margin = 14) => {
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
     doc.text(`Page ${pageNumber}`, margin, pageHeight - 10);
 };
 
-// Helper function to format date
 const formatDateToYYYYMMDD = (date) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -149,15 +56,220 @@ const formatDateToYYYYMMDD = (date) => {
     return `${year}-${month}-${day}`;
 };
 
+const drawBarChart = (doc, data, x, y, width, height, options = {}) => {
+    const {
+        title = 'Chart Title',
+        xLabel = 'Categories',
+        yLabel = 'Adherence Rate (%)',
+        colors = [PDF_STYLES.colors.primary],
+        showGrid = true,
+        showValues = true
+    } = options;
 
-export const generateAuditReportPDF = async (data, options) => {
-    try {
-        // Initialize PDF document
-        const doc = new jsPDF();
-        const { pageWidth, pageHeight, margin, availableWidth } = definePageLayout(doc);
+    const pageWidth = doc.internal.pageSize.width;
+    const pageHeight = doc.internal.pageSize.height;
 
-        // Draw boxes using simple fills and borders (make available everywhere in this function)
-        const drawBox = (x, y, width, height, color, isRounded = false) => {
+    // Layout values for centering and spacing
+    const yAxisLabelAreaWidth = 30; // Estimated space needed for Y-axis labels
+    const axisTitleSpacing = 12; // Slightly reduced for a tighter, but still balanced, look
+
+    // Adjust chart area to account for the Y-axis labels, ensuring true center alignment
+    const chartAreaWidth = Math.min(width, pageWidth - 40 - yAxisLabelAreaWidth, 380);
+    const chartAreaHeight = 110; // Reduced height for a more compact appearance
+    const chartPadding = 20;
+
+    // Calculate chart position to be visually centered
+    const chartX = (pageWidth - chartAreaWidth) / 2 + yAxisLabelAreaWidth / 2;
+    const chartY = y + 15; // Reduced top margin to bring chart closer to title
+
+    // Bar width and spacing
+    const barCount = data.length;
+    const maxBarWidth = 40;
+    const minBarSpacing = 24;
+    let barWidth = Math.min(maxBarWidth, (chartAreaWidth - (barCount + 1) * minBarSpacing) / barCount);
+    if (barWidth < 10) barWidth = 10;
+    let barSpacing = (chartAreaWidth - barCount * barWidth) / (barCount + 1);
+
+    const values = data.map(d => d.value);
+    const maxValue = 100;
+    const minValue = 0;
+    const valueRange = maxValue - minValue;
+
+    doc.setFontSize(PDF_STYLES.fonts.sizes.subtitle);
+    doc.setTextColor(...PDF_STYLES.colors.primary);
+    doc.setFont(undefined, 'bold');
+    doc.text(title, pageWidth / 2, y + 10, { align: 'center' });
+
+    const yAxisLineTop = chartY + chartPadding;
+    const yAxisLineBottom = chartY + chartAreaHeight - chartPadding;
+    const yAxisLabelCenterY = yAxisLineTop + (yAxisLineBottom - yAxisLineTop) / 2;
+
+    // Draw Y-axis label with symmetrical spacing
+    doc.setFontSize(PDF_STYLES.fonts.sizes.small);
+    doc.setTextColor(...PDF_STYLES.colors.grey);
+    doc.setFont(undefined, 'normal');
+    doc.text(yLabel, chartX - axisTitleSpacing, yAxisLabelCenterY, { align: 'center', angle: 90 });
+
+    const tickCount = 5;
+    const tickValueStep = maxValue / tickCount;
+    doc.setFontSize(PDF_STYLES.fonts.sizes.small);
+    doc.setTextColor(...PDF_STYLES.colors.grey);
+    for (let i = 0; i <= tickCount; i++) {
+        const value = i * tickValueStep;
+        const tickY = yAxisLineBottom - ((value - minValue) / valueRange) * (yAxisLineBottom - yAxisLineTop);
+        doc.text(value.toString(), chartX - 8, tickY, { align: 'right', baseline: 'middle' });
+        if (showGrid && i > 0) {
+            doc.setDrawColor(220, 220, 220);
+            doc.setLineWidth(0.3);
+            doc.line(chartX, tickY, chartX + chartAreaWidth, tickY);
+        }
+    }
+
+    doc.setDrawColor(...PDF_STYLES.colors.grey);
+    doc.setLineWidth(0.5);
+    doc.line(chartX, yAxisLineTop, chartX, yAxisLineBottom);
+    doc.line(chartX, yAxisLineBottom, chartX + chartAreaWidth, yAxisLineBottom);
+
+    const startXForBars = chartX + barSpacing;
+    data.forEach((item, index) => {
+        const barX = startXForBars + index * (barWidth + barSpacing);
+        const barHeight = ((item.value - minValue) / valueRange) * (yAxisLineBottom - yAxisLineTop);
+        const barY = yAxisLineBottom - barHeight;
+        const colorIndex = index % colors.length;
+        doc.setFillColor(...colors[colorIndex]);
+        doc.setDrawColor(...colors[colorIndex]);
+        doc.rect(barX, barY, barWidth, barHeight, 'F');
+        if (showValues && item.value !== undefined && item.value !== null) {
+            doc.setFontSize(PDF_STYLES.fonts.sizes.small);
+            doc.setTextColor(...PDF_STYLES.colors.grey);
+            doc.text(String(item.value), barX + barWidth / 2, barY - 5, { align: 'center' });
+        }
+        if (item.label) {
+            const labelLines = doc.splitTextToSize(item.label, barWidth + barSpacing - 5);
+            if (labelLines && labelLines.length > 0 && labelLines[0]) {
+                doc.text(labelLines, barX + barWidth / 2, yAxisLineBottom + 4, { align: 'center' });
+            }
+        }
+    });
+
+    // Draw X-axis label, centered relative to the chart area with symmetrical spacing
+    doc.setFontSize(PDF_STYLES.fonts.sizes.small);
+    doc.setTextColor(...PDF_STYLES.colors.grey);
+    const xAxisTitleX = chartX + chartAreaWidth / 2;
+    doc.text(xLabel, xAxisTitleX, yAxisLineBottom + axisTitleSpacing, { align: 'center' });
+    doc.setFont(undefined, 'normal');
+
+    return yAxisLineBottom + 30;
+};
+
+const drawLineChart = (doc, data, x, y, width, height, options = {}) => {
+    const {
+        title = 'Chart Title',
+        xLabel = 'Date',
+        yLabel = 'Compliance Rate (%)',
+        colors = [PDF_STYLES.colors.primary],
+        showGrid = true,
+        showValues = true
+    } = options;
+
+    const pageWidth = doc.internal.pageSize.width;
+    const pageHeight = doc.internal.pageSize.height;
+    const yAxisLabelAreaWidth = 30;
+    const axisTitleSpacing = 14;
+    const chartAreaWidth = Math.min(width, pageWidth - 40 - yAxisLabelAreaWidth, 380);
+    const chartAreaHeight = 110; // Reduced height for a more compact appearance
+    const chartPadding = 20;
+    const chartX = (pageWidth - chartAreaWidth) / 2 + yAxisLabelAreaWidth / 2;
+    const chartY = y + 15; // Reduced top margin to bring chart closer to title
+
+    const pointCount = data.length;
+    const maxValue = 100;
+    const minValue = 0;
+    const valueRange = maxValue - minValue;
+
+    doc.setFontSize(PDF_STYLES.fonts.sizes.subtitle);
+    doc.setTextColor(...PDF_STYLES.colors.primary);
+    doc.setFont(undefined, 'bold');
+    doc.text(title, pageWidth / 2, y + 10, { align: 'center' });
+
+    const yAxisLineTop = chartY + chartPadding;
+    const yAxisLineBottom = chartY + chartAreaHeight - chartPadding;
+    const yAxisLabelCenterY = yAxisLineTop + (yAxisLineBottom - yAxisLineTop) / 2;
+
+    // Y-axis label
+    doc.setFontSize(PDF_STYLES.fonts.sizes.small);
+    doc.setTextColor(...PDF_STYLES.colors.grey);
+    doc.setFont(undefined, 'normal');
+    doc.text(yLabel, chartX - axisTitleSpacing, yAxisLabelCenterY, { align: 'center', angle: 90 });
+
+    // Y-axis ticks and grid
+    const tickCount = 5;
+    const tickValueStep = maxValue / tickCount;
+    for (let i = 0; i <= tickCount; i++) {
+        const value = i * tickValueStep;
+        const tickY = yAxisLineBottom - ((value - minValue) / valueRange) * (yAxisLineBottom - yAxisLineTop);
+        doc.text(value.toString(), chartX - 8, tickY, { align: 'right', baseline: 'middle' });
+        if (showGrid && i > 0) {
+            doc.setDrawColor(220, 220, 220);
+            doc.setLineWidth(0.3);
+            doc.line(chartX, tickY, chartX + chartAreaWidth, tickY);
+        }
+    }
+    doc.setDrawColor(...PDF_STYLES.colors.grey);
+    doc.setLineWidth(0.5);
+    doc.line(chartX, yAxisLineTop, chartX, yAxisLineBottom);
+    doc.line(chartX, yAxisLineBottom, chartX + chartAreaWidth, yAxisLineBottom);
+
+    // Draw line
+    if (data.length > 1) {
+        doc.setDrawColor(...colors[0]);
+        doc.setLineWidth(1.2);
+        for (let i = 1; i < data.length; i++) {
+            const prev = data[i - 1];
+            const curr = data[i];
+            const prevX = chartX + ((i - 1) / (data.length - 1)) * chartAreaWidth;
+            const prevY = yAxisLineBottom - ((prev.value - minValue) / valueRange) * (yAxisLineBottom - yAxisLineTop);
+            const currX = chartX + (i / (data.length - 1)) * chartAreaWidth;
+            const currY = yAxisLineBottom - ((curr.value - minValue) / valueRange) * (yAxisLineBottom - yAxisLineTop);
+            doc.line(prevX, prevY, currX, currY);
+        }
+    }
+    // Draw points and X labels
+    data.forEach((item, i) => {
+        const pointX = chartX + (i / (data.length - 1)) * chartAreaWidth;
+        const pointY = yAxisLineBottom - ((item.value - minValue) / valueRange) * (yAxisLineBottom - yAxisLineTop);
+        doc.setFillColor(...colors[0]);
+        doc.circle(pointX, pointY, 2, 'F');
+        if (showValues && item.value !== undefined && item.value !== null) {
+            doc.setFontSize(PDF_STYLES.fonts.sizes.small);
+            doc.setTextColor(...PDF_STYLES.colors.grey);
+            doc.text(String(item.value), pointX, pointY - 6, { align: 'center' });
+        }
+        if (item.label) {
+            const labelLines = doc.splitTextToSize(item.label, 40);
+            if (labelLines && labelLines.length > 0 && labelLines[0]) {
+                doc.text(labelLines, pointX, yAxisLineBottom + 6, { align: 'center' });
+            }
+        }
+    });
+    // X-axis label
+    const xAxisTitleX = chartX + chartAreaWidth / 2;
+    doc.setFontSize(PDF_STYLES.fonts.sizes.small);
+    doc.setTextColor(...PDF_STYLES.colors.grey);
+    doc.text(xLabel, xAxisTitleX, yAxisLineBottom + axisTitleSpacing, { align: 'center' });
+    doc.setFont(undefined, 'normal');
+    return yAxisLineBottom + 30;
+};
+
+function renderJustifiedDescription(doc, desc, x, y, maxWidth, extraSpace = 10, lineHeightFactor = 1.4) {
+    doc.text(desc, x, y, { maxWidth, align: 'justify', lineHeightFactor });
+    // Estimate line count for spacing
+    const lines = doc.splitTextToSize(desc, maxWidth);
+    const fontSize = doc.getFontSize();
+    return y + lines.length * fontSize * lineHeightFactor + extraSpace;
+}
+
+const drawBox = (doc, x, y, width, height, color, isRounded = false) => {
             doc.setFillColor(...color);
             doc.setDrawColor(...color);
             doc.setLineWidth(0.1);
@@ -168,30 +280,22 @@ export const generateAuditReportPDF = async (data, options) => {
             }
         };
 
-        // Helper for consistent separator lines (must be inside to access doc)
-        const drawSeparatorLine = (y) => {
+const drawSeparatorLine = (doc, y, margin, pageWidth) => {
             doc.setLineWidth(0.5);
             doc.setDrawColor(39, 174, 96);
             doc.line(margin, y, pageWidth - margin, y);
         };
 
-        // Validate and set default values for summary data
-        const summary = {
-            totalAudits: data?.summary?.totalAudits ?? 0,
-            completedAudits: data?.summary?.completedAudits ?? 0,
-            pendingAudits: data?.summary?.pendingAudits ?? 0,
-            complianceRate: data?.summary?.complianceRate ?? 0
-        };
-
+export default function generateAuditReportPDF(data, options) {
+    const doc = new jsPDF();
+    const { pageWidth, pageHeight, margin, availableWidth } = definePageLayout(doc);
         const currentDateFormatted = formatDateToYYYYMMDD(new Date());
 
         // ===== PAGE 1: EXECUTIVE SUMMARY =====
-
-        // Add report header
         doc.setFontSize(18);
         doc.setTextColor(39, 174, 96);
         doc.text(options.reportType, margin, 22);
-        drawSeparatorLine(54);
+    drawSeparatorLine(doc, 54, margin, pageWidth);
 
         // Add logo on the right
         const logoUrl = `${window.location.origin}/logo.png`;
@@ -199,11 +303,9 @@ export const generateAuditReportPDF = async (data, options) => {
         const logoHeight = 20;
         const logoX = pageWidth - margin - logoWidth;
         const logoY = 12;
-
         try {
             doc.addImage(logoUrl, 'PNG', logoX, logoY, logoWidth, logoHeight);
         } catch (error) {
-            console.warn('Failed to load logo:', error);
             doc.setFontSize(16);
             doc.setTextColor(39, 174, 96);
             doc.text("NexusComply", logoX, 22);
@@ -213,42 +315,41 @@ export const generateAuditReportPDF = async (data, options) => {
         doc.setFontSize(10);
         doc.setTextColor(100, 100, 100);
         doc.text(`Generated on: ${currentDateFormatted}`, margin, 30);
+    if (options.dateRange) {
         doc.text(`Date Range: ${options.dateRange.start} to ${options.dateRange.end}`, margin, 38);
-
+    }
         if (options.filter && options.filter !== 'all') {
             doc.text(`Filter: ${options.filter}`, margin, 46);
         }
 
-        // First page separator
-        drawSeparatorLine(54);
+    // First page separator (again, for spacing)
+    drawSeparatorLine(doc, 54, margin, pageWidth);
 
-        // Add executive summary description
+    // Add executive summary description (dynamic by report type)
         doc.setFontSize(11);
         doc.setTextColor(80, 80, 80);
+    let desc = "";
         if (options.reportType === 'Outlet Non-Compliance Summary') {
-            const desc = "This executive summary highlights non-compliance trends across outlets, identifying outlets with the highest and lowest compliance rates.";
-            const descLines = doc.splitTextToSize(desc, availableWidth);
-            doc.text(descLines, margin, 64, { maxWidth: availableWidth });
+        desc = "This executive summary highlights non-compliance trends across outlets, identifying outlets with the highest and lowest compliance rates.";
         } else if (options.reportType === 'Specific Standard Adherence Report') {
-            const desc = "This report provides a detailed overview of adherence to specific compliance categories across all audits within the selected period. It highlights which categories are most and least adhered to, supporting targeted improvement efforts.";
-            const descLines = doc.splitTextToSize(desc, availableWidth);
-            doc.text(descLines, margin, 64, { maxWidth: availableWidth });
+        desc = "This report provides a detailed overview of adherence to specific compliance categories across all audits within the selected period. It highlights which categories are most and least adhered to, supporting targeted improvement efforts.";
         } else {
-            // Overall Compliance Trends Report
-            const desc = "This executive summary provides a comprehensive overview of compliance performance across all audited areas, highlighting key trends and identifying areas requiring attention.";
-            const descLines = doc.splitTextToSize(desc, availableWidth);
-            doc.text(descLines, margin, 64, { maxWidth: availableWidth });
+        desc = "This executive summary highlights key compliance trends and areas requiring attention.";
         }
+    doc.setFontSize(11);
+    doc.setTextColor(80, 80, 80);
+    let descY = renderJustifiedDescription(doc, desc, margin, 64, availableWidth, -8, 1.4);
+    
 
-        // Add executive summary box for all reports
+    // === REPORT TYPE: SPECIFIC STANDARD ADHERENCE REPORT ===
         if (options.reportType === 'Specific Standard Adherence Report') {
-            // All code that uses 'categories' is inside this block
+        // Executive Summary
             const categories = data.tableRows || [];
             const totalCategories = categories.length;
             const avgAdherence = categories.length > 0 ? (categories.reduce((sum, c) => sum + (parseFloat(c.adherenceRate) || 0), 0) / categories.length).toFixed(1) : 0;
             const mostAdhered = categories.reduce((max, c) => (parseFloat(c.adherenceRate) > parseFloat(max.adherenceRate) ? c : max), categories[0] || { categoryName: '', adherenceRate: 0 });
             const leastAdhered = categories.reduce((min, c) => (parseFloat(c.adherenceRate) < parseFloat(min.adherenceRate) ? c : min), categories[0] || { categoryName: '', adherenceRate: 100 });
-            // Executive Summary Box (improved alignment)
+        // Executive Summary Box
             const summaryItems = [
                 { label: 'Total Compliance Categories', value: totalCategories },
                 { label: 'Most Adhered Category', value: mostAdhered ? `${mostAdhered.categoryName} (${mostAdhered.adherenceRate}%)` : '-' },
@@ -256,20 +357,19 @@ export const generateAuditReportPDF = async (data, options) => {
                 { label: 'Average Adherence Rate', value: `${avgAdherence}%` },
             ];
             const summaryY = 100;
-            const summaryLineHeight = 14;
-            const summaryBoxPadding = 15;
-            const summaryBoxWidth = pageWidth - (2 * margin);
-            const summaryBoxHeight = (summaryItems.length * summaryLineHeight) + 2 * summaryBoxPadding + 16;
-            drawBox(margin, summaryY - summaryBoxPadding, summaryBoxWidth, summaryBoxHeight, PDF_STYLES.colors.lightGreen);
+            const execBoxHeight = summaryItems.length * summaryLineHeight + EXEC_BOX_PADDING + (EXEC_BOX_PADDING * 1.5);
+            const execBoxY = summaryY - EXEC_BOX_PADDING;
+            drawBox(doc, margin, execBoxY, pageWidth - (2 * margin), execBoxHeight, PDF_STYLES.colors.lightGreen);
+            // Start content at top padding, extra space is at the bottom
+            let execY = execBoxY + EXEC_BOX_PADDING;
             doc.setFontSize(16);
             doc.setTextColor(...PDF_STYLES.colors.primary);
             doc.setFont(undefined, 'bold');
-            doc.text("Executive Summary", margin + summaryBoxPadding, summaryY);
-            // Executive Summary Box (restored style, colon and value moved left)
-            const labelX = margin + summaryBoxPadding;
+            doc.text("Executive Summary", margin + 14, execY);
+            const labelX = margin + 14;
             const maxLabelWidth = Math.max(...summaryItems.map(item => doc.getTextWidth(`• ${item.label}`)));
-            const valueStartX = labelX + maxLabelWidth + 16; // 16px gap after the longest label
-            const firstItemY = summaryY + 16;
+            const valueStartX = labelX + maxLabelWidth + 16;
+            const firstItemY = execY + 16;
             summaryItems.forEach((item, index) => {
                 const yPosition = firstItemY + (index * summaryLineHeight);
                 doc.setFont(undefined, 'bold');
@@ -283,65 +383,51 @@ export const generateAuditReportPDF = async (data, options) => {
                 doc.text(`${item.value}`, valueStartX, yPosition, { baseline: 'middle' });
             });
 
-            // ===== PAGE 2: ADHERENCE CHART =====
+            addPageFooter(doc, 1, pageHeight, margin);
+        // Page 2: Chart
             doc.addPage();
             addPageHeader(doc, "Compliance Category Adherence Rates", 30, margin);
-            drawSeparatorLine(54);
+        drawSeparatorLine(doc, 54, margin, pageWidth);
+            const chartIntro = "The following chart shows adherence rates for each compliance category, making it easy to identify which categories are best and least followed.";
             doc.setFontSize(11);
             doc.setTextColor(80, 80, 80);
-            const chartIntro = "The following chart shows adherence rates for each compliance category, making it easy to identify which categories are best and least followed.";
-            const chartIntroLines = doc.splitTextToSize(chartIntro, availableWidth);
-            doc.text(chartIntroLines, margin, 40, { maxWidth: availableWidth });
-            let chartY = 66;
-            const chartHeight = 120;
-            // Chart debug log
-            console.log('Chart data for PDF:', categories);
-            const hasValidData = categories.some(
-                c => typeof c.adherenceRate === 'number' && !isNaN(c.adherenceRate) && c.adherenceRate > 0
-            );
-            if (categories.length > 0 && hasValidData) {
-                try {
-                    const chartImage = await generateStandardBarChartImage(categories, availableWidth, chartHeight, 'y', 20, 'categoryName');
-                    doc.addImage(chartImage, 'PNG', margin, chartY, availableWidth, chartHeight);
-                    // Chart interpretation
-                    const chartEndY = chartY + chartHeight + 20;
-                    doc.setFontSize(10);
-                    doc.setTextColor(80, 80, 80);
-                    doc.text("Chart Interpretation:", margin, chartEndY);
-                    doc.setFontSize(9);
-                    doc.text("• Each bar represents a compliance category's adherence rate.", margin + 5, chartEndY + 8);
-                    doc.text("• Longer bars indicate higher adherence.", margin + 5, chartEndY + 16);
-                    doc.text("• Compare bar lengths to identify best and worst performing categories.", margin + 5, chartEndY + 24);
-                } catch (error) {
-                    console.error('Standard Adherence Chart Error:', error, categories);
-                    doc.setFontSize(10);
-                    doc.setTextColor(150, 150, 150);
-                    doc.text("Chart data unavailable for the selected period.", margin, chartY);
-                }
-            } else {
-                doc.setFontSize(10);
-                doc.setTextColor(150, 150, 150);
-                doc.text("No valid adherence data to display.", margin, chartY);
+        renderJustifiedDescription(doc, chartIntro, margin, 40, availableWidth, -8, 1.4);
+        if (categories.length > 0) {
+            const chartData = categories.map(category => ({
+                label: category.categoryName || '',
+                value: parseFloat(category.adherenceRate) || 0
+            }));
+            const nextY = drawBarChart(doc, chartData, margin, 62, availableWidth, 120, {
+                title: 'Compliance Category Adherence Rates',
+                xLabel: 'Categories',
+                yLabel: 'Adherence Rate (%)',
+                showGrid: true,
+                showValues: true
+            });
+            
+            doc.setFontSize(11);
+            doc.setTextColor(80, 80, 80);
+            doc.text('Chart Interpretation:', margin, nextY + 8);
+            doc.setTextColor(80, 80, 80);
+            const chartInterpPoints = [
+                '• Each bar represents a compliance category\'s adherence rate.',
+                '• Longer bars indicate higher adherence.',
+                '• Compare bar lengths to identify best and worst performing categories.'
+            ];
+            chartInterpPoints.forEach((point, i) => {
+                doc.text(point, margin + 5, nextY + 16 + i * 8);
+            });
             }
             addPageFooter(doc, 2, pageHeight, margin);
-
-            // ===== PAGE 3: DETAILED TABLE =====
+        // Page 3: Table
             doc.addPage();
             addPageHeader(doc, "Detailed Adherence Data", 30, margin);
-            drawSeparatorLine(54);
+        drawSeparatorLine(doc, 54, margin, pageWidth);
+            const detailIntro = "Comprehensive breakdown of adherence data for each compliance category, providing detailed insights into performance metrics and compliance status.";
             doc.setFontSize(11);
             doc.setTextColor(80, 80, 80);
-            const detailIntro = "Comprehensive breakdown of adherence data for each compliance category, providing detailed insights into performance metrics and compliance status.";
-            const detailIntroLines = doc.splitTextToSize(detailIntro, availableWidth);
-            doc.text(detailIntroLines, margin, 40, { maxWidth: availableWidth });
-            let tableStartY = 62;
-            const columns = [
-                'Compliance Category',
-                'Total Audits',
-                'Adhered Audits',
-                'Adherence Rate',
-                'Status'
-            ];
+        renderJustifiedDescription(doc, detailIntro, margin, 40, availableWidth, -8, 1.4);
+        const columns = ['Compliance Category', 'Total Audits', 'Adhered Audits', 'Adherence Rate', 'Status'];
             const colWidths = {
                 'Compliance Category': availableWidth * 0.28,
                 'Total Audits': availableWidth * 0.16,
@@ -357,7 +443,7 @@ export const generateAuditReportPDF = async (data, options) => {
                 item.status || ''
             ]);
             autoTable(doc, {
-                startY: tableStartY,
+            startY: 62,
                 head: [columns],
                 body: tableData,
                 headStyles: {
@@ -380,7 +466,7 @@ export const generateAuditReportPDF = async (data, options) => {
                         index,
                         {
                             cellWidth: colWidths[col],
-                            halign: index === 0 ? 'left' : 'left'
+                        halign: 'left'
                         }
                     ])
                 ),
@@ -407,81 +493,114 @@ export const generateAuditReportPDF = async (data, options) => {
                 }
             });
             addPageFooter(doc, 3, pageHeight, margin);
-
-            // ===== PAGE 4: CONCLUSION (dynamic box) =====
+        // Page 4: Conclusion (Specific Standard Adherence Report)
             doc.addPage();
             addPageHeader(doc, "Conclusion", 30, margin);
-            drawSeparatorLine(54);
+        drawSeparatorLine(doc, 54, margin, pageWidth);
             doc.setFontSize(11);
             doc.setTextColor(80, 80, 80);
-            const conclusionDesc = "This report identifies compliance categories with the highest and lowest adherence. Focus improvement efforts on categories with low adherence to enhance overall compliance.";
-            const conclusionDescLines = doc.splitTextToSize(conclusionDesc, availableWidth);
-            doc.text(conclusionDescLines, margin, 40, { maxWidth: availableWidth, align: 'justify' });
-            // Dynamic summary box
-            const conclusionBoxY = 62;
-            const conclusionBoxPadding = 15;
-            const lineHeight = 12;
-            const dynamicSummary = `A total of ${totalCategories} compliance categories were evaluated. The most adhered category was ${mostAdhered.categoryName} (${mostAdhered.adherenceRate}%), while the least adhered was ${leastAdhered.categoryName} (${leastAdhered.adherenceRate}%). The average adherence rate was ${avgAdherence}%. Categories with low adherence should be prioritized for improvement.`;
-            const dynamicLines = doc.splitTextToSize(dynamicSummary, availableWidth - 2 * conclusionBoxPadding);
-            const conclusionBoxHeight = dynamicLines.length * lineHeight + 2 * conclusionBoxPadding;
-            drawBox(margin, conclusionBoxY, pageWidth - 2 * margin, conclusionBoxHeight, PDF_STYLES.colors.lightGreen);
-            let y = conclusionBoxY + conclusionBoxPadding + 2;
-            doc.setFontSize(11);
-            doc.setTextColor(...PDF_STYLES.colors.grey);
-            dynamicLines.forEach((line, idx) => {
-                let cursorX = margin + conclusionBoxPadding;
-                const regex = /(\d{4}-\d{2}-\d{2}|\d+%|\d+)/g;
-                const isLastLine = idx === dynamicLines.length - 1;
-                let lastIndex = 0;
-                let match;
-                while ((match = regex.exec(line)) !== null) {
-                    const before = line.substring(lastIndex, match.index);
-                    if (before) {
+        const conclusionDesc = "This section provides targeted recommendations to improve compliance performance based on the latest audit results.";
+        const conclusionPoints = [
+            `Focus on improving ${leastAdhered.categoryName} (currently at ${leastAdhered.adherenceRate}%)`,
+            `Maintain high performance in ${mostAdhered.categoryName} (currently at ${mostAdhered.adherenceRate}%)`,
+            `Review low-performing categories in the next management meeting`,
+            `Average adherence rate across all categories: ${avgAdherence}%`
+        ];
+        const descY = renderJustifiedDescription(doc, conclusionDesc, margin, 40, availableWidth, -8, 1.4);
+        const boxWidth = pageWidth - 2 * margin;
+        const maxBulletWidth = boxWidth - 2 * EXEC_BOX_PADDING;
+        const pointsCount = conclusionPoints.length;
+        const pointsHeight = pointsCount * summaryLineHeight;
+        const boxHeight = pointsHeight + EXEC_BOX_PADDING + (EXEC_BOX_PADDING * 1.5);
+        const boxY = descY + 0.5;
+        drawBox(doc, margin, boxY, boxWidth, boxHeight, PDF_STYLES.colors.lightGreen);
+        let lineY = boxY + EXEC_BOX_PADDING;
+        conclusionPoints.forEach((point) => {
+            const x = margin + EXEC_BOX_PADDING;
+            const highlights = [
+                { regex: /low/gi, bold: true },
+                { regex: /high/gi, bold: true },
+                { regex: /compliance trends/gi, bold: true },
+                { regex: /\d{4}-\d{2}-\d{2}/g, bold: true },
+                { regex: /\d+[.,]?\d*%/g, bold: true },
+            ];
+            // Additional: Bold category/outlet name in points like 'Focus on improving [X] (currently at ...)' or 'Maintain high performance in [X] (currently at ...)' 
+            const outletCategoryMatch = point.match(/(?:Focus on improving|Maintain high performance in) ([^(]+) \(currently at/);
+            if (outletCategoryMatch) {
+                const name = outletCategoryMatch[1].trim();
+                if (name) {
+                    highlights.push({ regex: new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), bold: true });
+                }
+            }
+            const lines = doc.splitTextToSize(point, maxBulletWidth);
+            lines.forEach((line, lineIdx) => {
+                let cursorX = x;
+                let idx = 0;
+                let matches = [];
+                highlights.forEach(h => {
+                    let m;
+                    while ((m = h.regex.exec(line)) !== null) {
+                        matches.push({ start: m.index, end: m.index + m[0].length, text: m[0], bold: h.bold });
+                    }
+                });
+                matches.sort((a, b) => a.start - b.start);
+                if (lineIdx === 0) {
+                    doc.setFont(undefined, 'normal');
+                    doc.text('• ', cursorX, lineY, { baseline: 'top' });
+                    cursorX += doc.getTextWidth('• ');
+                }
+                for (let m = 0; m < matches.length; m++) {
+                    let match = matches[m];
+                    if (match.start > idx) {
                         doc.setFont(undefined, 'normal');
-                        doc.text(before, cursorX, y, { baseline: 'top' });
-                        cursorX += doc.getTextWidth(before);
+                        let normalText = line.slice(idx, match.start);
+                        doc.text(normalText, cursorX, lineY, { baseline: 'top' });
+                        cursorX += doc.getTextWidth(normalText);
                     }
                     doc.setFont(undefined, 'bold');
-                    doc.text(match[0], cursorX, y, { baseline: 'top' });
-                    cursorX += doc.getTextWidth(match[0]);
-                    lastIndex = match.index + match[0].length;
+                    doc.text(match.text, cursorX, lineY, { baseline: 'top' });
+                    cursorX += doc.getTextWidth(match.text);
+                    idx = match.end;
                 }
-                const after = line.substring(lastIndex);
-                if (after) {
+                if (idx < line.length) {
                     doc.setFont(undefined, 'normal');
-                    doc.text(after, cursorX, y, { baseline: 'top' });
+                    let normalText = line.slice(idx);
+                    doc.text(normalText, cursorX, lineY, { baseline: 'top' });
                 }
-                y += lineHeight;
+                lineY += summaryLineHeight;
             });
-            addPageFooter(doc, 4, pageHeight, margin);
-        } else if (options.reportType === 'Outlet Non-Compliance Summary') {
-            // Summary Box for Outlet Non-Compliance Summary
-            const outletRowsSummary = data.tableRows || [];
-            const totalOutlets = outletRowsSummary.length;
-            const avgOutletComplianceRateSummary = outletRowsSummary.length > 0 ? (outletRowsSummary.reduce((sum, o) => sum + (parseFloat(o.complianceRate) || 0), 0) / outletRowsSummary.length).toFixed(1) : 0;
-            const mostCompliant = outletRowsSummary.reduce((max, o) => (parseFloat(o.complianceRate) > parseFloat(max.complianceRate) ? o : max), outletRowsSummary[0] || { outletName: '', complianceRate: 0 });
-            const leastCompliant = outletRowsSummary.reduce((min, o) => (parseFloat(o.complianceRate) < parseFloat(min.complianceRate) ? o : min), outletRowsSummary[0] || { outletName: '', complianceRate: 100 });
+        });
+        addPageFooter(doc, 4, pageHeight, margin);
+        return doc;
+    }
+    // === REPORT TYPE: OUTLET NON-COMPLIANCE SUMMARY ===
+    else if (options.reportType === 'Outlet Non-Compliance Summary') {
+        // Executive Summary
+        const outletRows = data.tableRows || [];
+        const totalOutlets = outletRows.length;
+        const avgOutletComplianceRate = outletRows.length > 0 ? (outletRows.reduce((sum, o) => sum + (parseFloat(o.complianceRate) || 0), 0) / outletRows.length).toFixed(1) : 0;
+        const mostCompliant = outletRows.reduce((max, o) => (parseFloat(o.complianceRate) > parseFloat(max.complianceRate) ? o : max), outletRows[0] || { outletName: '', complianceRate: 0 });
+        const leastCompliant = outletRows.reduce((min, o) => (parseFloat(o.complianceRate) < parseFloat(min.complianceRate) ? o : min), outletRows[0] || { outletName: '', complianceRate: 100 });
+        // Executive Summary Box
             const summaryItems = [
                 { label: 'Total Outlets Evaluated', value: totalOutlets },
                 { label: 'Most Compliant Outlet', value: mostCompliant ? `${mostCompliant.outletName} (${mostCompliant.complianceRate}%)` : '-' },
                 { label: 'Least Compliant Outlet', value: leastCompliant ? `${leastCompliant.outletName} (${leastCompliant.complianceRate}%)` : '-' },
-                { label: 'Average Compliance Rate', value: `${avgOutletComplianceRateSummary}%` },
+            { label: 'Average Compliance Rate', value: `${avgOutletComplianceRate}%` },
             ];
             const summaryY = 100;
-            const summaryLineHeight = 12;
-            const summaryBoxPadding = 15;
-            const summaryBoxWidth = pageWidth - (2 * margin);
-            const summaryBoxHeight = (summaryItems.length * summaryLineHeight) + 2 * summaryBoxPadding + 16;
-            drawBox(margin, summaryY - summaryBoxPadding, summaryBoxWidth, summaryBoxHeight, PDF_STYLES.colors.lightGreen);
+            const execBoxHeight = summaryItems.length * summaryLineHeight + EXEC_BOX_PADDING + (EXEC_BOX_PADDING * 1.5);
+            const execBoxY = summaryY - EXEC_BOX_PADDING;
+            let execY = execBoxY + EXEC_BOX_PADDING;
+        drawBox(doc, margin, execBoxY, pageWidth - (2 * margin), execBoxHeight, PDF_STYLES.colors.lightGreen);
             doc.setFontSize(16);
             doc.setTextColor(...PDF_STYLES.colors.primary);
             doc.setFont(undefined, 'bold');
-            doc.text("Executive Summary", margin + summaryBoxPadding, summaryY);
-            // Executive Summary Box (restored style, colon and value moved left)
-            const labelX = margin + summaryBoxPadding;
+            doc.text("Executive Summary", margin + 14, execY);
+            const labelX = margin + 14;
             const maxLabelWidth = Math.max(...summaryItems.map(item => doc.getTextWidth(`• ${item.label}`)));
-            const valueStartX = labelX + maxLabelWidth + 16; // 16px gap after the longest label
-            const firstItemY = summaryY + 16;
+        const valueStartX = labelX + maxLabelWidth + 16;
+            const firstItemY = execY + 16;
             summaryItems.forEach((item, index) => {
                 const yPosition = firstItemY + (index * summaryLineHeight);
                 doc.setFont(undefined, 'bold');
@@ -494,65 +613,51 @@ export const generateAuditReportPDF = async (data, options) => {
                 doc.text(':', valueStartX - 8, yPosition, { baseline: 'middle' });
                 doc.text(`${item.value}`, valueStartX, yPosition, { baseline: 'middle' });
             });
-
-            // ===== PAGE 2: OUTLET BAR CHART =====
+        addPageFooter(doc, 1, pageHeight, margin);
+        // Page 2: Chart
             doc.addPage();
             addPageHeader(doc, "Outlet Compliance Rates", 30, margin);
-            drawSeparatorLine(54);
+        drawSeparatorLine(doc, 54, margin, pageWidth);
+            const barIntro = "The following chart shows the compliance rates for each outlet, making it easy to identify outlets with the highest and lowest compliance.";
             doc.setFontSize(11);
             doc.setTextColor(80, 80, 80);
-            const barIntro = "The following chart shows the compliance rates for each outlet, making it easy to identify outlets with the highest and lowest compliance.";
-            const barIntroLines = doc.splitTextToSize(barIntro, availableWidth);
-            doc.text(barIntroLines, margin, 40, { maxWidth: availableWidth });
-            let chartY = 62;
-            const outletCount = data.tableRows ? data.tableRows.length : 0;
-            const chartHeight = outletCount === 1 ? 60 : 200;
-            const indexAxis = 'y';
-            const leftPadding = outletCount === 1 ? 20 : 100;
-            if (data.tableRows && Array.isArray(data.tableRows) && data.tableRows.length > 0) {
-                try {
-                    const chartImage = await generateOutletBarChartImage(data.tableRows, availableWidth, chartHeight, indexAxis, leftPadding);
-                    doc.addImage(chartImage, 'PNG', margin, chartY, availableWidth, chartHeight);
+        renderJustifiedDescription(doc, barIntro, margin, 40, availableWidth, -8, 1.4);
+        if (outletRows.length > 0) {
+            const chartData = outletRows.map(row => ({
+                label: row.outletName || '',
+                value: parseFloat(row.complianceRate) || 0
+            }));
+            const nextY = drawBarChart(doc, chartData, margin, 62, availableWidth, 200, {
+                title: 'Outlet Compliance Rates',
+                xLabel: 'Outlets',
+                yLabel: 'Compliance Rate (%)',
+                showGrid: true,
+                showValues: true
+            });
 
-                    // Add chart interpretation
-                    const chartEndY = chartY + chartHeight + 20;
-                    doc.setFontSize(10);
-                    doc.setTextColor(80, 80, 80);
-                    doc.text("Chart Interpretation:", margin, chartEndY);
-                    doc.setFontSize(9);
-                    doc.text("• Each bar represents an outlet's compliance rate.", margin + 5, chartEndY + 8);
-                    doc.text("• Longer bars indicate higher compliance.", margin + 5, chartEndY + 16);
-                    doc.text("• Compare bar lengths to identify best and worst performers.", margin + 5, chartEndY + 24);
-                } catch (error) {
-                    console.error('Failed to generate outlet bar chart:', error);
-                    doc.setFontSize(10);
-                    doc.setTextColor(150, 150, 150);
-                    doc.text("Chart data unavailable for the selected period.", margin, chartY);
-                }
-            } else {
-                doc.setFontSize(10);
-                doc.setTextColor(150, 150, 150);
-                doc.text("No outlet data available for the selected period.", margin, chartY);
+            doc.setFontSize(11);
+            doc.setTextColor(80, 80, 80);
+            doc.text('Chart Interpretation:', margin, nextY + 8);
+            doc.setTextColor(80, 80, 80);
+            const chartInterpPoints = [
+                '• Each bar represents an outlet\'s compliance rate.',
+                '• Longer bars indicate higher compliance.',
+                '• Compare bar lengths to identify best and worst performers.'
+            ];
+            chartInterpPoints.forEach((point, i) => {
+                doc.text(point, margin + 5, nextY + 16 + i * 8);
+            });
             }
             addPageFooter(doc, 2, pageHeight, margin);
-
-            // ===== PAGE 3: DETAILED TABLE =====
+        // Page 3: Table
             doc.addPage();
             addPageHeader(doc, "Outlet Non-Compliance Summary", 30, margin);
-            drawSeparatorLine(54);
+        drawSeparatorLine(doc, 54, margin, pageWidth);
+            const detailIntro = "Summary of non-compliance issues across all outlets, highlighting outlets with the most non-compliance and areas requiring attention.";
             doc.setFontSize(11);
             doc.setTextColor(80, 80, 80);
-            const detailIntro = "Summary of non-compliance issues across all outlets, highlighting outlets with the most non-compliance and areas requiring attention.";
-            const detailIntroLines = doc.splitTextToSize(detailIntro, availableWidth);
-            doc.text(detailIntroLines, margin, 40, { maxWidth: availableWidth });
-            let tableStartY = 62;
-            const columns = [
-                'Outlet Name',
-                'Total Audits',
-                'Non-Compliant Audits',
-                'Compliance Rate',
-                'Status'
-            ];
+        renderJustifiedDescription(doc, detailIntro, margin, 40, availableWidth, -8, 1.4);
+        const columns = ['Outlet Name', 'Total Audits', 'Non-Compliant Audits', 'Compliance Rate', 'Status'];
             const colWidths = {
                 'Outlet Name': availableWidth * 0.28,
                 'Total Audits': availableWidth * 0.16,
@@ -560,7 +665,7 @@ export const generateAuditReportPDF = async (data, options) => {
                 'Compliance Rate': availableWidth * 0.18,
                 'Status': availableWidth * 0.20
             };
-            const tableData = (data.tableRows || []).map((item) => [
+        const tableData = outletRows.map((item) => [
                 item.outletName || item.state || '',
                 item.totalAudits || 0,
                 item.nonCompliantAudits || 0,
@@ -568,7 +673,7 @@ export const generateAuditReportPDF = async (data, options) => {
                 item.status || ''
             ]);
             autoTable(doc, {
-                startY: tableStartY,
+            startY: 62,
                 head: [columns],
                 body: tableData,
                 headStyles: {
@@ -591,7 +696,7 @@ export const generateAuditReportPDF = async (data, options) => {
                         index,
                         {
                             cellWidth: colWidths[col],
-                            halign: index === 0 ? 'left' : 'left'
+                        halign: 'left'
                         }
                     ])
                 ),
@@ -618,96 +723,124 @@ export const generateAuditReportPDF = async (data, options) => {
                 }
             });
             addPageFooter(doc, 3, pageHeight, margin);
-
-            // ===== PAGE 4: CONCLUSION =====
+        // Page 4: Conclusion
             doc.addPage();
             addPageHeader(doc, "Conclusion", 30, margin);
-            drawSeparatorLine(54);
+        drawSeparatorLine(doc, 54, margin, pageWidth);
             doc.setFontSize(11);
             doc.setTextColor(80, 80, 80);
-            const conclusionDescription = "This report provides a focused analysis of non-compliance across outlets, highlighting those with the greatest need for improvement and recognizing top performers.";
-            const conclusionDescLines = doc.splitTextToSize(conclusionDescription, availableWidth);
-            doc.text(conclusionDescLines, margin, 40, { maxWidth: availableWidth, align: 'justify' });
-
-            // Dynamic conclusion for Outlet Non-Compliance Summary
-            const outletRowsConclusion = data.tableRows || [];
-            const mostNonCompliant = outletRowsConclusion.reduce((min, o) => (parseFloat(o.complianceRate) < parseFloat(min.complianceRate) ? o : min), outletRowsConclusion[0] || { outletName: '', complianceRate: 100 });
-            const bestCompliant = outletRowsConclusion.reduce((max, o) => (parseFloat(o.complianceRate) > parseFloat(max.complianceRate) ? o : max), outletRowsConclusion[0] || { outletName: '', complianceRate: 0 });
-            const avgOutletComplianceRateConclusion = outletRowsConclusion.length > 0 ? (outletRowsConclusion.reduce((sum, o) => sum + (parseFloat(o.complianceRate) || 0), 0) / outletRowsConclusion.length).toFixed(1) : 0;
-            let dynamicConclusion = `A total of ${outletRowsConclusion.length} outlets were audited. The outlet with the lowest compliance rate was ${mostNonCompliant.outletName} (${mostNonCompliant.complianceRate}%), while the best performing outlet was ${bestCompliant.outletName} (${bestCompliant.complianceRate}%). The average compliance rate across all outlets was ${avgOutletComplianceRateConclusion}%. Outlets with low compliance should be prioritized for corrective action and support.`;
-            
-            const conclusionBoxY = 62;
-            const conclusionBoxPadding = 15;
-            const lineHeight = 10;
-            const dynamicLines = doc.splitTextToSize(dynamicConclusion, availableWidth - 2 * conclusionBoxPadding);
-            const conclusionBoxHeight = dynamicLines.length * lineHeight + 2 * conclusionBoxPadding;
-            drawBox(margin, conclusionBoxY, pageWidth - 2 * margin, conclusionBoxHeight, PDF_STYLES.colors.lightGreen);
-            let y = conclusionBoxY + conclusionBoxPadding + 2;
-            doc.setFontSize(11);
-            doc.setTextColor(...PDF_STYLES.colors.grey);
-            dynamicLines.forEach((line, idx) => {
-                let cursorX = margin + conclusionBoxPadding;
-                const regex = /(\d{4}-\d{2}-\d{2}|\d+%|\d+)/g;
-                const isLastLine = idx === dynamicLines.length - 1;
-                let lastIndex = 0;
-                let match;
-                while ((match = regex.exec(line)) !== null) {
-                    const before = line.substring(lastIndex, match.index);
-                    if (before) {
+        const conclusionDesc = "This section provides targeted recommendations to address non-compliance and support continuous improvement across all outlets.";
+        const conclusionPoints = [
+            `Focus on improving ${leastCompliant.outletName} (currently at ${leastCompliant.complianceRate}%)`,
+            `Maintain high performance in ${mostCompliant.outletName} (currently at ${mostCompliant.complianceRate}%)`,
+            `Review low-performing outlets in the next management meeting`,
+            `Average compliance rate across all outlets: ${avgOutletComplianceRate}%`
+        ];
+        const descY = renderJustifiedDescription(doc, conclusionDesc, margin, 40, availableWidth, -8, 1.4);
+        const boxWidth = pageWidth - 2 * margin;
+        const maxBulletWidth = boxWidth - 2 * EXEC_BOX_PADDING;
+        const pointsCount = conclusionPoints.length;
+        const pointsHeight = pointsCount * summaryLineHeight;
+        const boxHeight = pointsHeight + EXEC_BOX_PADDING + (EXEC_BOX_PADDING * 1.5);
+        const boxY = descY + 0.5;
+        
+        drawBox(doc, margin, boxY, boxWidth, boxHeight, PDF_STYLES.colors.lightGreen);
+        // === Render bullet points inside the green box ===
+        let lineY = boxY + EXEC_BOX_PADDING;
+        conclusionPoints.forEach((point) => {
+            const x = margin + EXEC_BOX_PADDING;
+            const highlights = [
+                { regex: /low/gi, bold: true },
+                { regex: /high/gi, bold: true },
+                { regex: /compliance trends/gi, bold: true },
+                { regex: /\d{4}-\d{2}-\d{2}/g, bold: true },
+                { regex: /\d+[.,]?\d*%/g, bold: true },
+            ];
+            // Additional: Bold category/outlet name in points like 'Focus on improving [X] (currently at ...)' or 'Maintain high performance in [X] (currently at ...)' 
+            const outletCategoryMatch = point.match(/(?:Focus on improving|Maintain high performance in) ([^(]+) \(currently at/);
+            if (outletCategoryMatch) {
+                const name = outletCategoryMatch[1].trim();
+                if (name) {
+                    highlights.push({ regex: new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), bold: true });
+                }
+            }
+            const lines = doc.splitTextToSize(point, maxBulletWidth);
+            lines.forEach((line, lineIdx) => {
+                let cursorX = x;
+                let idx = 0;
+                let matches = [];
+                highlights.forEach(h => {
+                    let m;
+                    while ((m = h.regex.exec(line)) !== null) {
+                        matches.push({ start: m.index, end: m.index + m[0].length, text: m[0], bold: h.bold });
+                    }
+                });
+                matches.sort((a, b) => a.start - b.start);
+                if (lineIdx === 0) {
+                    doc.setFont(undefined, 'normal');
+                    doc.text('• ', cursorX, lineY, { baseline: 'top' });
+                    cursorX += doc.getTextWidth('• ');
+                }
+                for (let m = 0; m < matches.length; m++) {
+                    let match = matches[m];
+                    if (match.start > idx) {
                         doc.setFont(undefined, 'normal');
-                        doc.text(before, cursorX, y, { baseline: 'top' });
-                        cursorX += doc.getTextWidth(before);
+                        let normalText = line.slice(idx, match.start);
+                        doc.text(normalText, cursorX, lineY, { baseline: 'top' });
+                        cursorX += doc.getTextWidth(normalText);
                     }
                     doc.setFont(undefined, 'bold');
-                    doc.text(match[0], cursorX, y, { baseline: 'top' });
-                    cursorX += doc.getTextWidth(match[0]);
-                    lastIndex = match.index + match[0].length;
+                    doc.text(match.text, cursorX, lineY, { baseline: 'top' });
+                    cursorX += doc.getTextWidth(match.text);
+                    idx = match.end;
                 }
-                const after = line.substring(lastIndex);
-                if (after) {
+                if (idx < line.length) {
                     doc.setFont(undefined, 'normal');
-                    doc.text(after, cursorX, y, { baseline: 'top' });
+                    let normalText = line.slice(idx);
+                    doc.text(normalText, cursorX, lineY, { baseline: 'top' });
                 }
-                y += lineHeight;
+                lineY += summaryLineHeight;
             });
-            addPageFooter(doc, 4, pageHeight, margin);
-        } else {
+        });
+        addPageFooter(doc, 4, pageHeight, margin);
+        return doc;
+    }
+    // === REPORT TYPE: OVERALL COMPLIANCE TRENDS REPORT ===
+    else {
             // Overall Compliance Trends Report
-            // Executive Summary Box for Overall Compliance Trends Report
             const tableRows = data.tableRows || [];
             const complianceRates = tableRows.map(row => parseFloat(row.complianceRate) || 0);
             const totalCompliantAudits = tableRows.reduce((sum, row) => sum + (row.compliantAudits || 0), 0);
             const totalNonCompliantAudits = tableRows.reduce((sum, row) => sum + (row.nonCompliantAudits || 0), 0);
-        const totalAudits = summary.totalAudits;
+        const totalAudits = data?.summary?.totalAudits ?? 0;
         const totalPartiallyCompliantAudits = Math.max(0, totalAudits - totalCompliantAudits - totalNonCompliantAudits);
-        const avgComplianceRate = complianceRates.length > 0 ? (complianceRates.reduce((sum, rate) => sum + rate, 0) / complianceRates.length).toFixed(1) : 0;
-        const highestComplianceRate = complianceRates.length > 0 ? Math.max(...complianceRates).toFixed(1) : 0;
-        const lowestComplianceRate = complianceRates.length > 0 ? Math.min(...complianceRates).toFixed(1) : 0;
+        const avgComplianceRate = complianceRates.length > 0 ? (complianceRates.reduce((sum, rate) => sum + rate, 0) / complianceRates.length).toFixed(1) : null;
+        const highestComplianceRate = complianceRates.length > 0 ? Math.max(...complianceRates).toFixed(1) : null;
+        const lowestComplianceRate = complianceRates.length > 0 ? Math.min(...complianceRates).toFixed(1) : null;
 
         const summaryItems = [
             { label: 'Total Audits', value: totalAudits },
             { label: 'Compliant Audits', value: totalCompliantAudits },
             { label: 'Partially Compliant Audits', value: totalPartiallyCompliantAudits },
             { label: 'Non-Compliant Audits', value: totalNonCompliantAudits },
-            { label: 'Average Compliance Rate', value: `${avgComplianceRate}%` },
-            { label: 'Highest Compliance Rate', value: `${highestComplianceRate}%` },
-            { label: 'Lowest Compliance Rate', value: `${lowestComplianceRate}%` }
+            { label: 'Average Compliance Rate', value: avgComplianceRate ? `${avgComplianceRate}%` : '-' },
+            { label: 'Highest Compliance Rate', value: highestComplianceRate ? `${highestComplianceRate}%` : '-' },
+            { label: 'Lowest Compliance Rate', value: lowestComplianceRate ? `${lowestComplianceRate}%` : '-' }
         ];
 
         const summaryY = 100;
-        const summaryLineHeight = 12;
-        const summaryBoxPadding = 15;
-        const summaryBoxWidth = pageWidth - (2 * margin);
-        const summaryBoxHeight = (summaryItems.length * summaryLineHeight) + (3 * summaryBoxPadding);
-        drawBox(margin, summaryY - summaryBoxPadding, summaryBoxWidth, summaryBoxHeight, PDF_STYLES.colors.lightGreen);
+        const execBoxHeight = summaryItems.length * summaryLineHeight + EXEC_BOX_PADDING + (EXEC_BOX_PADDING * 1.5);
+        const execBoxY = summaryY - EXEC_BOX_PADDING;
+        let execY = execBoxY + EXEC_BOX_PADDING;
+        drawBox(doc, margin, execBoxY, pageWidth - (2 * margin), execBoxHeight, PDF_STYLES.colors.lightGreen);
         doc.setFontSize(16);
             doc.setTextColor(...PDF_STYLES.colors.primary);
             doc.setFont(undefined, 'bold');
-            doc.text('Executive Summary', margin + summaryBoxPadding, summaryY);
-            const labelX = margin + summaryBoxPadding;
+            doc.text("Executive Summary", margin + 14, execY);
+            const labelX = margin + 14;
             const maxLabelWidth = Math.max(...summaryItems.map(item => doc.getTextWidth(`• ${item.label}`)));
-            const valueStartX = labelX + maxLabelWidth + 16; // 16px gap after the longest label
-            const firstItemY = summaryY + 16;
+            const valueStartX = labelX + maxLabelWidth + 16;
+            const firstItemY = execY + 16;
         summaryItems.forEach((item, index) => {
                 const yPosition = firstItemY + (index * summaryLineHeight);
             doc.setFont(undefined, 'bold');
@@ -720,35 +853,56 @@ export const generateAuditReportPDF = async (data, options) => {
                 doc.text(':', valueStartX - 8, yPosition, { baseline: 'middle' });
                 doc.text(`${item.value}`, valueStartX, yPosition, { baseline: 'middle' });
         });
-
+        addPageFooter(doc, 1, pageHeight, margin);
         // ===== PAGE 2: COMPLIANCE TREND ANALYSIS =====
         doc.addPage();
         addPageHeader(doc, "Compliance Trend Analysis", 30, margin);
-            drawSeparatorLine(54);
+        drawSeparatorLine(doc, 54, margin, pageWidth);
             doc.setFontSize(11);
         doc.setTextColor(80, 80, 80);
         const trendIntro = "The following chart illustrates the compliance rate trends over the selected period, providing insights into performance patterns and identifying areas that require attention.";
-        const trendIntroLines = doc.splitTextToSize(trendIntro, availableWidth);
-            doc.text(trendIntroLines, margin, 40, { maxWidth: availableWidth });
+        doc.setFontSize(11);
+        doc.setTextColor(80, 80, 80);
+        renderJustifiedDescription(doc, trendIntro, margin, 40, availableWidth, -8, 1.4);
             let chartY = 62;
+
+        // Debug log for trendData
+        console.log("PDF trendData:", data.trendData);
 
         // Generate and add chart
         if (data.trendData && Array.isArray(data.trendData) && data.trendData.length > 0) {
             try {
-                const chartImage = await generateChartImage(data.trendData);
+                // Convert data to the format expected by drawLineChart
+                const chartData = data.trendData.map(item => ({
+                    label: item.date || '',
+                    value: parseFloat(item.complianceRate) || 0
+                }));
+                
                 const chartWidth = pageWidth - (2 * margin);
-                const chartHeight = (chartWidth * 0.5);
-                doc.addImage(chartImage, 'PNG', margin, chartY, chartWidth, chartHeight);
+                const chartHeight = chartWidth * 0.5;
+                
+                // Draw line chart directly using jsPDF
+                const nextY = drawLineChart(doc, chartData, margin, chartY, chartWidth, chartHeight, {
+                    title: 'Compliance Rate Trend Analysis',
+                    xLabel: 'Date',
+                    yLabel: 'Compliance Rate (%)',
+                    colors: [PDF_STYLES.colors.primary],
+                    showGrid: true,
+                    showValues: true
+                });
 
-                // Add chart interpretation
-                const chartEndY = chartY + chartHeight + 20;
-                doc.setFontSize(10);
+                // Restore original font size and style for Chart Interpretation
+                doc.setFontSize(11);
                 doc.setTextColor(80, 80, 80);
-                doc.text("Chart Interpretation:", margin, chartEndY);
-                doc.setFontSize(9);
-                doc.text("• Trend lines show compliance rate progression over time", margin + 5, chartEndY + 8);
-                doc.text("• Peaks indicate periods of high compliance", margin + 5, chartEndY + 16);
-                doc.text("• Valleys suggest areas requiring immediate attention", margin + 5, chartEndY + 24);
+                doc.text('Chart Interpretation:', margin, nextY + 8);
+                const chartInterpPoints = [
+                    '• Trend lines show compliance rate progression over time',
+                    '• Peaks indicate periods of high compliance',
+                    '• Valleys suggest areas requiring immediate attention'
+                ];
+                chartInterpPoints.forEach((point, i) => {
+                    doc.text(point, margin + 5, nextY + 16 + i * 8);
+                });
             } catch (error) {
                 console.error('Failed to generate chart:', error);
                 doc.setFontSize(10);
@@ -758,7 +912,7 @@ export const generateAuditReportPDF = async (data, options) => {
         } else {
             doc.setFontSize(10);
             doc.setTextColor(150, 150, 150);
-            doc.text("No trend data available for the selected period.", margin, chartY);
+            doc.text("No trend data available for the selected period.", chartY);
         }
 
         addPageFooter(doc, 2, pageHeight, margin);
@@ -766,12 +920,13 @@ export const generateAuditReportPDF = async (data, options) => {
         // ===== PAGE 3: DETAILED COMPLIANCE DATA =====
         doc.addPage();
         addPageHeader(doc, "Detailed Compliance Data", 30, margin);
-            drawSeparatorLine(54);
+        drawSeparatorLine(doc, 54, margin, pageWidth);
             doc.setFontSize(11);
         doc.setTextColor(80, 80, 80);
         const detailIntro = "Comprehensive breakdown of compliance data across all audited areas, providing detailed insights into specific performance metrics and compliance status.";
-        const detailIntroLines = doc.splitTextToSize(detailIntro, availableWidth);
-            doc.text(detailIntroLines, margin, 40, { maxWidth: availableWidth });
+        doc.setFontSize(11);
+        doc.setTextColor(80, 80, 80);
+        renderJustifiedDescription(doc, detailIntro, margin, 40, availableWidth, -8, 1.4);
             let tableStartY = 62;
 
         const columns = [
@@ -858,17 +1013,48 @@ export const generateAuditReportPDF = async (data, options) => {
 
             addPageFooter(doc, 3, pageHeight, margin);
 
-        // ===== PAGE 4: CONCLUSION =====
+        // ===== PAGE 4: CONCLUSION (Unified for all report types) =====
         doc.addPage();
         addPageHeader(doc, "Conclusion", 30, margin);
-            drawSeparatorLine(54);
+        drawSeparatorLine(doc, 54, margin, pageWidth);
         doc.setFontSize(11);
         doc.setTextColor(80, 80, 80);
-            const conclusionDescription = "This report provides a comprehensive analysis of compliance performance and identifies key areas for improvement. Regular monitoring and implementation of recommended actions will help maintain and improve overall compliance standards.";
-            const conclusionDescLines = doc.splitTextToSize(conclusionDescription, availableWidth);
-            doc.text(conclusionDescLines, margin, 40, { maxWidth: availableWidth, align: 'justify' });
 
-            // Dynamic conclusion content based on data
+        // Determine dynamic content for the conclusion based on report type
+        let conclusionDesc = "";
+        let conclusionPoints = [];
+        
+        if (options.reportType === 'Specific Standard Adherence Report') {
+            // Category adherence
+            const categories = data.tableRows || [];
+            const mostAdhered = categories.reduce((max, c) => (parseFloat(c.adherenceRate) > parseFloat(max.adherenceRate) ? c : max), categories[0] || { categoryName: '', adherenceRate: 0 });
+            const leastAdhered = categories.reduce((min, c) => (parseFloat(c.adherenceRate) < parseFloat(min.adherenceRate) ? c : min), categories[0] || { categoryName: '', adherenceRate: 100 });
+            const avgAdherence = categories.length > 0 ? (categories.reduce((sum, c) => sum + (parseFloat(c.adherenceRate) || 0), 0) / categories.length).toFixed(1) : 0;
+            conclusionDesc = "This section provides targeted recommendations to improve compliance performance based on the latest audit results.";
+            conclusionPoints = [
+                `Focus on improving ${leastAdhered.categoryName} (currently at ${leastAdhered.adherenceRate}%)`,
+                `Maintain high performance in ${mostAdhered.categoryName} (currently at ${mostAdhered.adherenceRate}%)`,
+                `Review low-performing categories in the next management meeting`,
+                `Average adherence rate across all categories: ${avgAdherence}%`
+            ];
+        } else if (options.reportType === 'Outlet Non-Compliance Summary') {
+            // Outlet compliance
+            const outletRows = data.tableRows || [];
+            const mostNonCompliant = outletRows.reduce((min, o) => (parseFloat(o.complianceRate) < parseFloat(min.complianceRate) ? o : min), outletRows[0] || { outletName: '', complianceRate: 100 });
+            const bestCompliant = outletRows.reduce((max, o) => (parseFloat(o.complianceRate) > parseFloat(max.complianceRate) ? o : max), outletRows[0] || { outletName: '', complianceRate: 0 });
+            const avgOutletComplianceRate = outletRows.length > 0 ? (outletRows.reduce((sum, o) => sum + (parseFloat(o.complianceRate) || 0), 0) / outletRows.length).toFixed(1) : 0;
+            conclusionDesc = "This section provides targeted recommendations to address non-compliance and support continuous improvement across all outlets.";
+            conclusionPoints = [
+                `Focus on improving ${mostNonCompliant.outletName} (currently at ${mostNonCompliant.complianceRate}%)`,
+                `Maintain high performance in ${bestCompliant.outletName} (currently at ${bestCompliant.complianceRate}%)`,
+                `Review low-performing outlets in the next management meeting`,
+                `Average compliance rate across all outlets: ${avgOutletComplianceRate}%`
+            ];
+        } else {
+            // Overall Compliance Trends Report
+            const tableRows = data.tableRows || [];
+            const complianceRates = tableRows.map(row => parseFloat(row.complianceRate) || 0);
+            const avgComplianceRate = complianceRates.length > 0 ? (complianceRates.reduce((sum, rate) => sum + rate, 0) / complianceRates.length).toFixed(1) : null;
             let bestPeriod = '';
             let worstPeriod = '';
             let highestRate = null;
@@ -881,218 +1067,113 @@ export const generateAuditReportPDF = async (data, options) => {
                 bestPeriod = bestRow ? (bestRow.date || bestRow.state || '') : '';
                 worstPeriod = worstRow ? (worstRow.date || worstRow.state || '') : '';
             }
-            let recommendation = '';
-            if (summary.complianceRate >= 90) {
-                recommendation = 'Maintain current best practices and continue regular monitoring to sustain high compliance.';
-            } else if (summary.complianceRate >= 70) {
-                recommendation = 'Focus on areas with lower compliance and provide targeted training or support.';
-            } else {
-                recommendation = 'Immediate action is required to address compliance gaps. Implement corrective actions and increase oversight.';
+            const today = new Date().toISOString().slice(0, 10);
+            function isPast(dateStr) {
+                return dateStr && dateStr < today;
             }
-            
-            let dynamicConclusion = `During the reporting period, a total of ${summary.totalAudits} audits were conducted, with an overall compliance rate of ${summary.complianceRate}%.`;
-            if (bestPeriod && worstPeriod && highestRate !== null && lowestRate !== null) {
-                dynamicConclusion += ` The highest compliance was observed in ${bestPeriod} (${highestRate}%), while the lowest was in ${worstPeriod} (${lowestRate}%).`;
+            conclusionDesc = "The section provides targeted recommendations based on compliance trends observed during the reporting period.";
+            conclusionPoints = [];
+            if (worstPeriod && lowestRate !== null) {
+                if (isPast(worstPeriod)) {
+                    conclusionPoints.push(`Review the factors that led to low compliance during ${worstPeriod} and implement corrective actions for future audits.`);
+                } else {
+                    conclusionPoints.push(`Focus on improving compliance in the current/next period: ${worstPeriod} (${lowestRate}%)`);
+                }
             }
-            if (summary.pendingAudits > 0) {
-                dynamicConclusion += ` There are still ${summary.pendingAudits} pending audits, which may impact the final compliance rate.`;
+            if (bestPeriod && highestRate !== null) {
+                if (isPast(bestPeriod)) {
+                    conclusionPoints.push(`Analyze the practices that led to high compliance during ${bestPeriod} and replicate them in future periods.`);
+                } else {
+                    conclusionPoints.push(`Maintain best practices in the current/next period: ${bestPeriod} (${highestRate}%)`);
+                }
             }
-            dynamicConclusion += `\n${recommendation}`;
-
-            // Render the dynamic conclusion inside a box, with important data bolded and justified
-            const conclusionBoxY = 62;
-            const conclusionBoxPadding = 15;
-            const lineHeight = 10;
-            const paragraphs = dynamicConclusion.split('\n');
-            let allLines = [];
-            paragraphs.forEach(paragraph => {
-                const lines = doc.splitTextToSize(paragraph, availableWidth - 2 * conclusionBoxPadding);
-                allLines.push(lines);
-            });
-            const conclusionBoxHeight = allLines.reduce((acc, lines) => acc + lines.length, 0) * lineHeight + 2 * conclusionBoxPadding;
-            drawBox(margin, conclusionBoxY, pageWidth - 2 * margin, conclusionBoxHeight, PDF_STYLES.colors.lightGreen);
-
-            let y = conclusionBoxY + conclusionBoxPadding + 2;
-        doc.setFontSize(11);
-            doc.setTextColor(...PDF_STYLES.colors.grey);
-            allLines.forEach(lines => {
-                lines.forEach((line, idx) => {
-                    let cursorX = margin + conclusionBoxPadding;
-                    const regex = /(\d{4}-\d{2}-\d{2}|\d+%|\d+)/g;
-                    const isLastLine = idx === lines.length - 1;
-                    let lastIndex = 0;
-                    let match;
-                    while ((match = regex.exec(line)) !== null) {
-                        const before = line.substring(lastIndex, match.index);
-                        if (before) {
-                            doc.setFont(undefined, 'normal');
-                            doc.text(before, cursorX, y, { baseline: 'top' });
-                            cursorX += doc.getTextWidth(before);
-                        }
-        doc.setFont(undefined, 'bold');
-                        doc.text(match[0], cursorX, y, { baseline: 'top' });
-                        cursorX += doc.getTextWidth(match[0]);
-                        lastIndex = match.index + match[0].length;
+            conclusionPoints.push("Review compliance trends regularly to identify and address emerging issues");
+            if (avgComplianceRate !== null) {
+                conclusionPoints.push(`Average compliance rate for the period: ${avgComplianceRate}%`);
+            }
+        }
+        
+        // Render the description with spacing
+        const descY = renderJustifiedDescription(doc, conclusionDesc, margin, 40, availableWidth, -8, 1.4);
+        const boxWidth = pageWidth - 2 * margin;
+        const maxBulletWidth = boxWidth - 2 * EXEC_BOX_PADDING;
+        const pointsCount = conclusionPoints.length;
+        const pointsHeight = pointsCount * summaryLineHeight;
+        const boxHeight = pointsHeight + EXEC_BOX_PADDING + (EXEC_BOX_PADDING * 2);
+        const boxY = descY + 0.5;
+        
+        drawBox(doc, margin, boxY, boxWidth, boxHeight, PDF_STYLES.colors.lightGreen);
+        // === Render bullet points inside the green box ===
+        let lineY = boxY + EXEC_BOX_PADDING;
+        conclusionPoints.forEach((point) => {
+            const x = margin + EXEC_BOX_PADDING;
+            const highlights = [
+                { regex: /low/gi, bold: true },
+                { regex: /high/gi, bold: true },
+                { regex: /compliance trends/gi, bold: true },
+                { regex: /\d{4}-\d{2}-\d{2}/g, bold: true },
+                { regex: /\d+[.,]?\d*%/g, bold: true },
+            ];
+            // Additional: Bold category/outlet name in points like 'Focus on improving [X] (currently at ...)' or 'Maintain high performance in [X] (currently at ...)' 
+            const outletCategoryMatch = point.match(/(?:Focus on improving|Maintain high performance in) ([^(]+) \(currently at/);
+            if (outletCategoryMatch) {
+                const name = outletCategoryMatch[1].trim();
+                if (name) {
+                    highlights.push({ regex: new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), bold: true });
+                }
+            }
+            const lines = doc.splitTextToSize(point, maxBulletWidth);
+            lines.forEach((line, lineIdx) => {
+                let cursorX = x;
+                let idx = 0;
+                let matches = [];
+                highlights.forEach(h => {
+                    let m;
+                    while ((m = h.regex.exec(line)) !== null) {
+                        matches.push({ start: m.index, end: m.index + m[0].length, text: m[0], bold: h.bold });
                     }
-                    const after = line.substring(lastIndex);
-                    if (after) {
-        doc.setFont(undefined, 'normal');
-                        doc.text(after, cursorX, y, { baseline: 'top' });
-                    }
-                    y += lineHeight;
                 });
+                matches.sort((a, b) => a.start - b.start);
+                if (lineIdx === 0) {
+                    doc.setFont(undefined, 'normal');
+                    doc.text('• ', cursorX, lineY, { baseline: 'top' });
+                    cursorX += doc.getTextWidth('• ');
+                }
+                for (let m = 0; m < matches.length; m++) {
+                    let match = matches[m];
+                    if (match.start > idx) {
+                        doc.setFont(undefined, 'normal');
+                        let normalText = line.slice(idx, match.start);
+                        doc.text(normalText, cursorX, lineY, { baseline: 'top' });
+                        cursorX += doc.getTextWidth(normalText);
+                    }
+                    doc.setFont(undefined, 'bold');
+                    doc.text(match.text, cursorX, lineY, { baseline: 'top' });
+                    cursorX += doc.getTextWidth(match.text);
+                    idx = match.end;
+                }
+                if (idx < line.length) {
+                    doc.setFont(undefined, 'normal');
+                    let normalText = line.slice(idx);
+                    doc.text(normalText, cursorX, lineY, { baseline: 'top' });
+                }
+                lineY += summaryLineHeight;
             });
-            addPageFooter(doc, 4, pageHeight, margin);
-        }
-
+        });
+        addPageFooter(doc, 4, pageHeight, margin);
+        addPageFooter(doc, 1, pageHeight, margin);
         return doc;
-    } catch (error) {
-        console.error('Error generating audit report PDF:', error);
-        throw error;
-    }
-};
-
-// Add this helper function for the outlet bar chart:
-async function generateOutletBarChartImage(outletRows, width, height, indexAxis = 'y', leftPadding = 100) {
-    // Higher-DPI rendering for maximum clarity
-    const displayWidth = Math.max(width, 400); // Increase width for more space
-    const displayHeight = height;
-    const scale = 3;
-    const canvas = document.createElement('canvas');
-    canvas.width = displayWidth * scale;
-    canvas.height = displayHeight * scale;
-    canvas.style.width = displayWidth + 'px';
-    canvas.style.height = displayHeight + 'px';
-    const ctx = canvas.getContext('2d');
-    ctx.setTransform(scale, 0, 0, scale, 0, 0);
-    if (outletRows.length === 1) {
-        leftPadding = 20;
-    }
-    const labels = outletRows.map(row => row.outletName || '');
-    const data = outletRows.map(row => parseFloat(row.complianceRate) || 0);
-    new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Compliance Rate (%)',
-                data: data,
-                backgroundColor: 'rgba(39, 174, 96, 0.7)',
-                borderColor: '#27ae60',
-                borderWidth: 1,
-                maxBarThickness: 30,
-                barPercentage: 0.5,
-                categoryPercentage: 0.5
-            }]
-        },
-        options: {
-            indexAxis: indexAxis,
-            responsive: false,
-            maintainAspectRatio: false,
-            animation: false,
-            layout: {
-                padding: {
-                    left: leftPadding
-                }
-            },
-            plugins: {
-                legend: { display: false },
-                title: { display: false }
-            },
-            scales: {
-                x: {
-                    beginAtZero: true,
-                    max: 100,
-                    ticks: { stepSize: 20, font: { size: 10, weight: 'bold' }, maxRotation: 0, minRotation: 0 }
-                },
-                y: {
-                    ticks: { font: { size: 10, weight: 'bold' }, maxRotation: 0, minRotation: 0 }
-                }
-            }
         }
-    });
-    return new Promise((resolve, reject) => {
-        try {
-            setTimeout(() => {
-                const imageData = canvas.toDataURL('image/png');
-                resolve(imageData);
-            }, 500);
-        } catch (error) {
-            reject(error);
-        }
-    });
+        return doc;
 }
 
-// Add a helper function generateStandardBarChartImage similar to generateOutletBarChartImage if needed.
-
-// Add this helper function for the standard bar chart:
-async function generateStandardBarChartImage(categoryRows, width, height, indexAxis = 'y', leftPadding = 100, labelField = 'categoryName') {
-    let displayHeight;
-    if (categoryRows.length <= 2) {
-        displayHeight = 100;
-    } else if (categoryRows.length <= 4) {
-        displayHeight = 140;
-    } else {
-        displayHeight = Math.min(200, categoryRows.length * 40);
-    }
-    const displayWidth = Math.max(width, 400);
-    const scale = 3;
-    // Attach canvas to DOM (off-screen)
-    const container = document.createElement('div');
-    container.style.position = 'absolute';
-    container.style.left = '-9999px';
-    document.body.appendChild(container);
-
-    const canvas = document.createElement('canvas');
-    canvas.width = displayWidth * scale;
-    canvas.height = displayHeight * scale;
-    canvas.style.width = displayWidth + 'px';
-    canvas.style.height = displayHeight + 'px';
-    container.appendChild(canvas);
-
-    const ctx = canvas.getContext('2d');
-    ctx.setTransform(scale, 0, 0, scale, 0, 0);
-
-    if (categoryRows.length === 1) leftPadding = 20;
-
-    const labels = categoryRows.map(row => row[labelField] || '');
-    const data = categoryRows.map(row => parseFloat(row.adherenceRate) || 0);
-
-    const chart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Adherence Rate (%)',
-                data: data,
-                backgroundColor: 'rgba(39, 174, 96, 0.7)',
-                borderColor: 'rgba(39, 174, 96, 1)',
-                borderWidth: 1
-            }]
-        },
-        options: {
-            indexAxis: indexAxis,
-            responsive: false,
-            maintainAspectRatio: false,
-            animation: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                x: { beginAtZero: true, max: 100, ticks: { stepSize: 20, font: { size: 10, weight: 'bold' } } },
-                y: { ticks: { font: { size: 10, weight: 'bold' } } }
-            },
-            layout: { padding: { left: leftPadding } },
-            categoryPercentage: 0.7,
-            barPercentage: 0.8
-        }
-    });
-
-    // Wait for Chart.js to finish rendering
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    chart.update();
-
-    const imageData = canvas.toDataURL('image/png');
-    document.body.removeChild(container);
-    return imageData;
+function getReportFileName(reportTitle) {
+    const date = new Date();
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    const dateStr = `${yyyy}${mm}${dd}`;
+    return reportTitle.replace(/\s+/g, '_') + '_' + dateStr + '.pdf';
 }
 
-export default generateAuditReportPDF;
+export { generateAuditReportPDF, getReportFileName };
