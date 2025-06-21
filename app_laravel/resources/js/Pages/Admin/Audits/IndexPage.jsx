@@ -118,6 +118,16 @@ export default function IndexPage({ audits, filters, summaryData, states, compli
                                 >
                                     Audit Reporting
                                 </button>
+                                <button
+                                    onClick={() => setActiveTab('history')}
+                                    className={`${
+                                        activeTab === 'history'
+                                            ? 'border-green-500 text-green-600'
+                                            : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                                    } whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium`}
+                                >
+                                    Audit History
+                                </button>
                             </nav>
                         </div>
                     </div>
@@ -134,6 +144,12 @@ export default function IndexPage({ audits, filters, summaryData, states, compli
                         )}
                         {activeTab === 'forms' && <SubmittedFormsSection onReviewForm={handleFormReview} />}
                         {activeTab === 'reports' && <AuditReportingSection states={states} complianceCategories={complianceCategories} outlets={outlets} managers={managers} />}
+                        {activeTab === 'history' && (
+                            <div className="px-6 py-6">
+                                <h3 className="text-lg font-semibold text-gray-800">Audit History</h3>
+                                <p className="text-gray-600">This is a placeholder for the Audit History tab content.</p>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
