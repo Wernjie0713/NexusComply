@@ -149,8 +149,8 @@ class AuditController extends Controller
                         });
                         break;
                     case 'Specific Standard Adherence Report':
-                        // Filter by standard
-                        $query->whereHas('complianceRequirement', function($q) use ($filter) {
+                        // Filter by category name (not compliance requirement name)
+                        $query->whereHas('complianceRequirement.category', function($q) use ($filter) {
                             $q->where('name', 'LIKE', '%' . $filter . '%');
                         });
                         break;
