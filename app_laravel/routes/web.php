@@ -114,6 +114,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('admin.available-outlets');
 
     // Manager Routes
+    Route::get('/manager/dashboard', [\App\Http\Controllers\Manager\DashboardController::class, 'index'])
+        ->name('manager.dashboard');
     Route::get('/manager/audits', function () {
         return Inertia::render('Manager/Audits/IndexPage');
     })->name('manager.audits');
