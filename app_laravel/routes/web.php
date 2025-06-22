@@ -126,6 +126,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ]);
     })->name('manager.audits.share-form');
 
+    // Audit forms endpoints
+    Route::get('/manager/audits/{auditId}/forms', [AuditController::class, 'getAuditForms']);
+    Route::post('/manager/audits/{auditId}/status', [AuditController::class, 'updateAuditStatus']);
+    Route::get('/manager/audits/{auditId}/details', [AuditController::class, 'getAuditDetails']);
+    Route::get('/manager/forms/{formId}/details', [AuditController::class, 'getAuditFormDetails']);
+    Route::get('/manager/forms/{formId}/issues', [AuditController::class, 'getFormIssues']);
+    Route::post('/manager/forms/{formId}/status', [AuditController::class, 'updateFormStatus']);
+    Route::get('/audits/{auditId}/report-link', [AuditorController::class, 'getAuditReportLink']);
+    Route::get('/auditor/audits/view', [AuditorController::class, 'viewAudit'])
+        ->name('auditor.audits.view');
+    Route::get('/manager/audits/{id}/rejected-forms-check', [AuditController::class, 'checkRejectedForms']);
+    Route::put('/manager/issues/{id}', [AuditController::class, 'updateIssue']);
+    Route::delete('/manager/issues/{id}', [AuditController::class, 'deleteIssue']);
+
     // User Management Routes for Manager
     Route::get('/manager/users', function () {
         return Inertia::render('Manager/Users/IndexPage');
