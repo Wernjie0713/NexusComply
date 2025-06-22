@@ -23,6 +23,9 @@ class DatabaseSeeder extends Seeder
             SectionSeeder::class,
             AbilitySeeder::class,
             DefaultRolePermissionsSeeder::class,
+            FormTemplateSeeder::class,
+            ComplianceRequirementSeeder::class,
+            AuditVersionSeeder::class,
         ]);
     }
 }

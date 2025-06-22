@@ -47,6 +47,11 @@ const StatusBadge = ({ status }) => {
       color: '#FF9800',
       text: 'Rejected',
       icon: 'repeat'
+    },
+    'revising': {
+      color: '#FF9800',
+      text: 'Need Modify',
+      icon: 'repeat'
     }
   };
 
@@ -67,7 +72,14 @@ const AuditListItem = ({ item, onPress }) => (
     onPress={() => onPress(item)}
   >
     <View style={styles.auditContent}>
-      <Text style={styles.auditTitle}>{item.title}</Text>
+      <View style={styles.titleContainer}>
+        <Text style={styles.auditTitle}>{item.title}</Text>
+        {item.version && item.version > 1 && (
+          <View style={styles.versionBadge}>
+            <Text style={styles.versionText}>v{item.version}</Text>
+          </View>
+        )}
+      </View>
       <Text style={styles.auditDate}>
         {item.isDraft ? `Due: ${item.dueDate}` : `Due Date: ${item.dueDate}`}
       </Text>
@@ -218,12 +230,12 @@ export default function AuditsScreen() {
   const renderSection = ({ item }) => (
     <View style={styles.section}>
       <SectionHeader title={item.title} count={item.data.length} />
-      {loading && item.title === 'Active Audits' ? (
+      {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="small" color={PRIMARY_GREEN} />
           <Text style={styles.loadingText}>Loading audits...</Text>
         </View>
-      ) : error && item.title === 'Active Audits' ? (
+      ) : error ? (
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity 
@@ -369,6 +381,23 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333333',
     marginBottom: 4,
+  },
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  versionBadge: {
+    backgroundColor: '#FFEB3B',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginLeft: 8,
+  },
+  versionText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#333333',
   },
   auditDate: {
     fontSize: 14,

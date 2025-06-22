@@ -16,9 +16,6 @@ return new class extends Migration
             $table->string('name');
             $table->json('value')->nullable();
             $table->timestamps();
-
-            $table->unsignedBigInteger('audit_id');
-            $table->foreign('audit_id')->references('id')->on('audit')->onDelete('cascade');
         });
     }
 

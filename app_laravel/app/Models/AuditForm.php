@@ -14,7 +14,6 @@ class AuditForm extends Model
     protected $fillable = [
         'name',
         'value',
-        'audit_id',
         'form_id',
         'status_id'
     ];
@@ -23,13 +22,28 @@ class AuditForm extends Model
         'value' => 'array'
     ];
 
+    public function audits()
+    {
+        return $this->belongsToMany(Audit::class, 'audit_audit_form', 'audit_form_id', 'audit_id');
+    }
+
     public function audit()
     {
-        return $this->belongsTo(Audit::class);
+        return $this->belongsToMany(Audit::class, 'audit_audit_form', 'audit_form_id', 'audit_id')->first();
     }
 
     public function formTemplate()
     {
         return $this->belongsTo(FormTemplate::class, 'form_id');
+    }
+
+    public function status()
+    {
+        return $this->belongsTo(Status::class);
+    }
+
+    public function issues()
+    {
+        return $this->hasMany(Issue::class);
     }
 } 

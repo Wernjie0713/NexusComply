@@ -13,6 +13,7 @@ import { useRouter, useLocalSearchParams, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import ApiClient from '../../../utils/apiClient';
+import { useFocusEffect } from '@react-navigation/native';
 
 // Define our primary green color for consistent use
 const PRIMARY_GREEN = '#4CAF50';
@@ -21,24 +22,24 @@ const PRIMARY_GREEN = '#4CAF50';
 const StatusBadge = ({ status }) => {
   // Define status configurations
   const statusConfig = {
-    completed: { 
+    submitted: { 
       color: PRIMARY_GREEN, 
-      text: 'Completed',
+      text: 'Submitted',
       icon: 'checkmark-circle' 
     },
-    'in-progress': { 
-      color: '#F59E0B', 
-      text: 'In Progress',
-      icon: 'time' 
-    },
-    'not-started': { 
+    draft: { 
       color: '#6B7280', 
-      text: 'Not Started',
+      text: 'Draft',
       icon: 'document' 
+    },
+    rejected: { 
+      color: '#F44336', 
+      text: 'Rejected',
+      icon: 'alert-circle' 
     }
   };
 
-  const config = statusConfig[status] || statusConfig['not-started'];
+  const config = statusConfig[status.name] || statusConfig['draft'];
 
   return (
     <View style={[styles.badgeContainer, { backgroundColor: `${config.color}20` }]}>
@@ -61,8 +62,8 @@ const FormItem = ({ item, auditId, outletId, dueDate, outletName, headerTitle, a
         auditId: auditId,
         auditFormId: item.audit_form_id,
         structure: JSON.stringify(item.structure), 
-        isCreated: item.is_created,
-        value: item.is_created ? JSON.stringify(item.value) : null,
+        isCreated: item.audit_form_id ? true : false,
+        value: item.value ? JSON.stringify(item.value) : null,
         outletId: outletId,
         dueDate: dueDate,
         outletName: outletName,
@@ -82,7 +83,39 @@ const FormItem = ({ item, auditId, outletId, dueDate, outletName, headerTitle, a
           </Text>
         )}
       </View>
-      <StatusBadge status={item.is_created ? 'completed' : 'not-started'} />
+      <StatusBadge status={item.status} />
+    </TouchableOpacity>
+  );
+};
+
+// Version History Item Component
+const VersionHistoryItem = ({ version, currentAuditId, outletName }) => {
+  const router = useRouter();
+
+  if (version.audit_id === currentAuditId) {
+    return null; // Don't show the current version in the history list
+  }
+  
+  const handlePress = () => {
+    router.push({
+      pathname: '/(app)/audits/audit-details',
+      params: { 
+        formId: version.audit_id,
+        headerTitle: version.title,
+        outletId: version.outlet_id,
+        dueDate: version.dueDate,
+        outletName: outletName,
+      }
+    });
+  };
+
+  return (
+    <TouchableOpacity style={styles.versionItem} onPress={handlePress}>
+      <View>
+        <Text style={styles.versionTitle}>{`Version ${version.version}`}</Text>
+        <Text style={styles.versionDate}>{`Status: ${version.status}`}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={20} color="#999999" />
     </TouchableOpacity>
   );
 };
@@ -96,7 +129,11 @@ export default function ViewSubmissionScreen() {
   const [error, setError] = useState(null);
   const [auditData, setAuditData] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [versionHistory, setVersionHistory] = useState([]);
   
+  // Determine if the current audit is the latest version
+  const isLatestVersion = !versionHistory.length || (versionHistory.length > 0 && parseInt(params.formId, 10) === versionHistory[0].audit_id);
+
   // Set dynamic header title from params
   useEffect(() => {
     navigation.setOptions({
@@ -105,38 +142,43 @@ export default function ViewSubmissionScreen() {
   }, [navigation, params.headerTitle]);
 
   // Fetch outlet name and audit forms when component mounts
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        // Fetch outlet data
-        if (params.outletId) {
-          const outletResponse = await ApiClient.get(`/api/mobile/outlets/${params.outletId}`);
-          setOutletName(outletResponse.name);
-        } else {
-          setOutletName('Unknown Outlet');
-        }
-
-        // Fetch audit forms
-        if (params.formId) {
-          const formsResponse = await ApiClient.get(`/api/mobile/audits/${params.formId}/forms`);
-          setAuditData({
-            status: formsResponse.audit.status,
-            forms: formsResponse.forms
-          });
-        }
-        
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching data:', err);
-        setError('Failed to load audit information. Please try again.');
-      } finally {
-        setLoading(false);
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      // Fetch outlet data
+      if (params.outletId) {
+        const outletResponse = await ApiClient.get(`/api/mobile/outlets/${params.outletId}`);
+        setOutletName(outletResponse.name);
+      } else {
+        setOutletName('Unknown Outlet');
       }
-    };
 
-    fetchData();
-  }, [params.outletId, params.formId]);
+      // Fetch audit forms
+      if (params.formId) {
+        const formsResponse = await ApiClient.get(`/api/mobile/audits/${params.formId}/forms`);
+        setAuditData({
+          status: formsResponse.audit.status,
+          forms: formsResponse.forms
+        });
+        if (formsResponse.version_history) {
+          setVersionHistory(formsResponse.version_history);
+        }
+      }
+      
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError('Failed to load audit information. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchData();
+    }, [params.outletId, params.formId])
+  );
 
   const handleSubmit = async () => {
     // Check if all forms are completed
@@ -264,6 +306,21 @@ export default function ViewSubmissionScreen() {
           <Text style={styles.dueDate}>{params.dueDate || 'Not specified'}</Text>
         </View>
         
+        {/* Version History */}
+        {versionHistory && versionHistory.length > 1 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Version History</Text>
+            {versionHistory.map((version) => (
+              <VersionHistoryItem
+                key={version.version}
+                version={version}
+                currentAuditId={parseInt(params.formId, 10)}
+                outletName={outletName}
+              />
+            ))}
+          </View>
+        )}
+        
         {/* Forms List */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Forms</Text>
@@ -283,8 +340,8 @@ export default function ViewSubmissionScreen() {
             <Text style={styles.noFormsText}>No forms available</Text>
           )}
           
-          {/* Delete Button - Only show for draft status */}
-          {auditData?.status === 'draft' && (
+          {/* Delete Button - Only show for latest draft status */}
+          {isLatestVersion && auditData?.status === 'draft' && (
             <TouchableOpacity 
               style={[
                 styles.deleteButton,
@@ -317,8 +374,8 @@ export default function ViewSubmissionScreen() {
             </TouchableOpacity>
           )}
 
-          {/* Submit Button - Only show when not approved or pending */}
-          {auditData?.status !== 'approved' && auditData?.status !== 'pending' && (
+          {/* Submit Button - Only show for latest version and when not approved or pending */}
+          {isLatestVersion && auditData?.status !== 'approved' && auditData?.status !== 'pending' && (
             <TouchableOpacity 
               style={[
                 styles.submitButton,
@@ -484,5 +541,22 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
-  }
+  },
+  versionItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEEEE',
+  },
+  versionTitle: {
+    fontSize: 16,
+    color: '#333333',
+  },
+  versionDate: {
+    fontSize: 14,
+    color: '#666666',
+    marginTop: 4,
+  },
 }); 

@@ -15,11 +15,12 @@ import {
   Linking,
   Share
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import * as DocumentPicker from 'expo-document-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import RNPickerSelect from 'react-native-picker-select';
 import ApiClient from '../../../utils/apiClient';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
@@ -55,6 +56,38 @@ const getMimeType = (fileName) => {
   };
   return mimeTypes[extension] || 'application/octet-stream';
 };
+
+const pickerSelectStyles = StyleSheet.create({
+  inputIOS: {
+    fontSize: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: '#DDDDDD',
+    borderRadius: 8,
+    color: '#333333',
+    paddingRight: 30, // to ensure the text is never behind the icon
+    backgroundColor: '#FFFFFF',
+  },
+  inputAndroid: {
+    fontSize: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#DDDDDD',
+    borderRadius: 8,
+    color: '#333333',
+    paddingRight: 30, // to ensure the text is never behind the icon
+    backgroundColor: '#FFFFFF',
+  },
+  iconContainer: {
+    top: Platform.OS === 'ios' ? 12 : 15,
+    right: 12,
+  },
+  placeholder: {
+    color: '#9EA0A4',
+  },
+});
 
 // Function to handle file upload
 const uploadFile = async (fileUri, fileName, fieldId) => {
@@ -420,30 +453,6 @@ const FormField = ({ field, value, onChange, isReadOnly }) => {
           {field.options.map((option, index) => (
             <TouchableOpacity 
               key={index}
-              style={[styles.optionContainer, isReadOnly && styles.readOnlyOption]}
-              onPress={isReadOnly ? null : () => onChange(option)}
-              disabled={isReadOnly}
-            >
-              <View style={styles.optionIcon}>
-                <Ionicons 
-                  name={value === option ? "radio-button-on" : "radio-button-off"} 
-                  size={24} 
-                  color={isReadOnly ? '#999' : PRIMARY_GREEN}
-                />
-              </View>
-              <Text style={[styles.optionText, isReadOnly && styles.readOnlyText]}>{option}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      );
-    
-    case 'select':
-      return (
-        <View style={styles.fieldContainer}>
-          <Text style={[styles.fieldLabel, isReadOnly && styles.readOnlyText]}>{field.label}{field.required && <Text style={styles.required}> *</Text>}</Text>
-          {field.options.map((option, index) => (
-            <TouchableOpacity 
-              key={index}
               style={[
                 styles.selectOption,
                 value === option && styles.selectOptionSelected,
@@ -461,6 +470,39 @@ const FormField = ({ field, value, onChange, isReadOnly }) => {
               ]}>{option}</Text>
             </TouchableOpacity>
           ))}
+        </View>
+      );
+    
+    case 'select':
+      return (
+        <View style={styles.fieldContainer}>
+          <Text style={[styles.fieldLabel, isReadOnly && styles.readOnlyText]}>{field.label}{field.required && <Text style={styles.required}> *</Text>}</Text>
+          <RNPickerSelect
+              onValueChange={(itemValue) => onChange(itemValue)}
+              items={field.options.map(option => ({ label: option, value: option }))}
+              value={value}
+              style={{
+                  ...pickerSelectStyles,
+                  inputIOS: [
+                      pickerSelectStyles.inputIOS,
+                      isReadOnly && styles.readOnlyInput,
+                  ],
+                  inputAndroid: [
+                      pickerSelectStyles.inputAndroid,
+                      isReadOnly && styles.readOnlyInput,
+                  ],
+                  iconContainer: {
+                      ...pickerSelectStyles.iconContainer,
+                      display: isReadOnly ? 'none' : 'flex',
+                  },
+              }}
+              disabled={isReadOnly}
+              useNativeAndroidPickerStyle={false}
+              placeholder={{ label: field.placeholder || 'Select an option...', value: null }}
+              Icon={() => {
+                  return <Ionicons name="chevron-down" size={24} color="#999" />;
+              }}
+          />
         </View>
       );
     
@@ -611,17 +653,111 @@ const FormField = ({ field, value, onChange, isReadOnly }) => {
   }
 };
 
+// Issue Alert Component
+const IssueAlert = ({ issue, correctiveAction, onCorrectiveActionChange, isReadOnly }) => {
+  if (!issue) return null;
+
+  // Updated severity colors
+  const severityColors = {
+    'Critical': '#E53935', // Softer red
+    'High': '#FB8C00',     // Orange
+    'Medium': '#FDD835',   // Yellow
+    'Low': '#43A047',      // Green (not used but for future)
+  };
+
+  // Icon colors for contrast
+  const iconColors = {
+    'Critical': '#E53935',
+    'High': '#FB8C00',
+    'Medium': '#FDD835',
+    'Low': '#43A047',
+  };
+
+  // Backgrounds are now lighter for less harshness
+  const backgroundColor = `${severityColors[issue.severity] || '#E0E0E0'}20`;
+  const borderColor = severityColors[issue.severity] || '#BDBDBD';
+  const iconColor = iconColors[issue.severity] || '#757575';
+
+  return (
+    <View style={[styles.issueContainer, { backgroundColor, borderColor }]}> 
+      <View style={styles.issueHeaderRow}>
+        <Ionicons name="alert-circle" size={20} color={iconColor} style={{ marginRight: 8 }} />
+        <Text style={[styles.issueSeverity, { color: iconColor }]}>{issue.severity}</Text>
+        <Text style={styles.issueDescription} numberOfLines={2} ellipsizeMode="tail">{issue.description}</Text>
+        {issue.due_date && (
+          <Text style={styles.issueDueDate}>Due: {new Date(issue.due_date).toLocaleDateString()}</Text>
+        )}
+      </View>
+      {!isReadOnly && (
+        <View style={styles.correctiveActionContainerCompact}>
+          <TextInput
+            style={styles.correctiveActionInputLarge}
+            placeholder="Corrective Action..."
+            value={correctiveAction}
+            onChangeText={onCorrectiveActionChange}
+            multiline
+            numberOfLines={4}
+            maxLength={400}
+          />
+        </View>
+      )}
+    </View>
+  );
+};
+
 export default function AuditFormDetailsScreen() {
   const params = useLocalSearchParams();
   const router = useRouter();
+  const navigation = useNavigation();
+  const [issues, setIssues] = useState([]);
+  const [correctiveActions, setCorrectiveActions] = useState({});
   
   console.log('Raw params:', params);
   console.log('Structure type:', typeof params.structure);
   console.log('Is array?', Array.isArray(params.structure));
   
   // Check if form should be read-only based on status - moved after getting params
-  const isReadOnly = params.status && !['draft', 'rejected'].includes(params.status.toLowerCase());
+  const isReadOnly = params.status && !['draft', 'rejected', 'revising'].includes(params.status.toLowerCase());
   
+  // Fetch issue data if status is revising
+  useEffect(() => {
+    const fetchIssues = async () => {
+      if (params.status?.toLowerCase() === 'revising' && params.auditFormId) {
+        try {
+          const response = await ApiClient.get(`/api/mobile/audit-forms/${params.auditFormId}/issue`);
+          if (response.issues) {
+            setIssues(response.issues);
+            const initialActions = {};
+            response.issues.forEach(issue => {
+              if (issue.corrective_action) {
+                initialActions[issue.id] = issue.corrective_action;
+              }
+            });
+            setCorrectiveActions(initialActions);
+          }
+        } catch (error) {
+          console.error('Error fetching issue:', error);
+          Alert.alert(
+            'Error',
+            'Failed to fetch issue details. Please try again.',
+            [{ text: 'OK' }]
+          );
+        }
+      }
+    };
+
+    fetchIssues();
+  }, [params.status, params.auditFormId]);
+
+  // Set dynamic header title to the form name
+  useEffect(() => {
+    if (params.formName) {
+      navigation.setOptions({
+        headerTitle: params.formName,
+      });
+    }
+  }, [navigation, params.formName]);
+
   // Form fields from URL params - handle both string and direct object cases
   let formFields = [];
   if (params.structure) {
@@ -680,6 +816,13 @@ export default function AuditFormDetailsScreen() {
     }));
   };
 
+  const handleCorrectiveActionChange = (issueId, value) => {
+    setCorrectiveActions(prev => ({
+      ...prev,
+      [issueId]: value
+    }));
+  };
+
   const handleSave = async () => {
     // Validate required fields
     const missingRequiredFields = formFields
@@ -693,6 +836,18 @@ export default function AuditFormDetailsScreen() {
         [{ text: 'OK' }]
       );
       return;
+    }
+
+    if (issues.length > 0) {
+      const issuesWithoutAction = issues.filter(issue => !correctiveActions[issue.id]);
+      if (issuesWithoutAction.length > 0) {
+        Alert.alert(
+          'Corrective Action Required',
+          'Please describe the corrective action taken for all issues.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
     }
 
     // Single confirmation
@@ -747,12 +902,18 @@ export default function AuditFormDetailsScreen() {
                 }
               }
 
+              const corrective_actions = issues.map(issue => ({
+                issue_id: issue.id,
+                action: correctiveActions[issue.id]
+              }));
+
               // Add debug logging
               console.log('Submitting form with processed data:', {
                 audit_id: params.auditId,
                 form_id: params.formId,
                 name: params.formName,
-                processedFormValues
+                processedFormValues,
+                corrective_actions,
               });
 
               // Submit the form with processed values
@@ -760,7 +921,8 @@ export default function AuditFormDetailsScreen() {
                 audit_id: params.auditId,
                 form_id: params.formId,
                 name: params.formName,
-                value: processedFormValues
+                value: processedFormValues,
+                corrective_actions: corrective_actions
               });
 
               // If we reach here, it means the API call was successful
@@ -771,16 +933,7 @@ export default function AuditFormDetailsScreen() {
                   text: 'OK',
                   onPress: () => {
                     // Replace current route with audit-details to refresh the page
-                    router.replace({
-                      pathname: '/(app)/audits/audit-details',
-                      params: {
-                        formId: params.auditId,
-                        outletId: params.outletId,
-                        headerTitle: params.originalTitle,
-                        dueDate: params.dueDate,
-                        outletName: params.outletName
-                      }
-                    });
+                    router.back();
                   }
                 }]
               );
@@ -800,13 +953,22 @@ export default function AuditFormDetailsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       
       <ScrollView style={styles.scrollView}>
-        <View style={styles.header}>
-          <Text style={styles.formName}>{params.formName || 'Audit Form'}</Text>
-        </View>
-
+        {/* Display issue alert if status is revising */}
+        {params.status?.toLowerCase() === 'revising' && issues.length > 0 && (
+          issues.map(issue => (
+            <IssueAlert
+              key={issue.id}
+              issue={issue}
+              correctiveAction={correctiveActions[issue.id] || ''}
+              onCorrectiveActionChange={(text) => handleCorrectiveActionChange(issue.id, text)}
+              isReadOnly={isReadOnly}
+            />
+          ))
+        )}
+        
         <View style={styles.formContainer}>
           {sortedFields.map((field) => (
             <FormField
@@ -817,17 +979,18 @@ export default function AuditFormDetailsScreen() {
               isReadOnly={isReadOnly}
             />
           ))}
+
+          {/* Save button */}
+          {!isReadOnly && (
+            <TouchableOpacity
+              style={styles.saveButton}
+              onPress={handleSave}
+            >
+              <Text style={styles.saveButtonText}>Submit Form</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
-
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity 
-          style={styles.saveButton}
-          onPress={handleSave}
-        >
-          <Text style={styles.saveButtonText}>Submit Form</Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }
@@ -850,6 +1013,57 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333333',
     marginBottom: 4,
+  },
+  issueContainer: {
+    marginHorizontal: 12,
+    marginTop: 12,
+    marginBottom: 0,
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    flexDirection: 'column',
+    minHeight: 0,
+  },
+  issueHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  issueSeverity: {
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginRight: 8,
+  },
+  issueDescription: {
+    flex: 1,
+    fontSize: 13,
+    color: '#333',
+    marginRight: 8,
+  },
+  issueDueDate: {
+    fontSize: 12,
+    color: '#757575',
+    fontStyle: 'italic',
+  },
+  correctiveActionContainerCompact: {
+    marginTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#EEEEEE',
+    paddingTop: 6,
+  },
+  correctiveActionInputLarge: {
+    backgroundColor: '#FAFAFA',
+    borderRadius: 4,
+    padding: 12,
+    color: '#333',
+    fontSize: 15,
+    minHeight: 80,
+    maxHeight: 140,
+    textAlignVertical: 'top',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    marginTop: 2,
   },
   formContainer: {
     padding: 16,
@@ -976,6 +1190,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: 'center',
+    marginTop: 24,
   },
   saveButtonText: {
     color: '#FFFFFF',
