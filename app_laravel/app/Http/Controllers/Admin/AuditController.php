@@ -11,6 +11,8 @@ use App\Models\User;
 use App\Models\ComplianceRequirement;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class AuditController extends Controller
 {
@@ -41,13 +43,13 @@ class AuditController extends Controller
 
         // Calculate summary data
         $summaryData = [
-            'totalActive' => Audit::whereHas('status', function($q) {
+            'totalActive' => Audit::whereHas('status', function ($q) {
                 $q->whereIn('name', ['draft', 'pending']);
             })->count(),
-            'pendingReview' => Audit::whereHas('status', function($q) {
+            'pendingReview' => Audit::whereHas('status', function ($q) {
                 $q->where('name', 'pending');
             })->count(),
-            'overdueTasks' => Audit::whereHas('status', function($q) {
+            'overdueTasks' => Audit::whereHas('status', function ($q) {
                 $q->whereIn('name', ['draft', 'pending']);
             })->where('due_date', '<', now())->count(),
         ];
@@ -58,7 +60,7 @@ class AuditController extends Controller
                 $q->where('name', $request->statusFilter);
             });
         }
-        
+
         $audits = $query->orderBy('start_time', 'desc')
             ->paginate($request->input('per_page', 5))
             ->withQueryString();
@@ -70,6 +72,139 @@ class AuditController extends Controller
             }
             return $audit;
         });
+
+        // --- Audit History Data ---
+        $auditChains = DB::table('audit_version')
+            ->select('first_audit_id', DB::raw('COUNT(*) as num_versions'))
+            ->groupBy('first_audit_id')
+            ->get()
+            ->keyBy('first_audit_id');
+
+        $auditsForHistory = Audit::with(['outlet', 'user', 'status', 'complianceRequirement'])
+            ->whereIn('id', $auditChains->keys())
+            ->get()
+            ->keyBy('id');
+
+        $auditHistory = $auditChains->map(function ($chain, $firstAuditId) use ($auditsForHistory) {
+            $originalAudit = $auditsForHistory[$firstAuditId] ?? null;
+            if (!$originalAudit) return null;
+
+            $versionsMeta = DB::table('audit_version')
+                ->where('first_audit_id', $firstAuditId)
+                ->orderBy('audit_version')
+                ->get()
+                ->keyBy('audit_id');
+
+            $versions = $versionsMeta->keys();
+
+            $versionAudits = Audit::with(['status', 'user'])
+                ->whereIn('id', $versions)
+                ->get()
+                ->sortBy(function ($audit) use ($versions) {
+                    return array_search($audit->id, $versions->toArray());
+                })
+                ->values();
+
+            $versionDetails = $versionAudits->map(function ($audit) use ($versionsMeta) {
+                $meta = $versionsMeta[$audit->id] ?? null;
+
+                // Find review/action log (if any)
+                $reviewLog = \App\Models\ActivityLog::where('target_type', 'audit')
+                    ->where('action_type', 'review')
+                    ->where('details', 'like', '%"audit_id":' . $audit->id . '%')
+                    ->orderByDesc('created_at')
+                    ->first();
+
+                // Find rejection reason (if rejected)
+                $rejectionReason = null;
+                if ($audit->status && strtolower($audit->status->name) === 'rejected') {
+                    // Get all audit_form_ids for this audit from the pivot table
+                    $auditFormIds = DB::table('audit_audit_form')
+                        ->where('audit_id', $audit->id)
+                        ->pluck('audit_form_id');
+
+                    // Get the first rejection reason (if any) for these forms
+                    $rejectionReason = DB::table('issue')
+                        ->whereIn('audit_form_id', $auditFormIds)
+                        ->value('description');
+                }
+
+                // Find issues for this version (if rejected)
+                $issuesCount = 0;
+                $issuesArr = [];
+                if ($audit->status && strtolower($audit->status->name) === 'rejected') {
+                    $auditFormIds = DB::table('audit_audit_form')
+                        ->where('audit_id', $audit->id)
+                        ->pluck('audit_form_id');
+                    $issuesArr = DB::table('issue')
+                        ->whereIn('audit_form_id', $auditFormIds)
+                        ->select('description', 'severity')
+                        ->get();
+                    $issuesCount = $issuesArr->count();
+                }
+
+                // Fetch all audit_form records for this audit version
+                $auditFormIds = DB::table('audit_audit_form')
+                    ->where('audit_id', $audit->id)
+                    ->pluck('audit_form_id');
+                $forms = DB::table('audit_form')
+                    ->whereIn('id', $auditFormIds)
+                    ->get(['id', 'name', 'value', 'form_id']);
+
+                // For each form, fetch the structure from form_templates
+                $forms = $forms->map(function ($form) {
+                    $structure = DB::table('form_templates')
+                        ->where('id', $form->form_id)
+                        ->value('structure');
+                    return [
+                        'id' => $form->id,
+                        'name' => $form->name,
+                        'form_id' => $form->form_id,
+                        'value' => is_string($form->value) ? json_decode($form->value, true) : $form->value,
+                        'structure' => is_string($structure) ? json_decode($structure, true) : $structure,
+                    ];
+                });
+
+                return [
+                    'audit_version' => $meta->audit_version ?? null,
+                    'audit_id' => $audit->id,
+                    'submitted_by' => $audit->user->name ?? '',
+                    'submission_date' => $audit->start_time ?? $audit->created_at,
+                    'status' => $audit->status->name ?? '',
+                    'reviewed_by' => $reviewLog ? optional($reviewLog->user)->name : null,
+                    'action_date' => $reviewLog ? $reviewLog->created_at : null,
+                    'rejection_reason' => $rejectionReason,
+                    'issues_count' => $issuesCount,
+                    'issues' => $issuesArr,
+                    'forms' => $forms,
+                ];
+            });
+
+            $latestAudit = $versionAudits->last();
+
+            return [
+                'original_audit_id' => $originalAudit->id,
+                'compliance_requirement' => $originalAudit->complianceRequirement->title ?? '',
+                'outlet_name' => $originalAudit->outlet->name ?? '',
+                'initiated_by' => $originalAudit->user->name ?? '',
+                'initiated_date' => $originalAudit->start_time ?? $originalAudit->created_at,
+                'num_versions' => $chain->num_versions,
+                'current_status' => $latestAudit->status->name ?? '',
+                'last_action_date' => $latestAudit->updated_at ?? $latestAudit->created_at,
+                'versions' => $versionDetails,
+            ];
+        })->filter()->values();
+
+        // PAGINATE THE AUDIT HISTORY
+        $page = $request->input('page', 1);
+        $perPage = $request->input('per_page', 5);
+        $paginatedAuditHistory = new LengthAwarePaginator(
+            $auditHistory->forPage($page, $perPage)->values(),
+            $auditHistory->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
 
         return Inertia::render('Admin/Audits/IndexPage', [
             'audits' => $audits,
@@ -91,6 +226,7 @@ class AuditController extends Controller
                 ->select('id', 'name', 'email', 'role_id')
                 ->orderBy('name')
                 ->get(),
+            'auditHistory' => $paginatedAuditHistory,
         ]);
     }
 
@@ -109,7 +245,7 @@ class AuditController extends Controller
                 'session_id' => session()->getId(),
                 'csrf_token' => $request->header('X-CSRF-TOKEN') ? 'present' : 'missing'
             ]);
-            
+
             // Validate required fields
             $request->validate([
                 'reportType' => 'required|string',
@@ -117,7 +253,7 @@ class AuditController extends Controller
                 'endDate' => 'required|date|after_or_equal:startDate',
                 'filter' => 'nullable|string'
             ]);
-            
+
             $startDate = Carbon::parse($request->input('startDate', now()->subDays(30)->format('Y-m-d')))->startOfDay();
             $endDate = Carbon::parse($request->input('endDate', now()->format('Y-m-d')))->endOfDay();
             $reportType = $request->input('reportType');
@@ -132,25 +268,25 @@ class AuditController extends Controller
                 switch ($reportType) {
                     case 'Overall Compliance Trends Report':
                         // Filter by state
-                        $query->whereHas('outlet', function($q) use ($filter) {
+                        $query->whereHas('outlet', function ($q) use ($filter) {
                             $q->where('state', 'LIKE', '%' . $filter . '%');
                         });
                         break;
                     case 'Manager Audit Performance Report':
                         // Filter by manager
-                        $query->whereHas('user', function($q) use ($filter) {
+                        $query->whereHas('user', function ($q) use ($filter) {
                             $q->where('name', 'LIKE', '%' . $filter . '%');
                         });
                         break;
                     case 'Outlet Non-Compliance Summary':
                         // Filter by outlet
-                        $query->whereHas('outlet', function($q) use ($filter) {
+                        $query->whereHas('outlet', function ($q) use ($filter) {
                             $q->where('name', 'LIKE', '%' . $filter . '%');
                         });
                         break;
                     case 'Specific Standard Adherence Report':
                         // Filter by category name (not compliance requirement name)
-                        $query->whereHas('complianceRequirement.category', function($q) use ($filter) {
+                        $query->whereHas('complianceRequirement.category', function ($q) use ($filter) {
                             $q->where('name', 'LIKE', '%' . $filter . '%');
                         });
                         break;
@@ -213,7 +349,7 @@ class AuditController extends Controller
                 'totalAudits' => $audits->count(),
                 'completedAudits' => $audits->where('status.name', 'completed')->count(),
                 'pendingAudits' => $audits->where('status.name', 'pending')->count(),
-                'complianceRate' => $audits->count() > 0 ? 
+                'complianceRate' => $audits->count() > 0 ?
                     round(($audits->where('status.name', 'completed')->count() / $audits->count()) * 100, 1) : 0
             ];
 
@@ -304,13 +440,12 @@ class AuditController extends Controller
             ];
 
             return response()->json($formattedData);
-
         } catch (\Exception $e) {
             Log::error('Audit Report Generation Error: ' . $e->getMessage(), [
                 'exception' => $e,
                 'trace' => $e->getTraceAsString()
             ]);
-            
+
             return response()->json([
                 'error' => 'Failed to generate audit report. Please try again.'
             ], 500);
@@ -327,8 +462,8 @@ class AuditController extends Controller
         }
 
         $startDate = \Carbon\Carbon::parse($startDate);
-        
-        return match($frequency) {
+
+        return match ($frequency) {
             'Daily' => $startDate->copy()->endOfDay(),
             'Weekly' => $startDate->copy()->endOfWeek(),
             'Monthly' => $startDate->copy()->endOfMonth(),
@@ -338,4 +473,4 @@ class AuditController extends Controller
             default => $startDate->copy()->endOfMonth(),
         };
     }
-} 
+}
