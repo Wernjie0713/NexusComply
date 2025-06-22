@@ -79,4 +79,5 @@ Route::prefix('mobile')->group(function () {
 // Mobile Compliance Form routes
 Route::get('/mobile/compliance-forms', [MobileComplianceFormController::class, 'index']);
 Route::get('/mobile/audits/{auditId}/forms', [MobileComplianceFormController::class, 'getAuditForms']);
+Route::get('/mobile/audit-forms/{auditFormId}/issue', [MobileComplianceFormController::class, 'getAuditFormIssue']);
 Route::post('/mobile/audits/upload-file', [MobileAuditController::class, 'uploadFile']);

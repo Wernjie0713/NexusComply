@@ -65,48 +65,83 @@ class MobileAuditController extends Controller
     public function getUserAudits(Request $request)
     {
         try {
-            $audits = Audit::with(['status', 'complianceRequirement', 'outlet.manager'])
+            // Get all audits for the user
+            $allAudits = Audit::with(['status', 'complianceRequirement', 'outlet.manager'])
                 ->where('user_id', Auth::id())
                 ->orderBy('created_at', 'desc')
-                ->get()
-                ->map(function ($audit) {
-                    try {
-                        $outletData = $audit->outlet ? [
-                            'outlet_id' => $audit->outlet->id,
-                            'outlet_name' => $audit->outlet->name,
-                            'manager_name' => $audit->outlet->manager ? $audit->outlet->manager->name : 'No Manager Assigned'
-                        ] : [
-                            'outlet_id' => null,
-                            'outlet_name' => 'Unknown Outlet',
-                            'manager_name' => 'No Manager Assigned'
-                        ];
+                ->get();
 
-                        // Calculate due date based on frequency using start_time
-                        $dueDate = $this->calculateDueDate($audit->start_time, $audit->complianceRequirement->frequency);
+            // Process audits to show latest versions
+            $processedAudits = [];
+            $processedFirstAuditIds = [];
 
-                        return array_merge([
-                            'id' => $audit->id,
-                            'title' => $audit->complianceRequirement->title,
-                            'dueDate' => $dueDate->format('Y-m-d'),
-                            'status' => $audit->status->name,
-                            'isDraft' => $audit->status->name === 'In Progress',
-                            'type' => 'active'
-                        ], $outletData);
-                    } catch (\Exception $e) {
-                        \Log::error('Error processing audit ' . $audit->id . ': ' . $e->getMessage());
-                        return [
-                            'id' => $audit->id,
-                            'title' => $audit->complianceRequirement->title ?? 'Unknown Title',
-                            'dueDate' => now()->format('Y-m-d'),
-                            'status' => $audit->status->name ?? 'Unknown Status',
-                            'isDraft' => false,
-                            'type' => 'active',
-                            'outlet_id' => null,
-                            'outlet_name' => 'Error Loading Outlet',
-                            'manager_name' => 'Error Loading Manager'
-                        ];
+            foreach ($allAudits as $audit) {
+                // Check if this audit has versions
+                if ($audit->hasVersions()) {
+                    // Get the latest version
+                    $latestVersion = $audit->getLatestVersion();
+                    
+                    // Only process if we haven't already processed this first_audit_id
+                    if (!in_array($audit->id, $processedFirstAuditIds)) {
+                        $processedAudits[] = $latestVersion;
+                        $processedFirstAuditIds[] = $audit->id;
                     }
-                });
+                } else {
+                    // Check if this audit is part of a version chain (not the first audit)
+                    $isPartOfVersion = \App\Models\AuditVersion::where('audit_id', $audit->id)->exists();
+                    
+                    if (!$isPartOfVersion) {
+                        // This is a standalone audit or first audit without versions
+                        $processedAudits[] = $audit;
+                    }
+                }
+            }
+
+            // Map the processed audits to the response format
+            $audits = collect($processedAudits)->map(function ($audit) {
+                try {
+                    $outletData = $audit->outlet ? [
+                        'outlet_id' => $audit->outlet->id,
+                        'outlet_name' => $audit->outlet->name,
+                        'manager_name' => $audit->outlet->manager ? $audit->outlet->manager->name : 'No Manager Assigned'
+                    ] : [
+                        'outlet_id' => null,
+                        'outlet_name' => 'Unknown Outlet',
+                        'manager_name' => 'No Manager Assigned'
+                    ];
+
+                    // Calculate due date based on frequency using start_time
+                    $dueDate = $this->calculateDueDate($audit->start_time, $audit->complianceRequirement->frequency);
+
+                    return array_merge([
+                        'id' => $audit->id,
+                        'title' => $audit->complianceRequirement->title,
+                        'dueDate' => $dueDate->format('Y-m-d'),
+                        'status' => $audit->status->name,
+                        'isDraft' => $audit->status->name === 'In Progress',
+                        'type' => 'active',
+                        'version' => $audit->getVersionNumber(),
+                        'updated_at' => $audit->updated_at->getTimestamp(),
+                        'is_latest' => true,
+                    ], $outletData);
+                } catch (\Exception $e) {
+                    \Log::error('Error processing audit ' . $audit->id . ': ' . $e->getMessage());
+                    return [
+                        'id' => $audit->id,
+                        'title' => $audit->complianceRequirement->title ?? 'Unknown Title',
+                        'dueDate' => now()->format('Y-m-d'),
+                        'status' => $audit->status->name ?? 'Unknown Status',
+                        'isDraft' => false,
+                        'type' => 'active',
+                        'outlet_id' => null,
+                        'outlet_name' => 'Error Loading Outlet',
+                        'manager_name' => 'Error Loading Manager',
+                        'version' => 1,
+                        'updated_at' => $audit->updated_at ? $audit->updated_at->getTimestamp() : now()->getTimestamp(),
+                        'is_latest' => true,
+                    ];
+                }
+            });
 
             return response()->json($audits);
         } catch (\Exception $e) {
@@ -181,66 +216,91 @@ class MobileAuditController extends Controller
     public function submitForm(Request $request)
     {
         // Add debug logging
-        \Log::info('Form submission received:', [
-            'audit_id' => $request->audit_id,
-            'form_id' => $request->form_id,
-            'name' => $request->name,
-            'value' => $request->value
-        ]);
+        \Log::info('Form submission received:', $request->all());
 
         $request->validate([
             'audit_id' => 'required|exists:audit,id',
             'form_id' => 'required|exists:form_templates,id',
             'name' => 'required|string',
-            'value' => 'required|array'
+            'value' => 'required|array',
+            'corrective_actions' => 'nullable|array',
+            'corrective_actions.*.issue_id' => 'required_with:corrective_actions|exists:issue,id',
+            'corrective_actions.*.action' => 'required_with:corrective_actions|string|min:1',
         ]);
 
         try {
+            DB::beginTransaction();
+
             // Check if an audit form already exists for this audit and form
-            $existingForm = AuditForm::where('audit_id', $request->audit_id)
-                ->where('form_id', $request->form_id)
+            $existingForm = DB::table('audit_audit_form')
+                ->join('audit_form', 'audit_audit_form.audit_form_id', '=', 'audit_form.id')
+                ->where('audit_audit_form.audit_id', $request->audit_id)
+                ->where('audit_form.form_id', $request->form_id)
+                ->select('audit_form.*')
                 ->first();
+
+            $statusSubmittedId = DB::table('status')->where('name', 'submitted')->value('id');
+            if (!$statusSubmittedId) {
+                // Fallback or handle error if 'submitted' status is not found
+                $statusSubmittedId = 2; // Assuming 2 is a safe default for 'submitted'
+            }
 
             if ($existingForm) {
                 // Update existing form
-                $existingForm->update([
+                AuditForm::where('id', $existingForm->id)->update([
                     'name' => $request->name,
-                    'value' => $request->value,
-                    'status_id' => 1 // Default status (e.g., "In Progress")
+                    'value' => json_encode($request->value),
+                    'status_id' => $statusSubmittedId
                 ]);
                 
-                $auditForm = $existingForm;
+                $auditForm = AuditForm::find($existingForm->id);
                 $message = 'Form updated successfully';
             } else {
                 // Create new form
                 $auditForm = AuditForm::create([
-                    'audit_id' => $request->audit_id, // Keep this for backward compatibility
                     'form_id' => $request->form_id,
                     'name' => $request->name,
-                    'value' => $request->value,
-                    'status_id' => 1 // Default status (e.g., "In Progress")
+                    'value' => json_encode($request->value),
+                    'status_id' => $statusSubmittedId
                 ]);
 
-                // Create the many-to-many relationship record
+                // Link the new form to the audit
                 DB::table('audit_audit_form')->insert([
                     'audit_id' => $request->audit_id,
-                    'audit_form_id' => $auditForm->id,
-                    'created_at' => now(),
-                    'updated_at' => now()
+                    'audit_form_id' => $auditForm->id
                 ]);
-                
+
                 $message = 'Form submitted successfully';
             }
 
-            // Update audit progress
+            // Handle corrective actions
+            if ($request->filled('corrective_actions')) {
+                $statusSubmittedId = 2; // Per instruction, using ID 2.
+
+                foreach ($request->corrective_actions as $correction) {
+                    DB::table('corrective_actions')->updateOrInsert(
+                        ['issue_id' => $correction['issue_id']],
+                        [
+                            'description' => $correction['action'],
+                            'completion_date' => now(),
+                            'status_id' => $statusSubmittedId,
+                            'updated_at' => now(),
+                        ]
+                    );
+                }
+            }
+
+            // Update the overall audit progress
             $this->updateAuditProgress($request->audit_id);
+
+            DB::commit();
 
             return response()->json([
                 'message' => $message,
                 'audit_form' => $auditForm
-            ], 201);
+            ]);
         } catch (\Exception $e) {
-            \Log::error('Failed to submit form: ' . $e->getMessage());
+            DB::rollBack();
             return response()->json([
                 'message' => 'Failed to submit form',
                 'error' => $e->getMessage()
@@ -261,7 +321,11 @@ class MobileAuditController extends Controller
             $totalForms = $audit->complianceRequirement->formTemplates->count();
             
             if ($totalForms > 0) {
-                $completedForms = AuditForm::where('audit_id', $auditId)->count();
+                // Count completed forms using the many-to-many relationship
+                $completedForms = DB::table('audit_audit_form')
+                    ->where('audit_id', $auditId)
+                    ->count();
+                
                 $progress = ($completedForms / $totalForms) * 100;
                 
                 $audit->update([
@@ -380,8 +444,13 @@ class MobileAuditController extends Controller
                 ], 403);
             }
 
-            // Delete associated audit forms first
-            $audit->auditForms()->delete();
+            // Delete associated audit forms using the many-to-many relationship
+            $auditFormIds = DB::table('audit_audit_form')
+                ->where('audit_id', $id)
+                ->pluck('audit_form_id');
+            
+            // Delete the audit forms
+            AuditForm::whereIn('id', $auditFormIds)->delete();
             
             // Delete the audit
             $audit->delete();
@@ -411,7 +480,9 @@ class MobileAuditController extends Controller
             
             // Check if all forms are completed
             $totalForms = $audit->complianceRequirement->formTemplates->count();
-            $completedForms = AuditForm::where('audit_id', $id)->count();
+            $completedForms = DB::table('audit_audit_form')
+                ->where('audit_id', $id)
+                ->count();
             
             if ($completedForms < $totalForms) {
                 return response()->json([

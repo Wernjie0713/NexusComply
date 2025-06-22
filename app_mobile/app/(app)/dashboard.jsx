@@ -75,18 +75,26 @@ const SummaryCard = ({ title, value, iconName, color, onPress }) => (
 );
 
 // Activity Item Component
-const ActivityItem = ({ item, onPress }) => (
-  <TouchableOpacity 
-    style={styles.auditItem}
-    onPress={onPress}
-  >
-    <View style={styles.auditItemContent}>
-      <Text style={styles.auditName}>{item.title}</Text>
-      <Text style={styles.auditDate}>{item.displayTime}</Text>
-      <StatusBadge status={item.status} />
-    </View>
-  </TouchableOpacity>
-);
+const ActivityItem = ({ item, onPress }) => {
+  const displayDate = item.updated_at 
+    ? new Date(item.updated_at * 1000).toLocaleDateString() 
+    : 'N/A';
+
+  return (
+    <TouchableOpacity 
+      style={styles.auditItem}
+      onPress={() => onPress(item)}
+    >
+      <View style={styles.auditItemContent}>
+        <Text style={styles.auditName}>{item.title}</Text>
+        <Text style={styles.auditDate}>
+          Last updated: {displayDate}
+        </Text>
+        <StatusBadge status={item.status} />
+      </View>
+    </TouchableOpacity>
+  );
+};
 
 // Task Item Component
 const TaskItem = ({ item, onPress }) => (
@@ -130,8 +138,25 @@ export default function DashboardScreen() {
     const fetchDashboardData = async () => {
       try {
         setIsLoading(true);
-        const data = await ApiClient.get('/api/mobile/dashboard');
-        setDashboardData(data);
+        const dashboardPromise = ApiClient.get('/api/mobile/dashboard');
+        const auditsPromise = ApiClient.get('/api/mobile/audits');
+
+        const [dashboardResult, auditsResult] = await Promise.all([
+          dashboardPromise,
+          auditsPromise,
+        ]);
+
+        const sortedAudits = auditsResult.sort((a, b) => {
+          const dateA = a.updated_at ? new Date(a.updated_at * 1000) : 0;
+          const dateB = b.updated_at ? new Date(b.updated_at * 1000) : 0;
+          return dateB - dateA;
+        });
+        const recentActivity = sortedAudits.slice(0, 3);
+
+        setDashboardData({
+          ...dashboardResult,
+          recentActivity,
+        });
         setError(null);
       } catch (err) {
         console.error('Failed to fetch dashboard data:', err);
@@ -144,8 +169,18 @@ export default function DashboardScreen() {
     fetchDashboardData();
   }, []);
 
-  const handleViewTaskDetails = (item) => {
-    Alert.alert('View Task', `View details for ${item.title} - To be implemented`);
+  const handleActivityItemPress = (item) => {
+    router.push({
+      pathname: '/(app)/audits/audit-details',
+      params: { 
+        formName: item.title,
+        formId: item.id,
+        headerTitle: item.title,
+        outletId: item.outlet_id,
+        dueDate: item.dueDate,
+        status: item.status
+      }
+    });
   };
 
   const handleStartNewAudit = () => {
@@ -214,7 +249,7 @@ export default function DashboardScreen() {
                 <ActivityItem 
                   key={index} 
                   item={activity} 
-                  onPress={() => handleViewTaskDetails(activity)}
+                  onPress={handleActivityItemPress}
                 />
               ))}
             </View>

@@ -26,14 +26,29 @@ const StatusBadge = ({ status }) => {
       text: 'Approved',
       icon: 'checkmark-circle' 
     },
-    'submitted': { 
+    'pending': { 
       color: '#FFEB3B', 
       text: 'Pending Manager Review',
       icon: 'time' 
     },
+    'draft': { 
+      color: '#9E9E9E', 
+      text: 'Draft',
+      icon: 'document' 
+    },
+    'overdue': { 
+      color: '#2196F3', 
+      text: 'Overdue',
+      icon: 'warning' 
+    },
     'rejected': {
       color: '#FF9800',
       text: 'Rejected',
+      icon: 'repeat'
+    },
+    'revising': {
+      color: '#FF9800',
+      text: 'Need Modify',
       icon: 'repeat'
     }
   };
@@ -49,7 +64,7 @@ const StatusBadge = ({ status }) => {
 };
 
 // Past Audit Record Item Component
-const AuditRecordItem = ({ item, onPress }) => (
+const AuditRecordItem = ({ item, onPress, onSubmit }) => (
   <TouchableOpacity 
     style={styles.recordItem}
     onPress={() => onPress(item)}
@@ -60,6 +75,14 @@ const AuditRecordItem = ({ item, onPress }) => (
         <Text style={styles.recordManager}>Reviewed by: {item.manager_name}</Text>
         <StatusBadge status={item.status} />
       </View>
+      {item.is_latest && !['approved', 'pending'].includes(item.status) && (
+        <TouchableOpacity 
+          style={styles.submitButton} 
+          onPress={() => onSubmit(item)}
+        >
+          <Text style={styles.submitButtonText}>Submit Audit</Text>
+        </TouchableOpacity>
+      )}
     </View>
   </TouchableOpacity>
 );
@@ -77,10 +100,10 @@ export default function PastRecordsScreen() {
       setLoading(true);
       const response = await ApiClient.get('/api/mobile/audits');
       
-      // Filter out drafts and sort by submitted date
-      const filteredRecords = response.filter(audit => audit.status !== 'draft');
+      // Sort records by updated_at in descending order
+      const sortedRecords = response.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
       
-      setAuditRecords(filteredRecords);
+      setAuditRecords(sortedRecords);
       setError(null);
     } catch (err) {
       console.error('Error fetching audit records:', err);
@@ -117,6 +140,16 @@ export default function PastRecordsScreen() {
     });
   };
   
+  const handleSubmitPress = (item) => {
+    router.push({
+      pathname: '/(app)/audits/audit-form-details',
+      params: { 
+        formId: item.id,
+        headerTitle: item.title,
+      }
+    });
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
@@ -160,6 +193,7 @@ export default function PastRecordsScreen() {
             <AuditRecordItem 
               item={item}
               onPress={handleRecordPress}
+              onSubmit={handleSubmitPress}
             />
           )}
           keyExtractor={item => item.id}
@@ -239,6 +273,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 8,
   },
   recordManager: {
     fontSize: 14,
@@ -302,5 +337,17 @@ const styles = StyleSheet.create({
     color: '#374151',
     fontSize: 14,
     fontWeight: '500',
+  },
+  submitButton: {
+    marginTop: 12,
+    backgroundColor: PRIMARY_GREEN,
+    paddingVertical: 10,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  submitButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
 }); 
