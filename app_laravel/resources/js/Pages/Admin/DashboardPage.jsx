@@ -149,9 +149,8 @@ export default function DashboardPage({ statistics = {}, complianceData = {}, re
                                 </div>
 
                                 {/* Donut Chart Representation (Visual placeholder) */}
-                                <div className="mt-8 flex flex-col items-center">
-                                    <div className="relative h-48 w-48">
-                                        {/* This is a simplified visual representation of a donut chart */}
+                                <div className="mt-4 flex justify-center">
+                                    <div className="relative h-48 w-48 flex flex-col items-center justify-center">
                                         <svg viewBox="0 0 36 36" className="h-full w-full">
                                             {/* Background circle */}
                                             <path
@@ -189,21 +188,11 @@ export default function DashboardPage({ statistics = {}, complianceData = {}, re
                                                 strokeDashoffset={`-${(fullyCompliant.percentage + partiallyCompliant.percentage) * 1.01}`}
                                                 strokeLinecap="round"
                                             />
-                                            {/* Center text */}
-                                            <text
-                                                x="18"
-                                                y="20.35"
-                                                fill="#374151"
-                                                fontSize="5px"
-                                                fontWeight="bold"
-                                                textAnchor="middle"
-                                            >
-                                                {fullyCompliant.percentage}%
-                                            </text>
                                         </svg>
-                                    </div>
-                                    <div className="mt-2 text-center text-base font-bold text-green-700">
-                                        Fully Compliant
+                                        <div className="absolute top-1/2 left-1/2 flex flex-col items-center justify-center gap-0" style={{transform: 'translate(-50%, -50%)'}}>
+                                            <span className="text-3xl font-bold text-gray-800 whitespace-nowrap">{fullyCompliant.percentage}%</span>
+                                            <span className="text-sm text-gray-600 whitespace-nowrap">Fully Compliant</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
