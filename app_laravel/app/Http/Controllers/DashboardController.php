@@ -26,7 +26,7 @@ class DashboardController extends Controller
         
         // Check if user has manager role
         if (Bouncer::is($user)->a('manager')) {
-            return Inertia::render('Manager/DashboardPage');
+            return app(\App\Http\Controllers\Manager\DashboardController::class)->index();
         }
         
         // For all other roles (outlet_staff, or default user)
