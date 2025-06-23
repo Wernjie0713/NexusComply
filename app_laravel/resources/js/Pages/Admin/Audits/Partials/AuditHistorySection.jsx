@@ -183,7 +183,13 @@ export default function AuditHistorySection({ auditHistory = {}, filters, status
                                             )}
                                         </td>
                                         <td className="px-4 py-3 text-sm">{audit.current_status}</td>
-                                        <td className="px-4 py-3 text-sm">{audit.versions && audit.versions.length > 0 && audit.versions[audit.versions.length - 1].action_date ? new Date(audit.versions[audit.versions.length - 1].action_date).toLocaleString() : (audit.versions && audit.versions.length > 0 && audit.versions[audit.versions.length - 1].submission_date ? new Date(audit.versions[audit.versions.length - 1].submission_date).toLocaleString() : '-')}</td>
+                                        <td className="px-4 py-3 text-sm">
+                                            {audit.versions && audit.versions.length > 0 && audit.versions[audit.versions.length - 1].action_date
+                                                ? new Date(audit.versions[audit.versions.length - 1].action_date).toLocaleString()
+                                                : (audit.versions && audit.versions.length > 0 && audit.versions[audit.versions.length - 1].submission_date
+                                                    ? new Date(audit.versions[audit.versions.length - 1].submission_date).toLocaleString()
+                                                    : '-')}
+                                        </td>
                                         <td className="px-4 py-3 text-sm">
                                             {audit.versions && audit.versions.length > 0 && audit.versions[audit.versions.length - 1].status.toLowerCase() === 'rejected' && audit.versions[audit.versions.length - 1].issues_count > 0 ? (
                                                 <>

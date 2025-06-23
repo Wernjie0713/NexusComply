@@ -62,7 +62,7 @@ class AuditController extends Controller
                         break;
                 }
             })
-            ->where(function($query) use ($latestAuditIds, $versionedAuditIds) {
+            ->where(function ($query) use ($latestAuditIds, $versionedAuditIds) {
                 $query->whereIn('id', $latestAuditIds)
                     ->orWhereNotIn('id', $versionedAuditIds);
             });
@@ -95,7 +95,7 @@ class AuditController extends Controller
             $versionInfo = DB::table('audit_version')
                 ->where('audit_id', $audit->id)
                 ->first();
-                
+
             if ($versionInfo) {
                 $audit->isVersioned = true;
                 $audit->versionNumber = $versionInfo->audit_version;
@@ -289,6 +289,9 @@ class AuditController extends Controller
                 ]],
             ]);
         }
+
+        // After building $auditHistory (before pagination), sort by last_action_date DESC
+        $auditHistory = $auditHistory->sortByDesc('last_action_date')->values();
 
         // PAGINATE THE AUDIT HISTORY
         $page = $request->input('page', 1);
