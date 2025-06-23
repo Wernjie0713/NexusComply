@@ -166,6 +166,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/activity-logs', [ActivityLogController::class, 'index'])->name('activity-logs.index');
         Route::get('/activity-logs/export', [ActivityLogController::class, 'export'])
             ->name('activity-logs.export');
+        Route::get('/audits/{auditId}/forms', [App\Http\Controllers\Admin\AuditController::class, 'getAuditForms']);
+        Route::get('/audits/{auditId}/details', [App\Http\Controllers\Admin\AuditController::class, 'getAuditDetails']);
+        Route::get('/forms/{formId}/details', [App\Http\Controllers\Admin\AuditController::class, 'getAuditFormDetails']);
     });
 
     // New AJAX routes
@@ -179,6 +182,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/roles/{roleId}/abilities', [RolePermissionController::class, 'updateRoleAbilities']);
         // Add other endpoints as needed
     });
+
+    // Admin Issue Endpoints
+    Route::get('/admin/forms/{formId}/issues', [App\Http\Controllers\Admin\IssueController::class, 'getFormIssues']);
+    Route::get('/admin/forms/{formId}/previous-issues', [App\Http\Controllers\Admin\IssueController::class, 'getPreviousFormIssue']);
+    Route::get('/admin/issues/{issueId}/corrective-actions', [App\Http\Controllers\Admin\IssueController::class, 'getIssueCorrectiveActions']);
+    Route::get('/admin/issues/corrective-actions-count', [App\Http\Controllers\Admin\IssueController::class, 'getCorrectiveActionCounts']);
 });
 
 Route::middleware('auth')->group(function () {
