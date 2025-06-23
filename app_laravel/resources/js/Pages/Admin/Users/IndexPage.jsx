@@ -82,7 +82,7 @@ export default function IndexPage({ managers, outletUsers, customRoleUsers = [],
     };
 
     // Group customRoleUsers by role
-    const customRoleGroups = customRoleUsers.data.reduce((acc, user) => {
+    const customRoleGroups = customRoleUsers.reduce((acc, user) => {
         const role = user.role || 'Other';
         if (!acc[role]) acc[role] = [];
         acc[role].push(user);
@@ -92,16 +92,9 @@ export default function IndexPage({ managers, outletUsers, customRoleUsers = [],
     // Prepare a map for custom role groups for quick lookup
     const customRoleGroupsMap = Object.fromEntries(Object.entries(customRoleGroups));
 
-    // Helper to create a paginated object for a group
-    function getPaginatedGroupObject(base, groupData) {
-        return {
-            ...base,
-            data: groupData,
-            from: groupData.length > 0 ? 1 : 0,
-            to: groupData.length,
-            total: groupData.length,
-            links: base.links,
-        };
+    // Helper to create a group object for a group (no pagination)
+    function getGroupObject(groupData) {
+        return groupData;
     }
     
     // If user cannot view users (only applies to custom roles), show appropriate message
@@ -203,12 +196,12 @@ export default function IndexPage({ managers, outletUsers, customRoleUsers = [],
                             );
                         } else if (customRoleGroupsMap[role.title || role.name]) {
                             const groupUsers = customRoleGroupsMap[role.title || role.name];
-                            const paginatedGroup = getPaginatedGroupObject(customRoleUsers, groupUsers);
+                            const group = getGroupObject(groupUsers);
                             return (
                                 <div key={role.name} className="mb-8 overflow-hidden bg-white px-6 py-6 shadow-sm sm:rounded-lg">
                                     <h3 className="mb-4 text-lg font-semibold text-gray-800">{role.title || role.name}</h3>
                                     <CustomRoleUserTable 
-                                        users={paginatedGroup} 
+                                        users={group} 
                                         onDelete={canDeleteUsers ? handleDelete : null} 
                                         onEdit={canEditUsers ? handleEdit : null} 
                                         canEditUsers={canEditUsers}
