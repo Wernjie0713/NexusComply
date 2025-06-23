@@ -284,24 +284,24 @@ Return ONLY the raw JSON array, without any surrounding text, explanations, or m
                 Log::info('Attempting GitHub AI API for Excel import');
                 
                 $githubResponse = Http::timeout(120)
-                    ->withHeaders([
-                        'Authorization' => 'Bearer ' . env('GITHUB_TOKEN'),
-                        'Content-Type' => 'application/json',
-                    ])->post('https://models.github.ai/inference/chat/completions', [
-                        'model' => 'openai/gpt-4o',
-                        'messages' => [
-                            [
-                                'role' => 'system',
+                              ->withHeaders([
+                                  'Authorization' => 'Bearer ' . env('GITHUB_TOKEN'),
+                                  'Content-Type' => 'application/json',
+                              ])->post('https://models.github.ai/inference/chat/completions', [
+                                  'model' => 'openai/gpt-4o',
+                                  'messages' => [
+                                      [
+                                          'role' => 'system',
                                 'content' => $systemMessage
-                            ],
-                            [
-                                'role' => 'user',
+                                      ],
+                                      [
+                                          'role' => 'user',
                                 'content' => $userMessage
-                            ]
-                        ],
-                        'max_tokens' => 4000,
-                        'temperature' => 0.3
-                    ]);
+                                      ]
+                                  ],
+                                  'max_tokens' => 4000,
+                                  'temperature' => 0.3
+                              ]);
 
                 if ($githubResponse->successful()) {
                     $githubData = $githubResponse->json();
@@ -362,21 +362,21 @@ Return ONLY the raw JSON array, without any surrounding text, explanations, or m
                     Log::error('Both GitHub AI and OpenAI APIs failed for Excel import', [
                         'github_error' => $e->getMessage(),
                         'openai_error' => $openaiError->getMessage()
-                    ]);
-
-                    return response()->json([
+                ]);
+                
+                return response()->json([
                         'error' => 'Failed to process the file with AI services. Both primary and fallback services are unavailable. Please try again later.'
-                    ], 500);
-                }
+                ], 500);
             }
-
+            }
+            
             // Process the successful AI response
             if (!$aiContent) {
                 return response()->json([
                     'error' => 'No valid response received from AI services.'
                 ], 500);
             }
-
+            
             // Clean up the AI response (remove markdown formatting if present)
             $aiContent = trim($aiContent);
             $aiContent = preg_replace('/^```json\s*/', '', $aiContent);
@@ -427,7 +427,7 @@ Return ONLY the raw JSON array, without any surrounding text, explanations, or m
                     if ($normalizedField['type'] === 'radio') {
                         $normalizedField['options'] = ['Yes', 'No'];
                     } else {
-                        $normalizedField['options'] = ['Option 1', 'Option 2', 'Option 3'];
+                    $normalizedField['options'] = ['Option 1', 'Option 2', 'Option 3'];
                     }
                 }
 

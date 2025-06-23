@@ -576,8 +576,8 @@ const toggleCorrectiveActions = async (issueId) => {
             );
         } finally {
             setIsAnalyzing(false);
-        }
-    };
+    }
+};
 
     if (loading) {
         return (
