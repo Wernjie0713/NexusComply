@@ -11,6 +11,8 @@ use App\Http\Controllers\Admin\ActivityLogController;
 use App\Http\Controllers\Admin\RolePermissionController;
 use App\Http\Controllers\AuditorController;
 use App\Http\Controllers\Manager\AuditController as ManagerAuditController;
+use App\Http\Controllers\Manager\ReportController as ManagerReportController;
+use App\Http\Controllers\Manager\AuditHistoryController as ManagerAuditHistoryController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
