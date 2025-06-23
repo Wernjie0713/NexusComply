@@ -10,6 +10,14 @@ export default function AuditProgressSection({ audits: receivedAudits, onReviewF
     const [perPage, setPerPage] = useState(5);
     const [search, setSearch] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
+    
+    // Pending filter states (for form controls)
+    const [pendingStatusFilter, setPendingStatusFilter] = useState('all');
+    const [pendingDateFilter, setPendingDateFilter] = useState('all');
+    
+    // Applied filter states (used in filtering)
+    const [appliedStatusFilter, setAppliedStatusFilter] = useState('all');
+    const [appliedDateFilter, setAppliedDateFilter] = useState('all');
 
     // Toggle expansion of an audit group
     const toggleAudit = (auditId) => {
@@ -96,12 +104,45 @@ export default function AuditProgressSection({ audits: receivedAudits, onReviewF
     // Filtered audits (client-side search)
     const filteredAudits = useMemo(() => {
         const query = search.toLowerCase();
-        return (receivedAudits || []).filter(audit =>
-            (audit.title || '').toLowerCase().includes(query) ||
-            (audit.outlet?.name || '').toLowerCase().includes(query) ||
-            (audit.status?.name || '').toLowerCase().includes(query)
-        );
-    }, [receivedAudits, search]);
+        const now = new Date();
+        return (receivedAudits || []).filter(audit => {
+            // Search filter
+            const matchesSearch =
+                (audit.title || '').toLowerCase().includes(query) ||
+                (audit.outlet?.name || '').toLowerCase().includes(query) ||
+                (audit.status?.name || '').toLowerCase().includes(query);
+
+            // Status filter
+            const matchesStatus =
+                appliedStatusFilter === 'all' ||
+                (audit.status?.name || '').toLowerCase() === appliedStatusFilter;
+
+            // Date filter
+            let matchesDate = true;
+            if (appliedDateFilter !== 'all') {
+                const auditDate = new Date(audit.updatedAt || audit.updated_at || audit.startDate || audit.createdAt);
+                if (isNaN(auditDate)) return false;
+                switch (appliedDateFilter) {
+                    case 'last7':
+                        matchesDate = (now - auditDate) / (1000 * 60 * 60 * 24) <= 7;
+                        break;
+                    case 'last30':
+                        matchesDate = (now - auditDate) / (1000 * 60 * 60 * 24) <= 30;
+                        break;
+                    case 'last90':
+                        matchesDate = (now - auditDate) / (1000 * 60 * 60 * 24) <= 90;
+                        break;
+                    case 'thisYear':
+                        matchesDate = auditDate.getFullYear() === now.getFullYear();
+                        break;
+                    default:
+                        matchesDate = true;
+                }
+            }
+
+            return matchesSearch && matchesStatus && matchesDate;
+        });
+    }, [receivedAudits, search, appliedStatusFilter, appliedDateFilter]);
 
     // Pagination logic
     const total = filteredAudits.length;
@@ -120,6 +161,13 @@ export default function AuditProgressSection({ audits: receivedAudits, onReviewF
     };
     const handlePageChange = (page) => {
         if (page >= 1 && page <= totalPages) setCurrentPage(page);
+    };
+
+    const handleApplyFilters = () => {
+        setCurrentPage(1);
+        // Apply the pending filter values
+        setAppliedStatusFilter(pendingStatusFilter);
+        setAppliedDateFilter(pendingDateFilter);
     };
 
     return (
@@ -174,9 +222,55 @@ export default function AuditProgressSection({ audits: receivedAudits, onReviewF
                 </div>
             </div>
 
-            {/* Audits Table */}
+            {/* Audits Table Heading */}
             <h3 className="mb-6 text-lg font-semibold text-gray-800">Review Form Submissions</h3>
-            {/* DataTable Controls */}
+
+            {/* Filters Row (Date + Status + Apply Button) */}
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-4">
+                    <div>
+                        <label htmlFor="dateFilter" className="mr-2 text-sm font-medium text-gray-700">Date Range:</label>
+                        <select
+                            id="dateFilter"
+                            value={pendingDateFilter}
+                            onChange={e => setPendingDateFilter(e.target.value)}
+                            className="rounded-md border-gray-300 text-sm shadow-sm focus:border-green-500 focus:ring-green-500"
+                        >
+                            <option value="all">All Dates</option>
+                            <option value="last7">Last 7 Days</option>
+                            <option value="last30">Last 30 Days</option>
+                            <option value="last90">Last 90 Days</option>
+                            <option value="thisYear">This Year</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label htmlFor="statusFilter" className="mr-2 text-sm font-medium text-gray-700">Status:</label>
+                        <select
+                            id="statusFilter"
+                            value={pendingStatusFilter}
+                            onChange={e => setPendingStatusFilter(e.target.value)}
+                            className="rounded-md border-gray-300 text-sm shadow-sm focus:border-green-500 focus:ring-green-500"
+                        >
+                            <option value="all">All Status</option>
+                            <option value="draft">Draft</option>
+                            <option value="pending">Pending</option>
+                            <option value="approved">Approved</option>
+                            <option value="rejected">Rejected</option>
+                            <option value="revising">Revising</option>
+                        </select>
+                    </div>
+                    <button
+                        onClick={handleApplyFilters}
+                        className="inline-flex items-center rounded-md border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                    >
+                        Apply Filters
+                    </button>
+                </div>
+            </div>
+            <div className="mb-4 border-b border-gray-200"></div>
+
+            {/* Audits Table */}
+            {/* Show entries and search row */}
             <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center space-x-2 text-sm text-gray-700">
                     <span>Show</span>
