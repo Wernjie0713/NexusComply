@@ -11,10 +11,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Cache;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
+use OpenAI;
 
 class FormTemplateController extends Controller
 {
@@ -220,7 +220,7 @@ class FormTemplateController extends Controller
     }
 
     /**
-     * Import form structure from Excel file using AI with caching.
+     * Import form structure from Excel file using AI with fallback mechanism.
      */
     public function importFromExcel(Request $request)
     {
@@ -232,30 +232,6 @@ class FormTemplateController extends Controller
 
             // Get the uploaded file
             $file = $request->file('file');
-            
-            // Generate a unique hash for the file content (cache key)
-            $fileHash = hash_file('sha256', $file->getPathname());
-            $cacheKey = "excel_import_{$fileHash}";
-            
-            Log::info('Excel import started', [
-                'filename' => $file->getClientOriginalName(),
-                'file_hash' => $fileHash
-            ]);
-            
-            // Check if we have a cached result for this file
-            if (Cache::has($cacheKey)) {
-                Log::info('Cache hit for Excel import', ['file_hash' => $fileHash]);
-                
-                $cachedStructure = Cache::get($cacheKey);
-                
-                return response()->json([
-                    'structure' => $cachedStructure,
-                    'message' => 'Form structure retrieved from cache (file already processed).',
-                    'cached' => true
-                ]);
-            }
-            
-            Log::info('Cache miss for Excel import, processing file', ['file_hash' => $fileHash]);
             
             // Read the Excel file
             $spreadsheet = IOFactory::load($file->getPathname());
@@ -285,53 +261,122 @@ class FormTemplateController extends Controller
                 ], 400);
             }
 
-            Log::info('Sending request to AI API', ['file_hash' => $fileHash]);
+            // Prepare the AI messages (same for both APIs)
+            $systemMessage = "You are an expert assistant that converts unstructured text from a checklist into a structured JSON array for a form builder. Each object in the array represents one form field. Each field object **must** have these keys: 'id' (a new uuid), 'type', 'label', and 'order'. It can optionally have 'isRequired' (boolean), 'placeholder' (string), and 'options' (an array of strings).
 
-            // Prepare the AI request
-            $aiResponse = Http::timeout(120) // Increase timeout to 120 seconds for larger files
-                              ->withHeaders([
-                                  'Authorization' => 'Bearer ' . env('GITHUB_TOKEN'),
-                                  'Content-Type' => 'application/json',
-                              ])->post('https://models.github.ai/inference/chat/completions', [
-                                  'model' => 'openai/gpt-4o',
-                                  'messages' => [
-                                      [
-                                          'role' => 'system',
-                                          'content' => "You are an expert assistant that converts unstructured text from a checklist into a structured JSON array for a form builder. Each object in the array represents one form field. Each field object **must** have these keys: 'id' (a new uuid), 'type', 'label', and 'order'. It can optionally have 'isRequired' (boolean), 'placeholder' (string), and 'options' (an array of strings, for 'checkbox-group', 'radio', and 'select' types). **You must only use one of the following strings for the 'type' key:** 'text', 'textarea', 'checkbox', 'checkbox-group', 'radio', 'select', 'date', 'file', 'section', 'text-block'. For questions with 'Yes/No' options, use the 'radio' type. For section headers, use the 'section' type. Return ONLY the raw JSON array, without any surrounding text, explanations, or markdown formatting like ```json."
-                                      ],
-                                      [
-                                          'role' => 'user',
-                                          'content' => "Analyze the following text extracted from a compliance checklist Excel file and convert it to the specified JSON format. Create logical form fields based on the content. Text: " . $extractedText
-                                      ]
-                                  ],
-                                  'max_tokens' => 4000,
-                                  'temperature' => 0.3
-                              ]);
+**You must only use one of the following strings for the 'type' key:** 'text', 'textarea', 'checkbox', 'checkbox-group', 'radio', 'select', 'date', 'file', 'section', 'text-block'.
 
-            // Check if the AI request was successful
-            if (!$aiResponse->successful()) {
-                Log::error('GitHub AI API request failed', [
-                    'status' => $aiResponse->status(),
-                    'response' => $aiResponse->body(),
-                    'file_hash' => $fileHash
-                ]);
+Follow these rules for choosing a type:
+- For questions requiring a single 'Yes' or 'No' answer, use the 'radio' type with 'Yes' and 'No' in the options array.
+- For questions where a user can select **multiple** items from a list, use the 'checkbox-group' type and include the items in the options array.
+- For questions where a user must select **one** item from a list (that isn't a simple Yes/No), use the 'select' type and include the items in the options array.
+- For section headers, use the 'section' type.
+
+Return ONLY the raw JSON array, without any surrounding text, explanations, or markdown formatting like ```json.";
+            
+            $userMessage = "Analyze the following text extracted from a compliance checklist Excel file and convert it to the specified JSON format. Create logical form fields based on the content. Text: " . $extractedText;
+
+            $aiContent = null;
+            $usedFallback = false;
+
+            // STEP 1: Try GitHub AI API first
+            try {
+                Log::info('Attempting GitHub AI API for Excel import');
                 
+                $githubResponse = Http::timeout(120)
+                    ->withHeaders([
+                        'Authorization' => 'Bearer ' . env('GITHUB_TOKEN'),
+                        'Content-Type' => 'application/json',
+                    ])->post('https://models.github.ai/inference/chat/completions', [
+                        'model' => 'openai/gpt-4o',
+                        'messages' => [
+                            [
+                                'role' => 'system',
+                                'content' => $systemMessage
+                            ],
+                            [
+                                'role' => 'user',
+                                'content' => $userMessage
+                            ]
+                        ],
+                        'max_tokens' => 4000,
+                        'temperature' => 0.3
+                    ]);
+
+                if ($githubResponse->successful()) {
+                    $githubData = $githubResponse->json();
+                    
+                    if (isset($githubData['choices'][0]['message']['content'])) {
+                        $aiContent = $githubData['choices'][0]['message']['content'];
+                        Log::info('GitHub AI API succeeded for Excel import');
+                    } else {
+                        throw new \Exception('Invalid response structure from GitHub AI API');
+                    }
+                } else {
+                    throw new \Exception('GitHub AI API request failed with status: ' . $githubResponse->status());
+                }
+
+            } catch (\Exception $e) {
+                Log::warning('GitHub AI API failed, attempting OpenAI fallback', [
+                    'github_error' => $e->getMessage(),
+                    'status' => isset($githubResponse) ? $githubResponse->status() : 'N/A'
+                ]);
+
+                // STEP 2: Fallback to OpenAI API
+                try {
+                    $openaiApiKey = env('OPENAI_API_KEY');
+                    
+                    if (!$openaiApiKey) {
+                        throw new \Exception('OpenAI API key not configured');
+                    }
+
+                    Log::info('Attempting OpenAI API fallback for Excel import');
+                    
+                    $openaiClient = OpenAI::client($openaiApiKey);
+                    
+                    $openaiResponse = $openaiClient->chat()->create([
+                        'model' => env('OPENAI_MODEL', 'gpt-4o'),
+                        'messages' => [
+                            [
+                                'role' => 'system',
+                                'content' => $systemMessage
+                            ],
+                            [
+                                'role' => 'user',
+                                'content' => $userMessage
+                            ]
+                        ],
+                        'max_tokens' => 4000,
+                        'temperature' => 0.3
+                    ]);
+
+                    if (isset($openaiResponse->choices[0]->message->content)) {
+                        $aiContent = $openaiResponse->choices[0]->message->content;
+                        $usedFallback = true;
+                        Log::info('OpenAI API fallback succeeded for Excel import');
+                    } else {
+                        throw new \Exception('Invalid response structure from OpenAI API');
+                    }
+
+                } catch (\Exception $openaiError) {
+                    Log::error('Both GitHub AI and OpenAI APIs failed for Excel import', [
+                        'github_error' => $e->getMessage(),
+                        'openai_error' => $openaiError->getMessage()
+                    ]);
+
+                    return response()->json([
+                        'error' => 'Failed to process the file with AI services. Both primary and fallback services are unavailable. Please try again later.'
+                    ], 500);
+                }
+            }
+
+            // Process the successful AI response
+            if (!$aiContent) {
                 return response()->json([
-                    'error' => 'Failed to process the file with AI. Please try again.'
+                    'error' => 'No valid response received from AI services.'
                 ], 500);
             }
 
-            $aiData = $aiResponse->json();
-            
-            // Extract the AI response content
-            if (!isset($aiData['choices'][0]['message']['content'])) {
-                return response()->json([
-                    'error' => 'Invalid response from AI service.'
-                ], 500);
-            }
-
-            $aiContent = $aiData['choices'][0]['message']['content'];
-            
             // Clean up the AI response (remove markdown formatting if present)
             $aiContent = trim($aiContent);
             $aiContent = preg_replace('/^```json\s*/', '', $aiContent);
@@ -344,7 +389,7 @@ class FormTemplateController extends Controller
                 Log::error('Failed to parse AI response as JSON', [
                     'json_error' => json_last_error_msg(),
                     'ai_content' => $aiContent,
-                    'file_hash' => $fileHash
+                    'used_fallback' => $usedFallback
                 ]);
                 
                 return response()->json([
@@ -375,29 +420,34 @@ class FormTemplateController extends Controller
                 ];
 
                 // Add options for fields that support them
-                if (in_array($normalizedField['type'], ['radio', 'checkbox-group']) && isset($field['options']) && is_array($field['options'])) {
+                if (in_array($normalizedField['type'], ['radio', 'checkbox-group', 'select']) && isset($field['options']) && is_array($field['options'])) {
                     $normalizedField['options'] = $field['options'];
-                } elseif (in_array($normalizedField['type'], ['radio', 'checkbox-group'])) {
+                } elseif (in_array($normalizedField['type'], ['radio', 'checkbox-group', 'select'])) {
                     // Provide default options if missing
-                    $normalizedField['options'] = ['Option 1', 'Option 2', 'Option 3'];
+                    if ($normalizedField['type'] === 'radio') {
+                        $normalizedField['options'] = ['Yes', 'No'];
+                    } else {
+                        $normalizedField['options'] = ['Option 1', 'Option 2', 'Option 3'];
+                    }
                 }
 
                 $normalizedStructure[] = $normalizedField;
             }
 
-            // Cache the successful result for 30 days
-            Cache::put($cacheKey, $normalizedStructure, now()->addDays(30));
-            
-            Log::info('Excel import completed and cached', [
-                'file_hash' => $fileHash,
-                'fields_count' => count($normalizedStructure)
+            // Return the generated structure with information about which API was used
+            $successMessage = $usedFallback 
+                ? 'Form structure generated successfully using backup AI service.' 
+                : 'Form structure generated successfully from Excel file.';
+
+            Log::info('Excel import completed successfully', [
+                'fields_generated' => count($normalizedStructure),
+                'used_fallback' => $usedFallback
             ]);
 
-            // Return the generated structure
             return response()->json([
                 'structure' => $normalizedStructure,
-                'message' => 'Form structure generated successfully from Excel file.',
-                'cached' => false
+                'message' => $successMessage,
+                'used_fallback' => $usedFallback
             ]);
 
         } catch (\PhpOffice\PhpSpreadsheet\Exception $e) {

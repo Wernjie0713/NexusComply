@@ -130,6 +130,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/manager/audits/{auditId}/status', [ManagerAuditController::class, 'updateAuditStatus']);
     Route::get('/manager/audits/{auditId}/details', [ManagerAuditController::class, 'getAuditDetails']);
     Route::get('/manager/forms/{formId}/details', [ManagerAuditController::class, 'getAuditFormDetails']);
+    Route::post('/manager/forms/{auditForm}/generate-analysis', [ManagerAuditController::class, 'generateFormAnalysis']);
     Route::get('/manager/forms/{formId}/issues', [App\Http\Controllers\Manager\IssueController::class, 'getFormIssues']);
     Route::get('/manager/forms/{formId}/previous-issues', [App\Http\Controllers\Manager\IssueController::class, 'getPreviousFormIssue']);
     Route::post('/manager/forms/{formId}/status', [ManagerAuditController::class, 'updateFormStatus']);

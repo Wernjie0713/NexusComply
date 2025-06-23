@@ -47,6 +47,11 @@ const [loadingCorrectiveActions, setLoadingCorrectiveActions] = useState({});
     // Add this state variable with your other state variables
 const [correctiveActionCounts, setCorrectiveActionCounts] = useState({});
 
+    // AI Analysis state
+    const [aiAnalysis, setAiAnalysis] = useState(null);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [analysisError, setAnalysisError] = useState(null);
+
     // Determine if issue fields are required based on selected status
     const isRejected = selectedStatus === 'Rejected';
     
@@ -284,7 +289,32 @@ const saveEditIssue = async () => {
         
         try {
             const formResponse = await axios.get(`/manager/forms/${form.id}/details`);
+
             setFormData(formResponse.data);
+            
+            // Check for existing AI analysis in the response
+            const responseAnalysis = formResponse.data.form?.aiAnalysis || formResponse.data.form?.ai_analysis;
+            if (responseAnalysis) {
+                let analysisObject;
+                if (typeof responseAnalysis === 'string') {
+                    // If the data is a string, parse it
+                    try {
+                        analysisObject = JSON.parse(responseAnalysis);
+                    } catch (e) {
+                        console.error("Failed to parse AI analysis JSON from API response:", e);
+                        setAnalysisError("Could not display saved analysis. Data format error.");
+                        setLoading(false);
+                        return;
+                    }
+                } else {
+                    // If it's already an object, use it directly
+                    analysisObject = responseAnalysis;
+                }
+                setAiAnalysis(analysisObject);
+            } else if (!aiAnalysis) {
+                // No existing analysis in response and not already loaded from props, automatically generate one
+                generateAIAnalysis();
+            }
             
             // Call the dedicated issue fetching function
             await fetchIssues();
@@ -350,6 +380,35 @@ const fetchIssues = async (version = issueVersion) => {
     useEffect(() => {
         fetchFormDetails();
     }, [form.id]);
+
+    // Check for existing AI analysis in initial props
+    useEffect(() => {
+        // Check both possible field names (ai_analysis and aiAnalysis)
+        const initialAnalysisData = form?.ai_analysis || form?.aiAnalysis;
+        
+        if (!initialAnalysisData) {
+            // If there's no data at all, we'll let fetchFormDetails handle generation
+            return;
+        }
+
+        let analysisObject;
+        if (typeof initialAnalysisData === 'string') {
+            // If the data is a string, parse it
+            try {
+                analysisObject = JSON.parse(initialAnalysisData);
+            } catch (e) {
+                console.error("Failed to parse AI analysis JSON from props:", e);
+                setAnalysisError("Could not display saved analysis. Data format error.");
+                return;
+            }
+        } else {
+            // If it's already an object, use it directly
+            analysisObject = initialAnalysisData;
+        }
+
+        // Set the state with the guaranteed-to-be-an-object data
+        setAiAnalysis(analysisObject);
+    }, [form]);
 
     // Modify useEffect to call the new function
 useEffect(() => {
@@ -484,6 +543,41 @@ const toggleCorrectiveActions = async (issueId) => {
         }
     }
 };
+
+    // Generate AI Analysis function
+    const generateAIAnalysis = async () => {
+        if (!form || !form.id) {
+            setAnalysisError('No form ID provided for analysis');
+            return;
+        }
+
+        // Prevent generating if already analyzing or analysis exists
+        if (isAnalyzing || aiAnalysis) {
+            return;
+        }
+
+        try {
+            setIsAnalyzing(true);
+            setAnalysisError(null);
+
+            const response = await axios.post(`/manager/forms/${form.id}/generate-analysis`);
+            
+            if (response.data.success) {
+                setAiAnalysis(response.data.analysis);
+            } else {
+                setAnalysisError(response.data.error || 'Failed to generate analysis');
+            }
+        } catch (error) {
+            console.error('Error generating AI analysis:', error);
+            setAnalysisError(
+                error.response?.data?.error || 
+                error.message || 
+                'Failed to generate AI analysis'
+            );
+        } finally {
+            setIsAnalyzing(false);
+        }
+    };
 
     if (loading) {
         return (
@@ -722,6 +816,165 @@ const toggleCorrectiveActions = async (issueId) => {
                     )}
                 </div>
             </div>
+
+            {/* AI-Powered Analysis Section */}
+            <div className="mb-6 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+                <div className="border-b border-gray-200 bg-blue-50 px-4 py-3">
+                    <h3 className="text-sm font-medium text-gray-700 flex items-center">
+                        <svg className="mr-2 h-5 w-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                        </svg>
+                        AI-Powered Analysis
+                    </h3>
+                </div>
+                
+                <div className="p-4">
+                    {isAnalyzing ? (
+                        <div className="flex items-center justify-center py-8">
+                            <div className="flex items-center space-x-3">
+                                <svg className="h-6 w-6 animate-spin text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span className="text-sm text-gray-600">Generating AI analysis...</span>
+                            </div>
+                        </div>
+                    ) : analysisError ? (
+                        <div className="rounded-md bg-red-50 p-4">
+                            <div className="flex">
+                                <div className="flex-shrink-0">
+                                    <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                    </svg>
+                                </div>
+                                <div className="ml-3">
+                                    <h3 className="text-sm font-medium text-red-800">Analysis Failed</h3>
+                                    <div className="mt-2 text-sm text-red-700">
+                                        <p>{analysisError}</p>
+                                    </div>
+                                    <div className="mt-4">
+                                        <button
+                                            onClick={generateAIAnalysis}
+                                            className="rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-800 hover:bg-red-100"
+                                        >
+                                            Retry Analysis
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    ) : aiAnalysis ? (
+                        <div className="space-y-6">
+                            {/* Compliance Score */}
+                            <div className="flex items-center justify-between rounded-lg bg-gray-50 p-4">
+                                <div>
+                                    <h4 className="text-sm font-medium text-gray-700">Compliance Score</h4>
+                                    <p className="text-xs text-gray-500">Overall compliance assessment</p>
+                                </div>
+                                <div className="text-right">
+                                    <div className={`text-2xl font-bold ${
+                                        aiAnalysis.compliance_score >= 80 ? 'text-green-600' :
+                                        aiAnalysis.compliance_score >= 60 ? 'text-yellow-600' : 'text-red-600'
+                                    }`}>
+                                        {aiAnalysis.compliance_score}%
+                                    </div>
+                                    <div className={`text-xs font-medium ${
+                                        aiAnalysis.risk_level === 'Low' ? 'text-green-600' :
+                                        aiAnalysis.risk_level === 'Medium' ? 'text-yellow-600' : 'text-red-600'
+                                    }`}>
+                                        {aiAnalysis.risk_level} Risk
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Key Findings */}
+                            {aiAnalysis.key_findings && aiAnalysis.key_findings.length > 0 && (
+                                <div>
+                                    <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                                        <svg className="mr-1 h-4 w-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        Key Findings
+                                    </h4>
+                                    <ul className="space-y-2">
+                                        {aiAnalysis.key_findings.map((finding, index) => (
+                                            <li key={index} className="flex items-start text-sm text-gray-600">
+                                                <span className="mr-2 mt-1 h-1.5 w-1.5 rounded-full bg-blue-400 flex-shrink-0"></span>
+                                                {finding}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {/* Recommendations */}
+                            {aiAnalysis.recommendations && aiAnalysis.recommendations.length > 0 && (
+                                <div>
+                                    <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                                        <svg className="mr-1 h-4 w-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                        </svg>
+                                        Recommendations
+                                    </h4>
+                                    <ul className="space-y-2">
+                                        {aiAnalysis.recommendations.map((recommendation, index) => (
+                                            <li key={index} className="flex items-start text-sm text-gray-600">
+                                                <span className="mr-2 mt-1 h-1.5 w-1.5 rounded-full bg-green-400 flex-shrink-0"></span>
+                                                {recommendation}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {/* Areas of Concern */}
+                            {aiAnalysis.areas_of_concern && aiAnalysis.areas_of_concern.length > 0 && (
+                                <div>
+                                    <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                                        <svg className="mr-1 h-4 w-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L2.232 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                        </svg>
+                                        Areas of Concern
+                                    </h4>
+                                    <ul className="space-y-2">
+                                        {aiAnalysis.areas_of_concern.map((concern, index) => (
+                                            <li key={index} className="flex items-start text-sm text-gray-600">
+                                                <span className="mr-2 mt-1 h-1.5 w-1.5 rounded-full bg-red-400 flex-shrink-0"></span>
+                                                {concern}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {/* Positive Aspects */}
+                            {aiAnalysis.positive_aspects && aiAnalysis.positive_aspects.length > 0 && (
+                                <div>
+                                    <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                                        <svg className="mr-1 h-4 w-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                                        </svg>
+                                        Positive Aspects
+                                    </h4>
+                                    <ul className="space-y-2">
+                                        {aiAnalysis.positive_aspects.map((aspect, index) => (
+                                            <li key={index} className="flex items-start text-sm text-gray-600">
+                                                <span className="mr-2 mt-1 h-1.5 w-1.5 rounded-full bg-green-400 flex-shrink-0"></span>
+                                                {aspect}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="text-center py-8">
+                            <div className="text-sm text-gray-500">No AI analysis available</div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
              {/* Issues section - with consistent styling */}
             <div className="mb-6 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
                 <div className="border-b border-gray-200 bg-green-50 px-4 py-3 flex justify-between items-center">

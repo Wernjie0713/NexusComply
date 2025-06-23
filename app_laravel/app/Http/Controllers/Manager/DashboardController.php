@@ -81,16 +81,27 @@ class DashboardController extends Controller
 
             // Auditor Performance table
             $outletStaffActivity = [];
-            foreach (Outlet::whereIn('id', $outlets)->with('outletUser')->get() as $outlet) {
+
+            // First get all outlets and their associated staff
+            $outletWithStaff = Outlet::whereIn('id', $outlets)->with('outletUser')->get();
+
+            // Loop through each outlet
+            foreach ($outletWithStaff as $outlet) {
                 $staff = $outlet->outletUser;
+
+                // Always add staff entry regardless of whether there's activity
                 if ($staff) {
+                    // Get audits for staff if they exist
                     $staffAudits = Audit::where('outlet_id', $outlet->id)
                         ->where('user_id', $staff->id)
                         ->where('created_at', '>=', $startOfMonth)
                         ->get();
+
+                    // Add entry with data or zeros
                     $outletStaffActivity[] = [
                         'id' => $staff->id,
                         'name' => $staff->name,
+                        'outlet' => $outlet->name,
                         'auditsCompleted' => $staffAudits->where('status_id', $approvedStatusId)->count(),
                         'pendingSubmissions' => $staffAudits->where('status_id', $draftStatusId)->count(),
                         'overdueAudits' => $staffAudits->filter(function ($audit) use ($draftStatusId, $pendingStatusId, $now) {
@@ -98,6 +109,17 @@ class DashboardController extends Controller
                                 $audit->due_date && Carbon::parse($audit->due_date)->lt($now);
                         })->count(),
                         'rejectedAudits' => $staffAudits->where('status_id', $rejectedStatusId)->count(),
+                    ];
+                } else {
+                    // Add entry for outlet without staff
+                    $outletStaffActivity[] = [
+                        'id' => null,
+                        'name' => 'No Staff Assigned',
+                        'outlet' => $outlet->name,
+                        'auditsCompleted' => 0,
+                        'pendingSubmissions' => 0,
+                        'overdueAudits' => 0,
+                        'rejectedAudits' => 0,
                     ];
                 }
             }
@@ -141,4 +163,4 @@ class DashboardController extends Controller
             ]);
         }
     }
-} 
+}
