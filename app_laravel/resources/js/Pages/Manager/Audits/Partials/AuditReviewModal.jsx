@@ -261,6 +261,8 @@ export default function AuditReviewModal({ audit, onClose }) {
                 return 'bg-green-100 text-green-800';
             case 'pending':
                 return 'bg-yellow-100 text-yellow-800';
+            case 'revising':
+                return 'bg-orange-100 text-orange-800';
             case 'rejected':
                 return 'bg-orange-100 text-orange-800';
             default:
