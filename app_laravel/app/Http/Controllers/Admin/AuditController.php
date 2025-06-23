@@ -22,7 +22,14 @@ class AuditController extends Controller
     public function index(Request $request)
     {
         // Get all audits with related data
-        $query = Audit::with(['outlet', 'user', 'status', 'complianceRequirement'])
+        $query = Audit::with([
+            'outlet',
+            'user',
+            'status',
+            'complianceRequirement',
+            'auditForms.formTemplate',
+            'auditForms.status',
+        ])
             ->when($request->has('dateFilter') && $request->dateFilter !== 'all', function ($q) use ($request) {
                 $now = now();
                 switch ($request->dateFilter) {
@@ -61,12 +68,19 @@ class AuditController extends Controller
             });
         }
 
-        $audits = $query->orderBy('start_time', 'desc')
-            ->paginate($request->input('per_page', 5))
-            ->withQueryString();
+        $audits = $query->orderBy('start_time', 'desc')->get();
+
+        // Transform the audits to include the compliance requirement title
+        $audits->transform(function ($audit) {
+            $audit->title = $audit->complianceRequirement ? $audit->complianceRequirement->title : 'Unnamed Audit';
+            if ($audit->complianceRequirement && $audit->complianceRequirement->frequency) {
+                $audit->due_date = $this->calculateDueDate($audit->start_time, $audit->complianceRequirement->frequency);
+            }
+            return $audit;
+        });
 
         // Calculate due dates for each audit based on frequency
-        $audits->getCollection()->transform(function ($audit) {
+        $audits->transform(function ($audit) {
             if ($audit->complianceRequirement && $audit->complianceRequirement->frequency) {
                 $audit->due_date = $this->calculateDueDate($audit->start_time, $audit->complianceRequirement->frequency);
             }
@@ -482,5 +496,156 @@ class AuditController extends Controller
             'Annually' => $startDate->copy()->endOfYear(),
             default => $startDate->copy()->endOfMonth(),
         };
+    }
+
+    /**
+     * Get audit data for the admin dashboard
+     */
+    public function getAuditData()
+    {
+        $query = Audit::with([
+            'outlet',
+            'user',
+            'status',
+            'complianceRequirement',
+            'auditForms.formTemplate',
+            'auditForms.status',
+        ])->orderBy('start_time', 'desc');
+
+        $audits = $query->get();
+
+        // Transform the audits to include the compliance requirement title
+        $audits->transform(function ($audit) {
+            $audit->title = $audit->complianceRequirement ? $audit->complianceRequirement->title : 'Unnamed Audit';
+            if ($audit->complianceRequirement && $audit->complianceRequirement->frequency) {
+                $audit->due_date = $this->calculateDueDate($audit->start_time, $audit->complianceRequirement->frequency);
+            }
+            return $audit;
+        });
+
+        return response()->json([
+            'audits' => $audits
+        ]);
+    }
+
+    /**
+     * Get forms for a specific audit
+     */
+    public function getAuditForms($auditId)
+    {
+        $audit = Audit::with(['auditForms.formTemplate', 'auditForms.status'])
+            ->findOrFail($auditId);
+
+        $forms = $audit->auditForms->map(function ($form) {
+            return [
+                'id' => $form->id,
+                'formName' => $form->name,
+                'templateName' => $form->formTemplate->name,
+                'templateId' => $form->formTemplate->id,
+                'status_id' => $form->status_id,
+                'status' => $form->status->name,
+                'createdAt' => $form->created_at,
+                'updatedAt' => $form->updated_at
+            ];
+        });
+
+        return response()->json([
+            'auditId' => $auditId,
+            'forms' => $forms
+        ]);
+    }
+
+    /**
+     * Get details for a specific audit
+     */
+    public function getAuditDetails($auditId)
+    {
+        $audit = Audit::with([
+            'outlet',
+            'user',
+            'status',
+            'complianceRequirement',
+            'auditForms.formTemplate',
+            'auditForms.status',
+        ])->findOrFail($auditId);
+
+        return response()->json([
+            'audit' => [
+                'id' => $audit->id,
+                'name' => $audit->complianceRequirement ? $audit->complianceRequirement->title : 'Unnamed Audit',
+                'outletName' => $audit->outlet ? $audit->outlet->name : 'Unknown Outlet',
+                'status' => $audit->status ? $audit->status->name : 'Unknown',
+                'startDate' => $audit->start_time,
+                'dueDate' => $this->calculateDueDate($audit->start_time, $audit->complianceRequirement?->frequency),
+                'progress' => $audit->progress,
+                'formCount' => $audit->auditForms->count(),
+                'submittedBy' => $audit->user ? $audit->user->name : 'Unknown User',
+                'forms' => $audit->auditForms->map(function ($form) {
+                    return [
+                        'id' => $form->id,
+                        'name' => $form->formTemplate ? $form->formTemplate->name : 'Unnamed Form',
+                        'templateName' => $form->formTemplate ? $form->formTemplate->name : 'Unknown Template',
+                        'status' => $form->status ? $form->status->name : 'Unknown'
+                    ];
+                })
+            ]
+        ]);
+    }
+
+    /**
+     * Get details for a specific audit form
+     */
+    public function getAuditFormDetails($formId)
+    {
+        // Fetch form details with joins, like the manager version
+        $form = DB::table('audit_form')
+            ->leftJoin('form_templates', 'audit_form.form_id', '=', 'form_templates.id')
+            ->leftJoin('status', 'audit_form.status_id', '=', 'status.id')
+            ->leftJoin('audit_audit_form', 'audit_form.id', '=', 'audit_audit_form.audit_form_id')
+            ->leftJoin('audit', 'audit_audit_form.audit_id', '=', 'audit.id')
+            ->leftJoin('outlets', 'audit.outlet_id', '=', 'outlets.id')
+            ->leftJoin('users', 'audit.user_id', '=', 'users.id')
+            ->leftJoin('compliance_requirements', 'audit.compliance_id', '=', 'compliance_requirements.id')
+            ->where('audit_form.id', $formId)
+            ->select(
+                'audit_form.id',
+                'audit_form.name as formName',
+                'form_templates.name as templateName',
+                'audit_form.value as formValues',
+                'form_templates.structure as formStructure',
+                'audit_form.status_id',
+                'status.name as status',
+                'outlets.name as outletName',
+                'audit.id as auditId',
+                'users.name as submittedBy',
+                'compliance_requirements.title as requirement',
+                'audit_form.created_at as createdAt',
+                'audit_form.updated_at as updatedAt'
+            )
+            ->first();
+
+        if (!$form) {
+            return response()->json(['error' => 'Form not found'], 404);
+        }
+
+        // Decode JSON fields safely
+        $formValues = $form->formValues ? json_decode($form->formValues, true) : null;
+        $formStructure = $form->formStructure ? json_decode($form->formStructure, true) : null;
+
+        return response()->json([
+            'id' => $form->id,
+            'name' => $form->formName ?? 'Unnamed Form',
+            'status' => $form->status ?? 'Unknown',
+            'content' => $formValues,
+            'structure' => $formStructure,
+            'submitted_at' => $form->createdAt,
+            'updated_at' => $form->updatedAt,
+            'audit' => [
+                'id' => $form->auditId,
+                'outlet' => $form->outletName ?? 'Unknown Outlet',
+                'submittedBy' => $form->submittedBy ?? 'Unknown User',
+                'requirement' => $form->requirement ?? 'Unknown Requirement'
+            ]
+        ]);
     }
 }
