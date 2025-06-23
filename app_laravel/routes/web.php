@@ -46,7 +46,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('admin.audits.index');
 
     // Audit report generation
-    Route::post('/admin/audits/generate-report', [AuditController::class, 'generateReport'])
+    Route::match(['get', 'post'], '/admin/audits/generate-report', [AuditController::class, 'generateReport'])
         ->name('admin.audits.generate-report');
 
     // Share form access page
