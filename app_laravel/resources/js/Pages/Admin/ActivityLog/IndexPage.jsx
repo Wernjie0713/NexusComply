@@ -1,15 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router } from '@inertiajs/react';
 import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
 import { generateActivityLogPDF } from './ActivityLogPDF';
 import axios from 'axios';
 
-export default function ActivityLogPage({ activities = { data: [], links: [] }, filters = { action_types: [], target_types: [], current: {} } }) {
-
+export default function ActivityLogPage({ activities = [], filters = { action_types: [], target_types: [], current: {} } }) {
 
     // Ensure activities and filters are properly initialized
-    const safeActivities = activities || { data: [], links: [] };
+    const safeActivities = activities || [];
     const safeFilters = filters || { action_types: [], target_types: [], current: {} };
 
     const [selectedActionType, setSelectedActionType] = useState(safeFilters.current.action_type || '');
@@ -18,44 +17,26 @@ export default function ActivityLogPage({ activities = { data: [], links: [] }, 
     const [dateTo, setDateTo] = useState(safeFilters.current.date_to || '');
     const [exportFormat, setExportFormat] = useState('pdf');
     const [exporting, setExporting] = useState(false);
-    const [perPage, setPerPage] = useState(safeFilters.current.per_page || 5);
+    const [perPage, setPerPage] = useState(5);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [search, setSearch] = useState('');
+
+    // Use temporary state for filter controls
+    const [pendingActionType, setPendingActionType] = useState(selectedActionType);
+    const [pendingTargetType, setPendingTargetType] = useState(selectedTargetType);
+    const [pendingDateFrom, setPendingDateFrom] = useState(dateFrom);
+    const [pendingDateTo, setPendingDateTo] = useState(dateTo);
 
     const capitalizeFirstLetter = (str) => {
         if (!str) return '';
         return str.charAt(0).toUpperCase() + str.slice(1);
     };
 
-    const applyFilters = () => {
-        router.get(
-            route('admin.activity-logs.index'),
-            {
-                action_type: selectedActionType,
-                target_type: selectedTargetType,
-                date_from: dateFrom,
-                date_to: dateTo,
-                per_page: perPage
-            },
-            {
-                preserveState: true,
-                preserveScroll: true,
-                replace: true,
-            }
-        );
-    };
-
-    const clearFilters = () => {
-        setSelectedActionType('');
-        setSelectedTargetType('');
-        setDateFrom('');
-        setDateTo('');
-        router.get(route('admin.activity-logs.index'));
-    };
-
     const handleExport = async () => {
         setExporting(true);
         
         try {
-            // Get current filter parameters
+            // Get current filter parameters from applied filter state
             const params = new URLSearchParams({
                 action_type: selectedActionType,
                 target_type: selectedTargetType,
@@ -86,6 +67,63 @@ export default function ActivityLogPage({ activities = { data: [], links: [] }, 
         }
     };
 
+    // When Apply Filters is clicked, update the real filter state
+    const handleApplyFilters = () => {
+        setSelectedActionType(pendingActionType);
+        setSelectedTargetType(pendingTargetType);
+        setDateFrom(pendingDateFrom);
+        setDateTo(pendingDateTo);
+    };
+
+    // When Clear Filters is clicked, reset both pending and real filter state
+    const handleClearFilters = () => {
+        setPendingActionType('');
+        setPendingTargetType('');
+        setPendingDateFrom('');
+        setPendingDateTo('');
+        setSelectedActionType('');
+        setSelectedTargetType('');
+        setDateFrom('');
+        setDateTo('');
+    };
+
+    // Filtered activities by all filters and search
+    const filteredActivities = useMemo(() => {
+        const query = search.toLowerCase();
+        return safeActivities.filter(log => {
+            // Search filter
+            const matchesSearch =
+                (log.details && log.details.toLowerCase().includes(query)) ||
+                (log.action_type && log.action_type.toLowerCase().includes(query)) ||
+                (log.target_type && log.target_type.toLowerCase().includes(query)) ||
+                (log.user && log.user.name && log.user.name.toLowerCase().includes(query));
+            // Action type filter
+            const matchesActionType = !selectedActionType || log.action_type === selectedActionType;
+            // Target type filter
+            const matchesTargetType = !selectedTargetType || log.target_type === selectedTargetType;
+            // Date range filter
+            let matchesDate = true;
+            if (dateFrom) {
+                matchesDate = matchesDate && log.created_at && log.created_at >= dateFrom;
+            }
+            if (dateTo) {
+                matchesDate = matchesDate && log.created_at && log.created_at <= dateTo + ' 23:59:59';
+            }
+            return matchesSearch && matchesActionType && matchesTargetType && matchesDate;
+        });
+    }, [safeActivities, search, selectedActionType, selectedTargetType, dateFrom, dateTo]);
+
+    // Pagination logic
+    const total = filteredActivities.length;
+    const totalPages = Math.ceil(total / perPage);
+    const paginatedActivities = useMemo(() => {
+        const start = (currentPage - 1) * perPage;
+        return filteredActivities.slice(start, start + perPage);
+    }, [filteredActivities, currentPage, perPage]);
+
+    // Reset to first page on search or perPage change
+    useMemo(() => { setCurrentPage(1); }, [search, perPage]);
+
     return (
         <AuthenticatedLayout
             header={
@@ -113,8 +151,8 @@ export default function ActivityLogPage({ activities = { data: [], links: [] }, 
                                     <div>
                                         <label className="mr-2 text-sm font-medium text-gray-700">Action Type:</label>
                                         <select
-                                            value={selectedActionType}
-                                            onChange={(e) => setSelectedActionType(e.target.value)}
+                                            value={pendingActionType}
+                                            onChange={(e) => setPendingActionType(e.target.value)}
                                             className="rounded-md border-gray-300 text-sm shadow-sm focus:border-green-500 focus:ring-green-500"
                                         >
                                             <option value="">All Actions</option>
@@ -129,8 +167,8 @@ export default function ActivityLogPage({ activities = { data: [], links: [] }, 
                                     <div>
                                         <label className="mr-2 text-sm font-medium text-gray-700">Target Type:</label>
                                         <select
-                                            value={selectedTargetType}
-                                            onChange={(e) => setSelectedTargetType(e.target.value)}
+                                            value={pendingTargetType}
+                                            onChange={(e) => setPendingTargetType(e.target.value)}
                                             className="rounded-md border-gray-300 text-sm shadow-sm focus:border-green-500 focus:ring-green-500"
                                         >
                                             <option value="">All Targets</option>
@@ -146,8 +184,8 @@ export default function ActivityLogPage({ activities = { data: [], links: [] }, 
                                         <label className="mr-2 text-sm font-medium text-gray-700">Date From:</label>
                                         <input
                                             type="date"
-                                            value={dateFrom}
-                                            onChange={(e) => setDateFrom(e.target.value)}
+                                            value={pendingDateFrom}
+                                            onChange={(e) => setPendingDateFrom(e.target.value)}
                                             className="rounded-md border-gray-300 text-sm shadow-sm focus:border-green-500 focus:ring-green-500"
                                         />
                                     </div>
@@ -156,14 +194,13 @@ export default function ActivityLogPage({ activities = { data: [], links: [] }, 
                                         <label className="mr-2 text-sm font-medium text-gray-700">Date To:</label>
                                         <input
                                             type="date"
-                                            value={dateTo}
-                                            onChange={(e) => setDateTo(e.target.value)}
+                                            value={pendingDateTo}
+                                            onChange={(e) => setPendingDateTo(e.target.value)}
                                             className="rounded-md border-gray-300 text-sm shadow-sm focus:border-green-500 focus:ring-green-500"
                                         />
                                     </div>
                                 </div>
-
-                                <AdminPrimaryButton onClick={applyFilters}>
+                                <AdminPrimaryButton onClick={handleApplyFilters}>
                                     Apply Filters
                                 </AdminPrimaryButton>
                             </div>
@@ -229,30 +266,13 @@ export default function ActivityLogPage({ activities = { data: [], links: [] }, 
                     {/* Activity Log Table */}
                     <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
                         <div className="px-6 py-6">
-                             <div className="mb-4 flex items-center justify-between">
+                            {/* Show entries and search in the same row */}
+                            <div className="mb-4 flex items-center justify-between">
                                 <div className="flex items-center space-x-2 text-sm text-gray-700">
                                     <span>Show</span>
                                     <select
                                         value={perPage}
-                                        onChange={(e) => {
-                                            const newPerPageValue = e.target.value;
-                                            setPerPage(newPerPageValue);
-                                            router.get(
-                                                route('admin.activity-logs.index'),
-                                                {
-                                                    action_type: selectedActionType,
-                                                    target_type: selectedTargetType,
-                                                    date_from: dateFrom,
-                                                    date_to: dateTo,
-                                                    per_page: newPerPageValue
-                                                },
-                                                {
-                                                    preserveState: true,
-                                                    preserveScroll: true,
-                                                    replace: true,
-                                                }
-                                            );
-                                        }}
+                                        onChange={e => setPerPage(Number(e.target.value))}
                                         className="rounded-md border-gray-300 text-sm shadow-sm focus:border-green-500 focus:ring-green-500"
                                     >
                                         <option value="5">5</option>
@@ -261,8 +281,16 @@ export default function ActivityLogPage({ activities = { data: [], links: [] }, 
                                     </select>
                                     <span>entries</span>
                                 </div>
+                                <input
+                                    type="text"
+                                    className="ml-auto rounded-md border border-gray-300 px-3 py-1 text-sm focus:border-green-500 focus:ring-green-500"
+                                    placeholder="Search activity log..."
+                                    value={search}
+                                    onChange={e => setSearch(e.target.value)}
+                                    style={{ minWidth: 180 }}
+                                />
                             </div>
-                            <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow">
+                            <div className="overflow-x-auto">
                                 <table className="min-w-full divide-y divide-gray-200">
                                     <thead className="bg-green-50">
                                         <tr>
@@ -284,14 +312,8 @@ export default function ActivityLogPage({ activities = { data: [], links: [] }, 
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-200 bg-white">
-                                        {safeActivities.data.length === 0 ? (
-                                            <tr>
-                                                <td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500">
-                                                    No activity logs found
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            safeActivities.data.map((activity) => (
+                                        {paginatedActivities.length > 0 ? (
+                                            paginatedActivities.map((activity) => (
                                                 <tr key={activity.id}>
                                                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
                                                         {activity.created_at}
@@ -310,56 +332,96 @@ export default function ActivityLogPage({ activities = { data: [], links: [] }, 
                                                     </td>
                                                 </tr>
                                             ))
+                                        ) : (
+                                            <tr>
+                                                <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
+                                                    No activity logs found.
+                                                </td>
+                                            </tr>
                                         )}
                                     </tbody>
                                 </table>
                             </div>
+                            {/* Pagination controls below the table */}
+                            {totalPages > 1 && (
+                                <div className="mt-4 flex justify-between items-center">
+                                    <div className="text-sm text-gray-700">
+                                        Showing <span className="font-medium">{(currentPage - 1) * perPage + 1}</span> to{' '}
+                                        <span className="font-medium">{Math.min(currentPage * perPage, total)}</span> of{' '}
+                                        <span className="font-medium">{total}</span> results
+                                    </div>
+                                    <div className="flex flex-wrap justify-end space-x-1">
+                                        <button
+                                            onClick={() => setCurrentPage(currentPage - 1)}
+                                            className={`rounded px-3 py-1 text-sm ${currentPage === 1 ? 'bg-gray-100 text-gray-700 opacity-50 cursor-not-allowed' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                                            disabled={currentPage === 1}
+                                        >
+                                            Previous
+                                        </button>
+                                        {/* Compact pagination with ellipsis */}
+                                        {(() => {
+                                            const pageButtons = [];
+                                            const pageWindow = 2; // Show 2 pages before/after current
+                                            let startPage = Math.max(2, currentPage - pageWindow); // Always show 1
+                                            let endPage = Math.min(totalPages - 1, currentPage + pageWindow); // Always show last
 
-                            {/* Pagination */}
-                            {safeActivities?.links && (
-                                <div className="mt-4 flex items-center justify-between">
-                                    <p className="text-sm text-gray-700">
-                                        Showing <span className="font-medium">{safeActivities.from}</span> to{' '}
-                                        <span className="font-medium">{safeActivities.to}</span> of{' '}
-                                        <span className="font-medium">{safeActivities.total}</span> results
-                                    </p>
-                                    <div className="flex flex-wrap justify-center space-x-1">
-                                        {safeActivities.links
-                                            .filter(link => link.url !== null)
-                                            .map((link, i) => (
+                                            // Always show first page
+                                            pageButtons.push(
                                                 <button
-                                                    key={i}
-                                                    onClick={() => {
-                                                        if (link.url) {
-                                                            const url = new URL(link.url);
-                                                            console.log('Activity Log Link URL:', link.url);
-                                                            const page = url.searchParams.get('page');
-                                                            console.log('Activity Log Page from URL:', page);
-                                                            const currentUrl = new URL(window.location.href);
+                                                    key={1}
+                                                    onClick={() => setCurrentPage(1)}
+                                                    className={`rounded px-3 py-1 text-sm ${currentPage === 1 ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                                                    disabled={currentPage === 1}
+                                                >
+                                                    1
+                                                </button>
+                                            );
+                                            if (startPage > 2) {
+                                                pageButtons.push(
+                                                    <span key="start-ellipsis" className="px-2 text-gray-400">...</span>
+                                                );
+                                            }
 
-                                                            router.get(
-                                                                route('admin.activity-logs.index'),
-                                                                {
-                                                                    page: page,
-                                                                    action_type: selectedActionType,
-                                                                    target_type: selectedTargetType,
-                                                                    date_from: dateFrom,
-                                                                    date_to: dateTo,
-                                                                    per_page: perPage
-                                                                },
-                                                                {
-                                                                    preserveState: true,
-                                                                    preserveScroll: true,
-                                                                    replace: true,
-                                                                }
-                                                            );
-                                                        }
-                                                    }}
-                                                    className={`rounded px-3 py-1 text-sm ${link.active ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'} ${!link.url ? 'cursor-not-allowed opacity-50' : ''}`}
-                                                    disabled={!link.url}
-                                                    dangerouslySetInnerHTML={{ __html: link.label }}
-                                                />
-                                            ))}
+                                            // Main window
+                                            for (let page = startPage; page <= endPage; page++) {
+                                                pageButtons.push(
+                                                    <button
+                                                        key={page}
+                                                        onClick={() => setCurrentPage(page)}
+                                                        className={`rounded px-3 py-1 text-sm ${page === currentPage ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                                                    >
+                                                        {page}
+                                                    </button>
+                                                );
+                                            }
+
+                                            // Always show last page
+                                            if (totalPages > 1) {
+                                                if (endPage < totalPages - 1) {
+                                                    pageButtons.push(
+                                                        <span key="end-ellipsis" className="px-2 text-gray-400">...</span>
+                                                    );
+                                                }
+                                                pageButtons.push(
+                                                    <button
+                                                        key={totalPages}
+                                                        onClick={() => setCurrentPage(totalPages)}
+                                                        className={`rounded px-3 py-1 text-sm ${currentPage === totalPages ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                                                        disabled={currentPage === totalPages}
+                                                    >
+                                                        {totalPages}
+                                                    </button>
+                                                );
+                                            }
+                                            return pageButtons;
+                                        })()}
+                                        <button
+                                            onClick={() => setCurrentPage(currentPage + 1)}
+                                            className={`rounded px-3 py-1 text-sm ${currentPage === totalPages ? 'bg-gray-100 text-gray-700 opacity-50 cursor-not-allowed' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                                            disabled={currentPage === totalPages}
+                                        >
+                                            Next
+                                        </button>
                                     </div>
                                 </div>
                             )}
