@@ -134,9 +134,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/manager/forms/{formId}/issues', [App\Http\Controllers\Manager\IssueController::class, 'getFormIssues']);
     Route::get('/manager/forms/{formId}/previous-issues', [App\Http\Controllers\Manager\IssueController::class, 'getPreviousFormIssue']);
     Route::post('/manager/forms/{formId}/status', [ManagerAuditController::class, 'updateFormStatus']);
-    Route::get('/audits/{auditId}/report-link', [AuditorController::class, 'getAuditReportLink']);
-    Route::get('/auditor/audits/view', [AuditorController::class, 'viewAudit'])
-        ->name('auditor.audits.view');
     Route::get('/manager/audits/{id}/rejected-forms-check', [ManagerAuditController::class, 'checkRejectedForms']);
     Route::put('/manager/issues/{id}', [App\Http\Controllers\Manager\IssueController::class, 'updateIssue']);
     Route::delete('/manager/issues/{id}', [App\Http\Controllers\Manager\IssueController::class, 'deleteIssue']);
@@ -214,6 +211,8 @@ Route::middleware('guest')->group(function () {
         ]);
     })->name('password.reset');
 });
-
+Route::get('/audits/{auditId}/report-link', [AuditorController::class, 'getAuditReportLink']);
+Route::get('/auditor/audits/view', [AuditorController::class, 'viewAudit'])
+    ->name('auditor.audits.view');
 // Include standard auth routes (for POST handlers)
 require __DIR__ . '/auth.php';
