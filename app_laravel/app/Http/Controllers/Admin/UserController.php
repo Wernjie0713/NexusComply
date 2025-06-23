@@ -67,37 +67,13 @@ class UserController extends Controller
             abort(403, 'Unauthorized');
         }
 
-        $managersPerPage = $request->input('managers_per_page', 5);
-        $outletUsersPerPage = $request->input('outlet_users_per_page', 5);
-        $customRoleUsersPerPage = $request->input('custom_role_users_per_page', 5);
-        $adminUsersPerPage = $request->input('admin_users_per_page', 5);
-
-        $managersQuery = User::with(['roles', 'managedOutlets'])
+        $managers = User::with(['roles', 'managedOutlets'])
             ->whereHas('roles', function ($query) {
                 $query->where('name', 'manager');
             })
-            ->orderBy('id');
-
-        $outletUsersQuery = User::with(['roles', 'outletUserOutlet'])
-            ->whereHas('roles', function ($query) {
-                $query->where('name', 'outlet-user');
-            })
-            ->orderBy('id');
-
-        $customRoleUsersQuery = User::with(['roles'])
-            ->whereHas('roles', function ($query) {
-                $query->whereNotIn('name', ['manager', 'outlet-user', 'admin']);
-            })
-            ->orderBy('id');
-
-        $adminUsersQuery = User::with(['roles'])
-            ->whereHas('roles', function ($query) {
-                $query->where('name', 'admin');
-            })
-            ->orderBy('id');
-
-        $managers = $managersQuery->paginate($managersPerPage, ['*'], 'managers_page', $request->input('managers_page'))
-            ->through(function ($user) {
+            ->orderBy('id')
+            ->get()
+            ->map(function ($user) {
                 return [
                     'id' => $user->id,
                     'name' => $user->name,
@@ -114,8 +90,13 @@ class UserController extends Controller
                 ];
             });
 
-        $outletUsers = $outletUsersQuery->paginate($outletUsersPerPage, ['*'], 'outlet_users_page', $request->input('outlet_users_page'))
-            ->through(function ($user) {
+        $outletUsers = User::with(['roles', 'outletUserOutlet'])
+            ->whereHas('roles', function ($query) {
+                $query->where('name', 'outlet-user');
+            })
+            ->orderBy('id')
+            ->get()
+            ->map(function ($user) {
                 return [
                     'id' => $user->id,
                     'name' => $user->name,
@@ -126,8 +107,13 @@ class UserController extends Controller
                 ];
             });
 
-        $customRoleUsers = $customRoleUsersQuery->paginate($customRoleUsersPerPage, ['*'], 'custom_role_users_page', $request->input('custom_role_users_page'))
-            ->through(function ($user) {
+        $customRoleUsers = User::with(['roles'])
+            ->whereHas('roles', function ($query) {
+                $query->whereNotIn('name', ['manager', 'outlet-user', 'admin']);
+            })
+            ->orderBy('id')
+            ->get()
+            ->map(function ($user) {
                 return [
                     'id' => $user->id,
                     'name' => $user->name,
@@ -137,8 +123,13 @@ class UserController extends Controller
                 ];
             });
 
-        $adminUsers = $adminUsersQuery->paginate($adminUsersPerPage, ['*'], 'admin_users_page', $request->input('admin_users_page'))
-            ->through(function ($user) {
+        $adminUsers = User::with(['roles'])
+            ->whereHas('roles', function ($query) {
+                $query->where('name', 'admin');
+            })
+            ->orderBy('id')
+            ->get()
+            ->map(function ($user) {
                 return [
                     'id' => $user->id,
                     'name' => $user->name,
