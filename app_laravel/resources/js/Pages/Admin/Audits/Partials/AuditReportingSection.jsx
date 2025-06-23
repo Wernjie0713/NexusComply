@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
 import { generateAuditReportPDF, getReportFileName } from './AuditReportPDF';
+import axios from 'axios';
 
 export default function AuditReportingSection({ states = [], complianceCategories = [], outlets = [], managers = [] }) {
     const [generating, setGenerating] = useState(null);
@@ -104,36 +105,21 @@ export default function AuditReportingSection({ states = [], complianceCategorie
             const filterSelect = document.getElementById(`filter-${reportId}`);
             const selectedFilter = filterSelect.value;
 
-            // Get CSRF token
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-            if (!csrfToken) {
-                throw new Error('CSRF token not found. Please refresh the page and try again.');
-            }
+            // Build query parameters for GET request
+            const params = new URLSearchParams({
+                reportType: reportTypes.find(r => r.id === reportId).name,
+                startDate: startDate,
+                endDate: endDate,
+                filter: selectedFilter
+            }).toString();
 
-            // Get report data from API
-            const response = await fetch(route('admin.audits.generate-report'), {
-                method: 'POST',
+            // Get report data from API using GET
+            const response = await axios.get(route('admin.audits.generate-report') + '?' + params, {
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken,
                     'Accept': 'application/json'
-                },
-                body: JSON.stringify({
-                    reportType: reportTypes.find(r => r.id === reportId).name,
-                    startDate: startDate,
-                    endDate: endDate,
-                    filter: selectedFilter
-                })
-            });
-
-            if (!response.ok) {
-                if (response.status === 419) {
-                    throw new Error('Session expired. Please refresh the page and try again.');
                 }
-                throw new Error(`Failed to generate report: ${response.status} ${response.statusText}`);
-            }
-
-            const data = await response.json();
+            });
+            const data = response.data;
 
             // Debug: log the data received from backend
             console.log('Report data received:', data);
