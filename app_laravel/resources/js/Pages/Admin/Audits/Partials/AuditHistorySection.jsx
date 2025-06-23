@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import Modal from '@/Components/Modal';
 import { Tooltip } from 'react-tooltip';
 import InputLabel from '@/Components/InputLabel';
@@ -13,24 +13,40 @@ export default function AuditHistorySection({ auditHistory = {}, filters, status
     const [showIssuesModal, setShowIssuesModal] = useState(false);
     const [issuesForVersion, setIssuesForVersion] = useState([]);
     const [perPage, setPerPage] = useState(filters?.per_page || 5);
+    const [search, setSearch] = useState(filters?.search || '');
+    const [currentPage, setCurrentPage] = useState(auditHistory.current_page || 1);
     const loggedIssuesRef = useRef(null); // Ref for scrolling
 
     const audits = auditHistory || { data: [], links: [] };
 
+    // When perPage or currentPage changes, fetch from backend
     const handlePerPageChange = (e) => {
-        const newPerPageValue = e.target.value;
-        setPerPage(newPerPageValue);
+        const newPerPage = Number(e.target.value);
+        setPerPage(newPerPage);
+        setCurrentPage(1);
         router.get(
-            route('admin.audit-history.index'), // <-- update to your route name
-            {
-                ...filters,
-                per_page: newPerPageValue
-            },
-            {
-                preserveState: true,
-                preserveScroll: true,
-                replace: true,
-            }
+            route('admin.audits.index'),
+            { per_page: newPerPage, page: 1, search },
+            { preserveState: true, preserveScroll: true, replace: true }
+        );
+    };
+    const handlePageChange = (page) => {
+        if (page >= 1 && page <= auditHistory.last_page) {
+            setCurrentPage(page);
+            router.get(
+                route('admin.audits.index'),
+                { per_page: perPage, page, search },
+                { preserveState: true, preserveScroll: true, replace: true }
+            );
+        }
+    };
+    const handleSearchChange = (e) => {
+        setSearch(e.target.value);
+        setCurrentPage(1);
+        router.get(
+            route('admin.audits.index'),
+            { per_page: perPage, page: 1, search: e.target.value },
+            { preserveState: true, preserveScroll: true, replace: true }
         );
     };
 
@@ -74,12 +90,20 @@ export default function AuditHistorySection({ auditHistory = {}, filters, status
                         onChange={handlePerPageChange}
                         className="rounded-md border-gray-300 text-sm shadow-sm focus:border-green-500 focus:ring-green-500"
                     >
-                        <option value="5">5</option>
-                        <option value="10">10</option>
-                        <option value="25">25</option>
+                        <option value={5}>5</option>
+                        <option value={10}>10</option>
+                        <option value={25}>25</option>
                     </select>
                     <span>entries</span>
                 </div>
+                <input
+                    type="text"
+                    className="ml-auto rounded-md border border-gray-300 px-3 py-1 text-sm focus:border-green-500 focus:ring-green-500"
+                    placeholder="Search..."
+                    value={search}
+                    onChange={handleSearchChange}
+                    style={{ minWidth: 180 }}
+                />
             </div>
             <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
@@ -91,7 +115,7 @@ export default function AuditHistorySection({ auditHistory = {}, filters, status
                             <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">Outlet Name</th>
                             <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">Initiated By</th>
                             <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">Initiated Date</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">No. of Versions</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">Version Info</th>
                             <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">Current Status</th>
                             <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">Last Updated</th>
                             <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">Issues Logged</th>
@@ -110,33 +134,54 @@ export default function AuditHistorySection({ auditHistory = {}, filters, status
                                 <React.Fragment key={audit.original_audit_id}>
                                     <tr>
                                         <td className="px-2 py-2">
-                                            <button
-                                                onClick={() => toggleExpand(audit.original_audit_id)}
-                                                className={`flex items-center justify-center rounded-full border border-gray-200 bg-white p-1 transition-colors duration-150 ${
-                                                    expandedRows.includes(audit.original_audit_id)
-                                                        ? 'text-green-600 border-green-200 bg-green-50'
-                                                        : 'text-gray-400 hover:text-green-500 hover:border-green-200 hover:bg-green-50'
-                                                }`}
-                                                aria-label={expandedRows.includes(audit.original_audit_id) ? 'Collapse' : 'Expand'}
-                                                type="button"
-                                            >
-                                                {expandedRows.includes(audit.original_audit_id) ? (
-                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 15l-7-7-7 7" />
-                                                    </svg>
-                                                ) : (
-                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                                                    </svg>
-                                                )}
-                                            </button>
+                                            {audit.versions && audit.versions.length > 1 && (
+                                                <button
+                                                    onClick={() => toggleExpand(audit.original_audit_id)}
+                                                    className={`flex items-center justify-center rounded-full border border-gray-200 bg-white p-1 transition-colors duration-150 ${
+                                                        expandedRows.includes(audit.original_audit_id)
+                                                            ? 'text-green-600 border-green-200 bg-green-50'
+                                                            : 'text-gray-400 hover:text-green-500 hover:border-green-200 hover:bg-green-50'
+                                                    }`}
+                                                    aria-label={expandedRows.includes(audit.original_audit_id) ? 'Collapse' : 'Expand'}
+                                                    type="button"
+                                                >
+                                                    {expandedRows.includes(audit.original_audit_id) ? (
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 15l-7-7-7 7" />
+                                                        </svg>
+                                                    ) : (
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                                                        </svg>
+                                                    )}
+                                                </button>
+                                            )}
                                         </td>
                                         <td className="px-4 py-3 text-sm">{audit.original_audit_id}</td>
                                         <td className="px-4 py-3 text-sm">{audit.compliance_requirement}</td>
                                         <td className="px-4 py-3 text-sm">{audit.outlet_name}</td>
                                         <td className="px-4 py-3 text-sm">{audit.initiated_by}</td>
                                         <td className="px-4 py-3 text-sm">{audit.initiated_date ? new Date(audit.initiated_date).toLocaleString() : ''}</td>
-                                        <td className="px-4 py-3 text-sm">{audit.num_versions}</td>
+                                        <td className="px-4 py-3 text-sm">
+                                            {audit.versions && audit.versions.length === 1 ? (
+                                                <span className="text-gray-600">Version 1</span>
+                                            ) : audit.versions && audit.versions.length > 1 ? (
+                                                <button
+                                                    type="button"
+                                                    className="flex items-center gap-1 text-blue-700 hover:text-blue-900 underline decoration-dotted cursor-pointer"
+                                                    onClick={() => toggleExpand(audit.original_audit_id)}
+                                                    aria-label={expandedRows.includes(audit.original_audit_id) ? 'Hide Revision History' : 'Show Revision History'}
+                                                >
+                                                    <span>Version {audit.versions[audit.versions.length - 1].audit_version} of {audit.versions.length}</span>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d={expandedRows.includes(audit.original_audit_id) ? 'M19 15l-7-7-7 7' : 'M19 9l-7 7-7-7'} />
+                                                    </svg>
+                                                    <span className="sr-only">{expandedRows.includes(audit.original_audit_id) ? 'Hide Revision History' : 'Show Revision History'}</span>
+                                                </button>
+                                            ) : (
+                                                <span>-</span>
+                                            )}
+                                        </td>
                                         <td className="px-4 py-3 text-sm">{audit.current_status}</td>
                                         <td className="px-4 py-3 text-sm">{audit.versions && audit.versions.length > 0 && audit.versions[audit.versions.length - 1].action_date ? new Date(audit.versions[audit.versions.length - 1].action_date).toLocaleString() : (audit.versions && audit.versions.length > 0 && audit.versions[audit.versions.length - 1].submission_date ? new Date(audit.versions[audit.versions.length - 1].submission_date).toLocaleString() : '-')}</td>
                                         <td className="px-4 py-3 text-sm">
@@ -176,7 +221,7 @@ export default function AuditHistorySection({ auditHistory = {}, filters, status
                                     {expandedRows.includes(audit.original_audit_id) && (
                                         <tr>
                                             <td colSpan={10} className="bg-gray-50 px-4 py-2 text-sm text-gray-600">
-                                                <div className="ml-8">
+                                                <div className="ml-36">
                                                     <strong>Version History:</strong>
                                                     <table className="min-w-full divide-y divide-gray-200 mt-2">
                                                         <thead className="bg-green-50">
@@ -248,49 +293,38 @@ export default function AuditHistorySection({ auditHistory = {}, filters, status
                     </tbody>
                 </table>
             </div>
-            {/* Pagination */}
-            {audits?.links && audits.data.length > 0 && (
-                <div className="mt-4 flex items-center justify-between">
-                    <p className="text-sm text-gray-700">
-                        Showing <span className="font-medium">{audits.from}</span> to{' '}
-                        <span className="font-medium">{audits.to}</span> of{' '}
-                        <span className="font-medium">{audits.total}</span> results
-                    </p>
-                    <div className="flex flex-wrap justify-center space-x-1">
-                        {audits.links
-                            .filter(link => link.url !== null || link.label.includes('Previous') || link.label.includes('Next'))
-                            .map((link, i) => (
-                                <button
-                                    key={i}
-                                    onClick={() => {
-                                        if (link.url) {
-                                            const url = new URL(link.url);
-                                            const page = url.searchParams.get('page');
-                                            router.get(
-                                                route('admin.audit-history.index'), // <-- update to your route name
-                                                {
-                                                    ...filters,
-                                                    page: page,
-                                                    per_page: perPage,
-                                                },
-                                                {
-                                                    preserveState: true,
-                                                    preserveScroll: true,
-                                                    replace: true,
-                                                }
-                                            );
-                                        }
-                                    }}
-                                    className={`rounded px-3 py-1 text-sm ${
-                                        link.active ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                    } ${!link.url ? 'cursor-not-allowed opacity-50' : ''}`}
-                                    disabled={!link.url}
-                                    dangerouslySetInnerHTML={{ __html: link.label }}
-                                />
-                            ))}
-                    </div>
+            {/* Pagination Controls */}
+            <div className="flex justify-between items-center mt-4">
+                <div className="text-sm text-gray-600">
+                    Showing {audits.from || 0}
+                    -{audits.to || 0} of {audits.total || 0} entries
                 </div>
-            )}
+                <div className="flex space-x-1">
+                    <button
+                        className="px-2 py-1 rounded border text-sm disabled:opacity-50"
+                        onClick={() => handlePageChange((auditHistory.current_page || 1) - 1)}
+                        disabled={auditHistory.current_page === 1}
+                    >
+                        Prev
+                    </button>
+                    {[...Array(auditHistory.last_page || 1)].map((_, idx) => (
+                        <button
+                            key={idx}
+                            className={`px-2 py-1 rounded border text-sm ${auditHistory.current_page === idx + 1 ? 'bg-green-100 border-green-400 font-bold' : ''}`}
+                            onClick={() => handlePageChange(idx + 1)}
+                        >
+                            {idx + 1}
+                        </button>
+                    ))}
+                    <button
+                        className="px-2 py-1 rounded border text-sm disabled:opacity-50"
+                        onClick={() => handlePageChange((auditHistory.current_page || 1) + 1)}
+                        disabled={auditHistory.current_page === auditHistory.last_page}
+                    >
+                        Next
+                    </button>
+                </div>
+            </div>
 
             {/* Version Details Modal */}
             <Modal show={showVersionModal} onClose={() => setShowVersionModal(false)} maxWidth="2xl">
