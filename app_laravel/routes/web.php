@@ -122,12 +122,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('admin.available-outlets');
 
     // Manager Routes
+    Route::get('/manager/dashboard', [App\Http\Controllers\Manager\DashboardController::class, 'index'])
+    ->middleware(['auth', 'verified'])
+    ->name('dashboard');
     Route::get('/manager/audits', function () {
         return Inertia::render('Manager/Audits/IndexPage');
     })->name('manager.audits');
-
     Route::get('/manager/audits-data', [ManagerAuditController::class, 'getManagerAudits']);
-
     Route::get('/manager/audits/{auditId}/forms', [ManagerAuditController::class, 'getAuditForms']);
     Route::post('/manager/audits/{auditId}/status', [ManagerAuditController::class, 'updateAuditStatus']);
     Route::get('/manager/audits/{auditId}/details', [ManagerAuditController::class, 'getAuditDetails']);
@@ -156,6 +157,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/manager/reports', function () {
         return Inertia::render('Manager/ReportsPage');
     })->name('manager.reports');
+
+    Route::get('/manager/audits/generate-report', [ManagerReportController::class, 'generateReport'])
+    ->name('manager.audits.generate-report');
 
     // User Management API for Manager
     Route::get('/manager/users/data', [\App\Http\Controllers\Manager\UserController::class, 'index']);
@@ -213,7 +217,7 @@ Route::middleware('guest')->group(function () {
         ]);
     })->name('password.reset');
 });
-Route::get('/audits/{auditId}/report-link', [AuditorController::class, 'getAuditReportLink']);
+
 Route::get('/auditor/audits/view', [AuditorController::class, 'viewAudit'])
     ->name('auditor.audits.view');
 // Include standard auth routes (for POST handlers)
