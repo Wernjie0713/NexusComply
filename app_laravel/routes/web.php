@@ -9,6 +9,8 @@ use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\ActivityLogController;
 use App\Http\Controllers\Admin\RolePermissionController;
+use App\Http\Controllers\AuditorController;
+use App\Http\Controllers\Manager\AuditController as ManagerAuditController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -114,17 +116,27 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('admin.available-outlets');
 
     // Manager Routes
-    Route::get('/manager/dashboard', [\App\Http\Controllers\Manager\DashboardController::class, 'index'])
-        ->name('manager.dashboard');
     Route::get('/manager/audits', function () {
         return Inertia::render('Manager/Audits/IndexPage');
     })->name('manager.audits');
+    
+    Route::get('/manager/audits-data', [ManagerAuditController::class, 'getManagerAudits']);
 
-    Route::get('/manager/audits/share-form/{formId}', function ($formId) {
-        return Inertia::render('Manager/Audits/ShareFormAccessPage', [
-            'formId' => $formId
-        ]);
-    })->name('manager.audits.share-form');
+    Route::get('/manager/audits/{auditId}/forms', [ManagerAuditController::class, 'getAuditForms']);
+    Route::post('/manager/audits/{auditId}/status', [ManagerAuditController::class, 'updateAuditStatus']);
+    Route::get('/manager/audits/{auditId}/details', [ManagerAuditController::class, 'getAuditDetails']);
+    Route::get('/manager/forms/{formId}/details', [ManagerAuditController::class, 'getAuditFormDetails']);
+    Route::get('/manager/forms/{formId}/issues', [App\Http\Controllers\Manager\IssueController::class, 'getFormIssues']);
+    Route::get('/manager/forms/{formId}/previous-issues', [App\Http\Controllers\Manager\IssueController::class, 'getPreviousFormIssue']);
+    Route::post('/manager/forms/{formId}/status', [ManagerAuditController::class, 'updateFormStatus']);
+    Route::get('/audits/{auditId}/report-link', [AuditorController::class, 'getAuditReportLink']);
+    Route::get('/auditor/audits/view', [AuditorController::class, 'viewAudit'])
+        ->name('auditor.audits.view');
+    Route::get('/manager/audits/{id}/rejected-forms-check', [ManagerAuditController::class, 'checkRejectedForms']);
+    Route::put('/manager/issues/{id}', [App\Http\Controllers\Manager\IssueController::class, 'updateIssue']);
+    Route::delete('/manager/issues/{id}', [App\Http\Controllers\Manager\IssueController::class, 'deleteIssue']);
+    Route::get('/manager/issues/{issueId}/corrective-actions', [App\Http\Controllers\Manager\IssueController::class, 'getIssueCorrectiveActions']);
+    Route::get('/manager/issues/corrective-actions-count', [App\Http\Controllers\Manager\IssueController::class, 'getCorrectiveActionCounts']);
 
     // User Management Routes for Manager
     Route::get('/manager/users', function () {
