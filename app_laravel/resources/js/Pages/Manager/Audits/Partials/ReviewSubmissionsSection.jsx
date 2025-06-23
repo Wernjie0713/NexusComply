@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 
-export default function ReviewSubmissionsSection({ onReviewForm, onReviewAudit }) {
+export default function ReviewSubmissionsSection({ onReviewForm, onReviewAudit, statusFilter = 'all', dateFilter = 'all' }) {
     // State to track which audit groups are expanded
     const [expandedAudits, setExpandedAudits] = useState({});
     
@@ -10,6 +10,15 @@ export default function ReviewSubmissionsSection({ onReviewForm, onReviewAudit }
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [errorDetails, setErrorDetails] = useState(null);
+    
+    // Add filter/search/pagination state
+    const [pendingStatusFilter, setPendingStatusFilter] = useState('all');
+    const [pendingDateFilter, setPendingDateFilter] = useState('all');
+    const [appliedStatusFilter, setAppliedStatusFilter] = useState('all');
+    const [appliedDateFilter, setAppliedDateFilter] = useState('all');
+    const [search, setSearch] = useState('');
+    const [perPage, setPerPage] = useState(5);
+    const [currentPage, setCurrentPage] = useState(1);
     
     // Toggle expansion of an audit group
     const toggleAudit = (auditId) => {
@@ -220,6 +229,72 @@ export default function ReviewSubmissionsSection({ onReviewForm, onReviewAudit }
         });
     };
 
+    // Filtering logic
+    const filteredAudits = useMemo(() => {
+        const query = search.toLowerCase();
+        const now = new Date();
+        return (audits || []).filter(audit => {
+            // Search filter
+            const matchesSearch =
+                (audit.title || '').toLowerCase().includes(query) ||
+                (audit.outletName || '').toLowerCase().includes(query) ||
+                (audit.status || '').toLowerCase().includes(query);
+
+            // Status filter
+            const matchesStatus =
+                appliedStatusFilter === 'all' ||
+                (audit.status || '').toLowerCase() === appliedStatusFilter;
+
+            // Date filter
+            let matchesDate = true;
+            if (appliedDateFilter !== 'all') {
+                const auditDate = new Date(audit.updatedAt || audit.updated_at || audit.startDate || audit.createdAt);
+                if (isNaN(auditDate)) return false;
+                switch (appliedDateFilter) {
+                    case 'last7':
+                        matchesDate = (now - auditDate) / (1000 * 60 * 60 * 24) <= 7;
+                        break;
+                    case 'last30':
+                        matchesDate = (now - auditDate) / (1000 * 60 * 60 * 24) <= 30;
+                        break;
+                    case 'last90':
+                        matchesDate = (now - auditDate) / (1000 * 60 * 60 * 24) <= 90;
+                        break;
+                    case 'thisYear':
+                        matchesDate = auditDate.getFullYear() === now.getFullYear();
+                        break;
+                    default:
+                        matchesDate = true;
+                }
+            }
+
+            return matchesSearch && matchesStatus && matchesDate;
+        });
+    }, [audits, search, appliedStatusFilter, appliedDateFilter]);
+
+    const total = filteredAudits.length;
+    const totalPages = Math.ceil(total / perPage);
+    const paginatedAudits = useMemo(() => {
+        const start = (currentPage - 1) * perPage;
+        return filteredAudits.slice(start, start + perPage);
+    }, [filteredAudits, currentPage, perPage]);
+
+    const handleApplyFilters = () => {
+        setCurrentPage(1);
+        setAppliedStatusFilter(pendingStatusFilter);
+        setAppliedDateFilter(pendingDateFilter);
+    };
+    const handlePerPageChange = (e) => {
+        setPerPage(Number(e.target.value));
+        setCurrentPage(1);
+    };
+    const handlePageChange = (page) => {
+        if (page >= 1 && page <= totalPages) setCurrentPage(page);
+    };
+
+    // Use filtered audits for rendering
+    const auditsToRender = paginatedAudits;
+
     // Render loading state for the entire section
     if (loading) {
         return (
@@ -276,7 +351,7 @@ export default function ReviewSubmissionsSection({ onReviewForm, onReviewAudit }
     }
 
     // Render no audits message
-    if (audits.length === 0) {
+    if (auditsToRender.length === 0) {
         return (
             <div className="px-6 py-6">
                 <h3 className="mb-6 text-lg font-semibold text-gray-800">Review Form Submissions</h3>
@@ -349,9 +424,77 @@ export default function ReviewSubmissionsSection({ onReviewForm, onReviewAudit }
                     </div>
                 </div>
             </div>
-        <div className="px-6 py-6">
-            <h3 className="mb-6 text-lg font-semibold text-gray-800">Review Form Submissions</h3>
-            
+            <div className="px-6 py-6">
+                <h3 className="mb-6 text-lg font-semibold text-gray-800">Review Form Submissions</h3>
+                
+                {/* Filters Row (Date + Status + Apply Button) */}
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-4">
+                        <div>
+                            <label htmlFor="dateFilter" className="mr-2 text-sm font-medium text-gray-700">Date Range:</label>
+                            <select
+                                id="dateFilter"
+                                value={pendingDateFilter}
+                                onChange={e => setPendingDateFilter(e.target.value)}
+                                className="rounded-md border-gray-300 text-sm shadow-sm focus:border-green-500 focus:ring-green-500"
+                            >
+                                <option value="all">All Dates</option>
+                                <option value="last7">Last 7 Days</option>
+                                <option value="last30">Last 30 Days</option>
+                                <option value="last90">Last 90 Days</option>
+                                <option value="thisYear">This Year</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label htmlFor="statusFilter" className="mr-2 text-sm font-medium text-gray-700">Status:</label>
+                            <select
+                                id="statusFilter"
+                                value={pendingStatusFilter}
+                                onChange={e => setPendingStatusFilter(e.target.value)}
+                                className="rounded-md border-gray-300 text-sm shadow-sm focus:border-green-500 focus:ring-green-500"
+                            >
+                                <option value="all">All Status</option>
+                                <option value="draft">Draft</option>
+                                <option value="pending">Pending</option>
+                                <option value="approved">Approved</option>
+                                <option value="revising">Revising</option>
+                            </select>
+                        </div>
+                        <button
+                            onClick={handleApplyFilters}
+                            className="inline-flex items-center rounded-md border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                        >
+                            Apply Filters
+                        </button>
+                    </div>
+                </div>
+                <div className="mb-4 border-b border-gray-200"></div>
+
+                {/* Show entries and search row */}
+                <div className="mb-4 flex items-center justify-between">
+                    <div className="flex items-center space-x-2 text-sm text-gray-700">
+                        <span>Show</span>
+                        <select
+                            value={perPage}
+                            onChange={handlePerPageChange}
+                            className="rounded-md border-gray-300 text-sm shadow-sm focus:border-green-500 focus:ring-green-500"
+                        >
+                            <option value={5}>5</option>
+                            <option value={10}>10</option>
+                            <option value={25}>25</option>
+                        </select>
+                        <span>entries</span>
+                    </div>
+                    <input
+                        type="text"
+                        className="ml-auto rounded-md border border-gray-300 px-3 py-1 text-sm focus:border-green-500 focus:ring-green-500"
+                        placeholder="Search..."
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                        style={{ minWidth: 180 }}
+                    />
+                </div>
+
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-green-50">
@@ -377,7 +520,7 @@ export default function ReviewSubmissionsSection({ onReviewForm, onReviewAudit }
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200 bg-white">
-                            {sortAuditsByUpdateDate(audits).map((audit) => (
+                            {sortAuditsByUpdateDate(auditsToRender).map((audit) => (
                                 <React.Fragment key={audit.id}>
                                     {/* Audit row */}
                                     <tr 
@@ -623,6 +766,44 @@ export default function ReviewSubmissionsSection({ onReviewForm, onReviewAudit }
                         </tbody>
                     </table>
                 </div>
+            </div>
+
+            {/* Pagination Controls */}
+            <div className="mt-4 flex items-center justify-between">
+                <p className="text-sm text-gray-700">
+                    Showing <span className="font-medium">{total === 0 ? 0 : (currentPage - 1) * perPage + 1}</span> to{' '}
+                    <span className="font-medium">{Math.min(currentPage * perPage, total)}</span> of{' '}
+                    <span className="font-medium">{total}</span> results
+                </p>
+                {totalPages > 1 && (
+                    <div className="flex flex-wrap justify-center space-x-1">
+                        <button
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            className={`rounded px-3 py-1 text-sm ${currentPage === 1 ? 'bg-gray-100 text-gray-700 opacity-50 cursor-not-allowed' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                            disabled={currentPage === 1}
+                        >
+                            Previous
+                        </button>
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                            <button
+                                key={page}
+                                onClick={() => handlePageChange(page)}
+                                className={`rounded px-3 py-1 text-sm ${
+                                    page === currentPage ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                }`}
+                            >
+                                {page}
+                            </button>
+                        ))}
+                        <button
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            className={`rounded px-3 py-1 text-sm ${currentPage === totalPages ? 'bg-gray-100 text-gray-700 opacity-50 cursor-not-allowed' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                            disabled={currentPage === totalPages}
+                        >
+                            Next
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );
