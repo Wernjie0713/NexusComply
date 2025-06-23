@@ -138,8 +138,17 @@ class AuditController extends Controller
                         ->pluck('audit_form_id');
                     $issuesArr = DB::table('issue')
                         ->whereIn('audit_form_id', $auditFormIds)
-                        ->select('description', 'severity')
-                        ->get();
+                        ->select('id', 'description', 'severity', 'created_at', 'due_date', 'updated_at', 'status_id')
+                        ->get()
+                        ->map(function ($issue) {
+                            // Fetch corrective actions for each issue
+                            $correctiveActions = DB::table('corrective_actions')
+                                ->where('issue_id', $issue->id)
+                                ->select('description', 'completion_date', 'verification_date', 'status_id', 'created_at')
+                                ->get();
+                            $issue->corrective_actions = $correctiveActions;
+                            return $issue;
+                        });
                     $issuesCount = $issuesArr->count();
                 }
 
@@ -227,6 +236,7 @@ class AuditController extends Controller
                 ->orderBy('name')
                 ->get(),
             'auditHistory' => $paginatedAuditHistory,
+            'statuses' => \App\Models\Status::select('id', 'name')->get(),
         ]);
     }
 

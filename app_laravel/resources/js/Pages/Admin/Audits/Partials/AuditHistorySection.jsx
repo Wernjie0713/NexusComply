@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import Modal from '@/Components/Modal';
 import { Tooltip } from 'react-tooltip';
 import InputLabel from '@/Components/InputLabel';
@@ -6,13 +6,14 @@ import Checkbox from '@/Components/Checkbox';
 import TextInput from '@/Components/TextInput';
 import { Link, router } from '@inertiajs/react';
 
-export default function AuditHistorySection({ auditHistory = {}, filters }) {
+export default function AuditHistorySection({ auditHistory = {}, filters, statuses = [] }) {
     const [expandedRows, setExpandedRows] = useState([]);
     const [selectedVersion, setSelectedVersion] = useState(null);
     const [showVersionModal, setShowVersionModal] = useState(false);
     const [showIssuesModal, setShowIssuesModal] = useState(false);
     const [issuesForVersion, setIssuesForVersion] = useState([]);
     const [perPage, setPerPage] = useState(filters?.per_page || 5);
+    const loggedIssuesRef = useRef(null); // Ref for scrolling
 
     const audits = auditHistory || { data: [], links: [] };
 
@@ -47,6 +48,19 @@ export default function AuditHistorySection({ auditHistory = {}, filters }) {
     const handleShowIssues = (version) => {
         setIssuesForVersion(version.issues || []);
         setShowIssuesModal(true);
+    };
+
+    // Helper to map status_id to status name
+    const getStatusName = (id) => {
+        const status = statuses.find((s) => s.id === id);
+        return status ? status.name : 'Unknown';
+    };
+
+    // Scroll to Logged Issues section
+    const scrollToLoggedIssues = () => {
+        if (loggedIssuesRef.current) {
+            loggedIssuesRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
     };
 
     return (
@@ -281,10 +295,12 @@ export default function AuditHistorySection({ auditHistory = {}, filters }) {
             {/* Version Details Modal */}
             <Modal show={showVersionModal} onClose={() => setShowVersionModal(false)} maxWidth="2xl">
                 {selectedVersion && (
-                    <div className="p-6">
-                        <h2 className="text-lg font-semibold mb-4">Audit Version Details</h2>
+                    <div className="p-6 font-sans text-base text-gray-800">
+                        <h2 className="text-xl font-extrabold text-gray-900 mb-6 pb-2 border-b border-gray-200 shadow-sm">
+                            Details for Version # {selectedVersion.audit_version} <span className="font-normal text-gray-500">(Audit ID: {selectedVersion.audit_id})</span>
+                        </h2>
                         {/* Table with outer columns */}
-                        <table className="min-w-full mb-6 divide-y divide-gray-200 border rounded-lg overflow-hidden">
+                        <table className="min-w-full mb-6 divide-y divide-gray-200 border rounded-lg overflow-hidden text-base font-sans">
                             <thead className="bg-green-50">
                                 <tr>
                                     <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">Version #</th>
@@ -310,6 +326,7 @@ export default function AuditHistorySection({ auditHistory = {}, filters }) {
                                                     className="cursor-pointer underline decoration-dotted"
                                                     data-tooltip-id={`modal-issues-tooltip-${selectedVersion.audit_id}`}
                                                     data-tooltip-content={selectedVersion.issues.map(issue => `${issue.severity}: ${issue.description}`).join('\n')}
+                                                    onClick={scrollToLoggedIssues}
                                                 >
                                                     {selectedVersion.issues_count} Issue{selectedVersion.issues_count > 1 ? 's' : ''}
                                                 </div>
@@ -330,10 +347,12 @@ export default function AuditHistorySection({ auditHistory = {}, filters }) {
                         </table>
                         {/* Details below as before */}
                         {selectedVersion.forms && selectedVersion.forms.length > 0 && (
-                            <div className="mt-6">
-                                <h3 className="text-md font-semibold mb-2 border-b pb-2 text-gray-800">Submitted Form Data</h3>
+                            <div className="mt-8">
+                                <h3 className="text-l font-bold mb-4 flex items-center gap-2 text-green-700 border-l-4 border-green-400 pl-3 bg-green-50 py-2">
+                                    Submitted Form Data
+                                </h3>
                                 {selectedVersion.forms.map((form, idx) => (
-                                    <div key={form.id || idx} className="mb-8 rounded-lg border border-gray-200 bg-white shadow-sm p-6">
+                                    <div key={form.id || idx} className="mb-8 rounded-lg border border-gray-200 bg-white shadow-sm p-6 font-sans text-base">
                                         <div className="font-semibold text-green-700 mb-4 text-lg">{form.name}</div>
                                         <form className="space-y-6">
                                             {Array.isArray(form.structure) && form.structure
@@ -424,6 +443,59 @@ export default function AuditHistorySection({ auditHistory = {}, filters }) {
                                 ))}
                             </div>
                         )}
+                        {/* Logged Issues & Corrective Actions Section */}
+                        {selectedVersion.issues_count > 0 && (
+                            <div className="mt-10" ref={loggedIssuesRef}>
+                                <h3 className="text-l font-bold mb-4 flex items-center gap-2 text-green-700 border-l-4 border-green-400 pl-3 bg-green-50 py-2">
+                                    Logged Issues & Corrective Actions
+                                </h3>
+                                <ul className="space-y-8">
+                                    {selectedVersion.issues.map((issue, idx) => (
+                                        <li key={idx} className="bg-gray-50 rounded-xl shadow-sm p-6 border border-gray-200 font-sans text-base">
+                                            <div className="flex flex-wrap items-center gap-3 mb-2">
+                                                <span className="font-semibold text-gray-800 text-sm">Severity:</span>
+                                                <span className={`inline-block rounded px-2 py-0.5 text-xs font-semibold 
+                                                    ${issue.severity === 'High' ? 'bg-red-100 text-red-700' : issue.severity === 'Medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>{issue.severity}</span>
+                                            </div>
+                                            <div className="mb-1"><span className="font-semibold text-gray-700 text-sm">Description:</span> <span className="text-gray-800 text-sm">{issue.description}</span></div>
+                                            <div className="mb-1"><span className="font-semibold text-gray-700 text-sm">Date Logged:</span> <span className="text-gray-800 text-sm">{issue.created_at ? new Date(issue.created_at).toLocaleString() : <span className='text-gray-400'>N/A</span>}</span></div>
+                                            <div className="mb-1"><span className="font-semibold text-gray-700 text-sm">Due Date:</span> <span className="text-gray-800 text-sm">{issue.due_date ? new Date(issue.due_date).toLocaleDateString() : <span className='text-gray-400'>N/A</span>}</span></div>
+                                            <div className="mb-1"><span className="font-semibold text-gray-700 text-sm">Last Updated:</span> <span className="text-gray-800 text-sm">{issue.updated_at ? new Date(issue.updated_at).toLocaleString() : <span className='text-gray-400'>N/A</span>}</span></div>
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <span className="font-semibold text-gray-700 text-sm">Status:</span>
+                                                <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-700`}>
+                                                    {getStatusName(issue.status_id)}
+                                                </span>
+                                            </div>
+                                            {issue.corrective_actions && issue.corrective_actions.length > 0 && (
+                                                <div className="mt-4">
+                                                    <div className="font-semibold text-green-700 mb-2 text-sm flex items-center gap-2">
+                                                        <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-label="Corrective Actions"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                                        Corrective Actions
+                                                    </div>
+                                                    <ul className="space-y-3">
+                                                        {issue.corrective_actions.map((action, caIdx) => (
+                                                            <li key={caIdx} className="bg-green-50 border border-green-100 rounded-lg p-4 leading-relaxed font-sans text-sm">
+                                                                <div className="mb-1"><span className="font-semibold text-gray-700 text-sm">Action Taken:</span> <span className="text-gray-800 text-sm">{action.description}</span></div>
+                                                                <div className="mb-1"><span className="font-semibold text-gray-700 text-sm">Completion Date:</span> <span className="text-gray-800 text-sm">{action.completion_date ? new Date(action.completion_date).toLocaleDateString() : <span className='text-gray-400'>N/A</span>}</span></div>
+                                                                <div className="mb-1"><span className="font-semibold text-gray-700 text-sm">Verification Date:</span> <span className="text-gray-800 text-sm">{action.verification_date ? new Date(action.verification_date).toLocaleDateString() : <span className='text-gray-400'>N/A</span>}</span></div>
+                                                                <div className="mb-1"><span className="font-semibold text-gray-700 text-sm">Date Action Logged:</span> <span className="text-gray-800 text-sm">{action.created_at ? new Date(action.created_at).toLocaleString() : <span className='text-gray-400'>N/A</span>}</span></div>
+                                                                <div className="flex items-center gap-2 mt-1">
+                                                                    <span className="font-semibold text-gray-700 text-sm">Status:</span>
+                                                                    <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-700`}>
+                                                                        {getStatusName(action.status_id)}
+                                                                    </span>
+                                                                </div>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            )}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
                         <div className="mt-4 text-right">
                             <button
                                 className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
@@ -443,11 +515,33 @@ export default function AuditHistorySection({ auditHistory = {}, filters }) {
                     {issuesForVersion.length === 0 ? (
                         <div className="text-gray-500">No issues found for this version.</div>
                     ) : (
-                        <ul className="space-y-3">
+                        <ul className="space-y-6">
                             {issuesForVersion.map((issue, idx) => (
-                                <li key={idx} className="border-b pb-2">
-                                    <div className="font-medium text-gray-800">Severity: <span className="inline-block rounded bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">{issue.severity}</span></div>
-                                    <div className="text-gray-700 mt-1">{issue.description}</div>
+                                <li key={idx} className="pb-4 border-b last:border-b-0">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className="font-medium text-gray-800">Severity:</span>
+                                        <span className={`inline-block rounded px-2 py-0.5 text-xs font-semibold 
+                                            ${issue.severity === 'High' ? 'bg-red-100 text-red-700' : issue.severity === 'Medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>{issue.severity}</span>
+                                    </div>
+                                    <div className="text-gray-700 mb-2 whitespace-pre-line">{issue.description}</div>
+                                    {issue.corrective_actions && issue.corrective_actions.length > 0 && (
+                                        <div className="mt-2 border border-green-100 bg-green-50 rounded-md p-3 leading-relaxed">
+                                            <div className="font-semibold text-green-700 mb-2 text-sm flex items-center gap-2">
+                                                <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                                Corrective Actions
+                                            </div>
+                                            <ul className="ml-2 space-y-2">
+                                                {issue.corrective_actions.map((action, caIdx) => (
+                                                    <li key={caIdx} className="text-gray-700 text-sm border-b last:border-b-0 border-green-100 pb-2 last:pb-0 leading-relaxed">
+                                                        <div><span className="font-medium">Description:</span> {action.description}</div>
+                                                        <div><span className="font-medium">Completion Date:</span> {action.completion_date || <span className='text-gray-400'>N/A</span>}</div>
+                                                        <div><span className="font-medium">Verification Date:</span> {action.verification_date || <span className='text-gray-400'>N/A</span>}</div>
+                                                        <div className="flex items-center gap-2"><span className="font-medium">Status:</span> <span className={`inline-block rounded px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-700`}>{getStatusName(action.status_id)}</span></div>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
                                 </li>
                             ))}
                         </ul>
