@@ -666,8 +666,13 @@ class ActivityLogObserver
     protected function logAuditFormCreation(AuditForm $model): void
     {
         // Get the audit and form template details
-        $audit = $model->audit;
+        $audit = $model->audits()->first();
         $formTemplate = $model->formTemplate;
+        
+        if (!$audit || !$formTemplate) {
+            return; // Skip logging if relationships are not available
+        }
+        
         $outlet = $audit->outlet;
         $compliance = $audit->complianceRequirement;
 
@@ -684,8 +689,13 @@ class ActivityLogObserver
     protected function logAuditFormUpdate(AuditForm $model): void
     {
         // Get the audit and form template details
-        $audit = $model->audit;
+        $audit = $model->audits()->first();
         $formTemplate = $model->formTemplate;
+        
+        if (!$audit || !$formTemplate) {
+            return; // Skip logging if relationships are not available
+        }
+        
         $outlet = $audit->outlet;
         $compliance = $audit->complianceRequirement;
 

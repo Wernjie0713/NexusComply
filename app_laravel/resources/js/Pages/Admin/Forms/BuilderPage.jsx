@@ -3,8 +3,8 @@ import { Head, useForm, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
 import TextInput from '@/Components/TextInput';
-import Modal from '@/Components/Modal';
 import FormPreviewModal from '@/Components/FormPreviewModal';
+import Modal from '@/Components/Modal';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -441,6 +441,51 @@ export default function BuilderPage({ mode = 'create', formTemplate = null, from
                 structure={data.structure}
             />
 
+            {/* AI Import Loading Modal */}
+            <Modal
+                show={isImporting}
+                maxWidth="md"
+                closeable={false}
+            >
+                <div className="p-8 text-center">
+                    <div className="mb-6">
+                        {/* Large Loading Spinner */}
+                        <div className="mx-auto h-16 w-16 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600"></div>
+                    </div>
+                    
+                    <div className="space-y-4">
+                        <h3 className="text-xl font-semibold text-gray-900">
+                            AI Analysis in Progress
+                        </h3>
+                        
+                        <div className="text-gray-600 space-y-2">
+                            <p className="text-base">
+                                Your file is being processed. The AI is now analyzing the content to generate your form structure.
+                            </p>
+                            <p className="text-sm text-gray-500">
+                                This may take up to a minute. Please wait.
+                            </p>
+                        </div>
+                        
+                        {/* Process Steps Indicator */}
+                        <div className="mt-6 space-y-2 text-left">
+                            <div className="flex items-center space-x-3">
+                                <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                                <span className="text-sm text-gray-600">Extracting data from Excel file</span>
+                            </div>
+                            <div className="flex items-center space-x-3">
+                                <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse"></div>
+                                <span className="text-sm text-gray-600">AI analyzing content structure</span>
+                            </div>
+                            <div className="flex items-center space-x-3">
+                                <div className="h-2 w-2 rounded-full bg-gray-300"></div>
+                                <span className="text-sm text-gray-400">Generating form fields</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </Modal>
+
             <div className="py-0">
                 <div className="mx-auto max-w-7xl sm:px-6 lg:px-0">
                     <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
@@ -557,22 +602,10 @@ export default function BuilderPage({ mode = 'create', formTemplate = null, from
                                                 onClick={handleImportFromExcel}
                                                 disabled={isImporting}
                                             >
-                                                {isImporting ? (
-                                                    <>
-                                                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-blue-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                        </svg>
-                                                        AI is analyzing your file...
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <svg xmlns="http://www.w3.org/2000/svg" className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-                                                        </svg>
-                                                        🤖 Import from Excel (AI-Powered)
-                                                    </>
-                                                )}
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                                                </svg>
+                                                🤖 Import from Excel (AI-Powered)
                                             </button>
                                             <input
                                                 ref={fileInputRef}
@@ -731,6 +764,37 @@ export default function BuilderPage({ mode = 'create', formTemplate = null, from
                                                                                             ))}
                                                                                         </div>
                                                                                     )}
+
+                                                                                    {field.type === 'checkbox-group' && (
+                                                                                        <div className="mt-2 space-y-2">
+                                                                                            {field.options && field.options.map((option, index) => (
+                                                                                                <div key={index} className="flex items-center">
+                                                                                                    <input
+                                                                                                        type="checkbox"
+                                                                                                        disabled
+                                                                                                        className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                                                                                                    />
+                                                                                                    <label className="ml-3 block text-sm text-gray-700">
+                                                                                                        {option}
+                                                                                                    </label>
+                                                                                                </div>
+                                                                                            ))}
+                                                                                        </div>
+                                                                                    )}
+
+                                                                                    {field.type === 'select' && (
+                                                                                        <select
+                                                                                            className="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-green-500 focus:outline-none focus:ring-green-500 sm:text-sm"
+                                                                                            disabled
+                                                                                        >
+                                                                                            <option value="">Choose an option</option>
+                                                                                            {field.options && field.options.map((option, index) => (
+                                                                                                <option key={index} value={option}>
+                                                                                                    {option}
+                                                                                                </option>
+                                                                                            ))}
+                                                                                        </select>
+                                                                                    )}
                                                                                 </>
                                                                             )}
                                                                         </div>
@@ -787,50 +851,97 @@ export default function BuilderPage({ mode = 'create', formTemplate = null, from
                                                 </div>
                                             )}
                                             
-                                            {selectedField.type === 'radio' && (
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700">
-                                                        Options
-                                                    </label>
-                                                    <div className="mt-2 space-y-2">
-                                                        {selectedField.options.map((option, index) => (
-                                                            <div key={index} className="flex items-center">
-                                                                <TextInput
-                                                                    type="text"
-                                                                    className="block w-full"
-                                                                    value={option}
-                                                                    onChange={(e) => updateFieldOption(selectedField.id, index, e.target.value)}
-                                                                />
-                                                                <button
-                                                                    type="button"
-                                                                    className="ml-2 rounded p-1 text-gray-400 hover:bg-red-100 hover:text-red-500"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        removeFieldOption(selectedField.id, index);
-                                                                    }}
-                                                                >
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                                                    </svg>
-                                                                </button>
-                                                            </div>
-                                                        ))}
-                                                        <button
-                                                            type="button"
-                                                            className="mt-1 inline-flex items-center rounded border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                addFieldOption(selectedField.id);
-                                                            }}
-                                                        >
-                                                            <svg xmlns="http://www.w3.org/2000/svg" className="-ml-1 mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                                            </svg>
-                                                            Add Option
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            )}
+                                                                        {selectedField.type === 'radio' && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">
+                                        Options
+                                    </label>
+                                    <div className="mt-2 space-y-2">
+                                        {selectedField.options.map((option, index) => (
+                                            <div key={index} className="flex items-center">
+                                                <TextInput
+                                                    type="text"
+                                                    className="block w-full"
+                                                    value={option}
+                                                    onChange={(e) => updateFieldOption(selectedField.id, index, e.target.value)}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    className="ml-2 rounded p-1 text-gray-400 hover:bg-red-100 hover:text-red-500"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        removeFieldOption(selectedField.id, index);
+                                                    }}
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        ))}
+                                        <button
+                                            type="button"
+                                            className="mt-1 inline-flex items-center rounded border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                addFieldOption(selectedField.id);
+                                            }}
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="-ml-1 mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                            </svg>
+                                            Add Option
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {(selectedField.type === 'checkbox-group' || selectedField.type === 'select') && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">
+                                        Manage Options
+                                    </label>
+                                    <div className="mt-2 space-y-2">
+                                        {selectedField.options && selectedField.options.map((option, index) => (
+                                            <div key={index} className="flex items-center">
+                                                <TextInput
+                                                    type="text"
+                                                    className="block w-full"
+                                                    value={option}
+                                                    placeholder={`Option ${index + 1}`}
+                                                    onChange={(e) => updateFieldOption(selectedField.id, index, e.target.value)}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    className="ml-2 rounded p-1 text-gray-400 hover:bg-red-100 hover:text-red-500"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        removeFieldOption(selectedField.id, index);
+                                                    }}
+                                                    title="Remove option"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        ))}
+                                        <button
+                                            type="button"
+                                            className="mt-1 inline-flex items-center rounded border border-green-300 bg-green-50 px-2.5 py-1.5 text-xs font-medium text-green-700 shadow-sm hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                addFieldOption(selectedField.id);
+                                            }}
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="-ml-1 mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                            </svg>
+                                            Add Option
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                                             
                                             {selectedField.type !== 'section' && (
                                                 <div className="flex items-center">

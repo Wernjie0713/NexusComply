@@ -454,24 +454,44 @@ The Form Builder enables Admins to design and maintain a library of reusable for
      - File upload fields
      - Section headers and text blocks for better organization
 
-2. **Field Configuration**
+2. **AI-Powered Excel Import**
+   - **Import from Excel (AI-Powered)**: Revolutionary feature that converts existing Excel checklists into structured form templates
+   - **Intelligent Processing**: Uses advanced AI to analyze Excel content and automatically generate appropriate form fields
+   - **Smart Caching**: Implements file content-based caching to prevent redundant API calls
+     - Files are identified by SHA256 hash for precise duplicate detection
+     - Cached results are stored for 30 days using Laravel's database cache
+     - Immediate response for previously processed files
+   - **Content Analysis**: AI analyzes text from Excel cells and creates logical form structure with:
+     - Appropriate field types (text, textarea, radio, checkbox groups, etc.)
+     - Proper Yes/No/N/A options for compliance questions
+     - Section headers for better organization
+     - Required field detection
+   - **Efficiency Benefits**:
+     - Significantly reduces manual form creation time
+     - Eliminates repetitive AI API calls for identical files
+     - Provides instant results for previously uploaded files
+     - Maintains consistency in form structure generation
+
+3. **Field Configuration**
    - Detailed customization for each field:
      - Custom labels and placeholder text
      - Required field status toggling
      - Field-specific options (for radio buttons, checkboxes, dropdowns)
      - Help text and instructions
 
-3. **Form Management**
+4. **Form Management**
    - Form templates can be saved as drafts during development
    - Templates can be published when ready for use in compliance requirements
    - Existing templates can be edited, previewed, and deleted
    - Protection against deleting templates that are currently in use
 
-4. **Technical Implementation**
+5. **Technical Implementation**
    - Form structures are stored as flexible JSON objects in the database
    - Frontend interface built with React and the react-beautiful-dnd library
    - Each form field has a unique ID and configurable properties
    - Forms are rendered dynamically using a dedicated FormRenderer component
+   - AI integration with GitHub Models API (GPT-4) for intelligent Excel processing
+   - Robust caching mechanism using Laravel's Cache facade with database storage
 
 ### Compliance Requirements Setup
 

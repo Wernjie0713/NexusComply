@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\AuditForm;
 use App\Models\Issue;
 use App\Models\Status;
+use Illuminate\Support\Facades\Http;
 
 class AuditController extends Controller
 {
@@ -206,6 +207,7 @@ class AuditController extends Controller
                     'form_templates.name as templateName',
                     'audit_form.value as formValues',
                     'form_templates.structure as formStructure',
+                    'audit_form.ai_analysis as aiAnalysis',
                     'audit_form.status_id', // Include raw status_id
                     'status.name as status',
                     'outlets.name as outletName',
@@ -762,5 +764,244 @@ class AuditController extends Controller
         return response()->json([
             'hasRejectedForms' => $hasRejectedForms
         ]);
+    }
+
+    /**
+     * Generate AI analysis for a form submission
+     *
+     * @param AuditForm $auditForm
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function generateFormAnalysis(AuditForm $auditForm)
+    {
+        try {
+            Log::info('AI Analysis requested for form ID: ' . $auditForm->id);
+            
+            // Check if analysis already exists
+            if ($auditForm->ai_analysis) {
+                Log::info('AI Analysis already exists for form ID: ' . $auditForm->id);
+                return response()->json([
+                    'success' => true,
+                    'analysis' => $auditForm->ai_analysis,
+                    'cached' => true
+                ]);
+            }
+
+            // Verify user has permission to access this form
+            $userId = Auth::id();
+            $userRole = DB::table('users')
+                ->where('id', $userId)
+                ->value('role_id');
+
+            // Get audit ID for this form
+            $auditId = $this->getAuditIdForForm($auditForm->id);
+            if (!$auditId) {
+                return response()->json(['error' => 'Form not associated with any audit'], 404);
+            }
+
+            // Check permission
+            $hasAccess = DB::table('audit')
+                ->join('outlets', 'audit.outlet_id', '=', 'outlets.id')
+                ->where('audit.id', $auditId)
+                ->where('outlets.manager_role_id', $userRole)
+                ->exists();
+
+            if (!$hasAccess) {
+                Log::warning('User attempted to generate AI analysis for unauthorized form. User ID: ' . $userId . ', Form ID: ' . $auditForm->id);
+                return response()->json(['error' => 'Unauthorized access'], 403);
+            }
+
+            // Get form template and combined data
+            $formTemplate = $auditForm->formTemplate;
+            if (!$formTemplate) {
+                return response()->json(['error' => 'Form template not found'], 404);
+            }
+
+            // Prepare form data for analysis
+            $formStructure = $formTemplate->structure;
+            $formValues = $auditForm->value;
+            $combinedForm = $this->mapFormStructureWithValues($formStructure, $formValues);
+
+            // Extract text content from form for AI analysis
+            $textContent = $this->extractTextContentFromForm($combinedForm);
+
+            Log::info('Extracted text content length: ' . strlen($textContent));
+
+            // Call external AI API
+            $aiResponse = $this->callAIAnalysisAPI($textContent, $formTemplate->name);
+
+            // Save the analysis to database
+            $auditForm->ai_analysis = $aiResponse;
+            $auditForm->save();
+
+            Log::info('AI Analysis saved successfully for form ID: ' . $auditForm->id);
+
+            return response()->json([
+                'success' => true,
+                'analysis' => $aiResponse,
+                'cached' => false
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error generating AI analysis: ' . $e->getMessage());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
+            
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to generate AI analysis: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Extract text content from form structure and values for AI analysis
+     *
+     * @param array $combinedForm
+     * @return string
+     */
+    private function extractTextContentFromForm($combinedForm)
+    {
+        $textContent = '';
+        
+        if (!is_array($combinedForm)) {
+            return $textContent;
+        }
+
+        foreach ($combinedForm as $field) {
+            if (!is_array($field)) continue;
+            
+            $label = $field['label'] ?? 'Unnamed Field';
+            $value = $field['value'] ?? 'No response';
+            $type = $field['type'] ?? 'unknown';
+            
+            // Format based on field type
+            switch ($type) {
+                case 'checkbox':
+                case 'radio':
+                    if (is_array($value)) {
+                        $value = implode(', ', $value);
+                    }
+                    break;
+                case 'file':
+                    if (is_array($value) && !empty($value)) {
+                        $value = 'Files uploaded: ' . implode(', ', array_column($value, 'name'));
+                    } else {
+                        $value = 'No files uploaded';
+                    }
+                    break;
+                default:
+                    // Handle text, textarea, number, etc.
+                    if (is_array($value)) {
+                        $value = json_encode($value);
+                    }
+            }
+            
+            $textContent .= "{$label}: {$value}\n";
+        }
+        
+        return $textContent;
+    }
+
+    /**
+     * Call external AI API for form analysis
+     *
+     * @param string $textContent
+     * @param string $formName
+     * @return array
+     */
+    private function callAIAnalysisAPI($textContent, $formName)
+    {
+        $prompt = "Please analyze this audit form submission and provide insights in the following JSON format:
+
+{
+  \"compliance_score\": 85,
+  \"risk_level\": \"Medium\",
+  \"key_findings\": [
+    \"Finding 1\",
+    \"Finding 2\"
+  ],
+  \"recommendations\": [
+    \"Recommendation 1\",
+    \"Recommendation 2\"
+  ],
+  \"areas_of_concern\": [
+    \"Concern 1\",
+    \"Concern 2\"
+  ],
+  \"positive_aspects\": [
+    \"Positive aspect 1\",
+    \"Positive aspect 2\"
+  ]
+}
+
+Form Name: {$formName}
+
+Form Submission Data:
+{$textContent}
+
+Please provide a comprehensive analysis focusing on compliance adherence, potential risks, and actionable recommendations for improvement.";
+
+        // Check if API key is available
+        $apiKey = env('OPENAI_API_KEY');
+        if (!$apiKey) {
+            throw new \Exception('OpenAI API key not configured. Please set OPENAI_API_KEY in your .env file.');
+        }
+
+        Log::info('Making OpenAI API call', [
+            'model' => env('OPENAI_MODEL', 'gpt-4'),
+            'api_key_length' => strlen($apiKey),
+            'api_key_prefix' => substr($apiKey, 0, 10) . '...'
+        ]);
+
+        // Make API call with 120 second timeout
+        $response = Http::timeout(120)
+            ->withHeaders([
+                'Authorization' => 'Bearer ' . $apiKey,
+                'Content-Type' => 'application/json'
+            ])
+            ->post('https://api.openai.com/v1/chat/completions', [
+                'model' => env('OPENAI_MODEL', 'gpt-4'),
+                'messages' => [
+                    [
+                        'role' => 'system',
+                        'content' => 'You are an expert compliance auditor. Analyze the provided audit form data and return your analysis in the requested JSON format only, without any additional text or markdown formatting.'
+                    ],
+                    [
+                        'role' => 'user',
+                        'content' => $prompt
+                    ]
+                ],
+                'temperature' => 0.3,
+                'max_tokens' => 1500
+            ]);
+
+        if (!$response->successful()) {
+            throw new \Exception('AI API request failed: ' . $response->body());
+        }
+
+        $responseData = $response->json();
+        
+        if (!isset($responseData['choices'][0]['message']['content'])) {
+            throw new \Exception('Invalid AI API response structure');
+        }
+
+        $aiContent = $responseData['choices'][0]['message']['content'];
+        
+        // Parse JSON response
+        $analysisData = json_decode($aiContent, true);
+        
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new \Exception('Failed to parse AI response as JSON: ' . json_last_error_msg());
+        }
+
+        // Validate required fields
+        $requiredFields = ['compliance_score', 'risk_level', 'key_findings', 'recommendations'];
+        foreach ($requiredFields as $field) {
+            if (!isset($analysisData[$field])) {
+                throw new \Exception("Missing required field in AI response: {$field}");
+            }
+        }
+
+        return $analysisData;
     }
 }

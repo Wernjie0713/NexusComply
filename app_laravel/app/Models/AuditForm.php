@@ -15,21 +15,18 @@ class AuditForm extends Model
         'name',
         'value',
         'form_id',
-        'status_id'
+        'status_id',
+        'ai_analysis'
     ];
 
     protected $casts = [
-        'value' => 'array'
+        'value' => 'array',
+        'ai_analysis' => 'array'
     ];
 
     public function audits()
     {
         return $this->belongsToMany(Audit::class, 'audit_audit_form', 'audit_form_id', 'audit_id');
-    }
-
-    public function audit()
-    {
-        return $this->belongsToMany(Audit::class, 'audit_audit_form', 'audit_form_id', 'audit_id')->first();
     }
 
     public function formTemplate()

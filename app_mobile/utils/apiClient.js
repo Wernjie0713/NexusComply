@@ -5,7 +5,7 @@ import Constants from 'expo-constants';
 // Use your local network IP instead of localhost so mobile devices can connect
 // const API_BASE_URL = 'http://10.0.2.2:8000'; // Android emulator pointing to host's localhost
 // If using a physical device or iOS simulator, use your computer's actual IP address:
-const API_BASE_URL = 'http://192.168.131.143:8080'; // Replace with your actual IP
+const API_BASE_URL = 'http://192.168.31.41:8080'; // Replace with your actual IP
 
 // Auth token key - must match the one in AuthContext.jsx
 const AUTH_TOKEN_KEY = 'auth_token';

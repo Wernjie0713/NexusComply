@@ -29,7 +29,7 @@ import * as IntentLauncher from 'expo-intent-launcher';
 
 const PRIMARY_GREEN = '#4CAF50';
 const windowWidth = Dimensions.get('window').width;
-const API_BASE_URL = 'http://192.168.131.143:8080'; // Replace with your actual API base URL
+const API_BASE_URL = 'http://192.168.31.41:8080'; // Replace with your actual API base URL
 
 // Function to check if file is an image
 const isImageFile = (fileName) => {
