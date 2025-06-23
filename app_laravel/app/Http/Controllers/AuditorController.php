@@ -112,18 +112,4 @@ class AuditorController extends Controller
         }
     }
 
-    public function getAuditReportLink(Request $request, $auditId)
-    {
-        // Find the most recent audit report for this audit
-        $report = DB::table('audit_report')
-            ->where('audit_id', $auditId)
-            ->orderBy('created_at', 'desc')
-            ->first();
-        
-        if ($report) {
-            return response()->json($report);
-        }
-        
-        return response()->json(['message' => 'No report found'], 404);
-    }
 }
