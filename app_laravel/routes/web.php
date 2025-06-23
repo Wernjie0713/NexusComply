@@ -123,7 +123,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/manager/audits', function () {
         return Inertia::render('Manager/Audits/IndexPage');
     })->name('manager.audits');
-    
+
     Route::get('/manager/audits-data', [ManagerAuditController::class, 'getManagerAudits']);
 
     Route::get('/manager/audits/{auditId}/forms', [ManagerAuditController::class, 'getAuditForms']);
@@ -156,6 +156,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/manager/reports', function () {
         return Inertia::render('Manager/ReportsPage');
     })->name('manager.reports');
+
+    // User Management API for Manager
+    Route::get('/manager/users/data', [\App\Http\Controllers\Manager\UserController::class, 'index']);
 
     // Admin routes
     Route::middleware(['auth', 'can:admin'])->prefix('admin')->name('admin.')->group(function () {
