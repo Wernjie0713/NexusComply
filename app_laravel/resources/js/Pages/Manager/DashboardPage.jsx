@@ -137,7 +137,7 @@ export default function DashboardPage({
                                         <thead className="bg-gray-50">
                                             <tr>
                                                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                                                    Staff Name
+                                                    Outlet
                                                 </th>
                                                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                                                     Audits Completed
@@ -157,7 +157,7 @@ export default function DashboardPage({
                                             {outletStaffActivity.map((staff) => (
                                                 <tr key={staff.id}>
                                                     <td className="whitespace-nowrap px-6 py-4">
-                                                        <div className="text-sm font-medium text-gray-900">{staff.name}</div>
+                                                        <div className="text-sm font-medium text-gray-900">{staff.outlet}</div>
                                                     </td>
                                                     <td className="whitespace-nowrap px-6 py-4">
                                                         <div className="text-sm text-gray-900">{staff.auditsCompleted}</div>
