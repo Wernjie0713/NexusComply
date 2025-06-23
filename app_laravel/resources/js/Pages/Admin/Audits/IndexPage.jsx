@@ -7,8 +7,9 @@ import AuditProgressSection from './Partials/AuditProgressSection';
 import SubmittedFormsSection from './Partials/SubmittedFormsSection';
 import AuditReportingSection from './Partials/AuditReportingSection';
 import FormReviewModal from './Partials/FormReviewModal';
+import AuditHistorySection from './Partials/AuditHistorySection';
 
-export default function IndexPage({ audits, filters, summaryData, states, complianceCategories, outlets, managers }) {
+export default function IndexPage({ audits, filters, summaryData, states, complianceCategories, outlets, managers, auditHistory, statuses }) {
     const [activeTab, setActiveTab] = useState('progress');
     const [dateFilter, setDateFilter] = useState(filters.dateFilter || 'all');
     const [statusFilter, setStatusFilter] = useState(filters.statusFilter || 'all');
@@ -145,10 +146,7 @@ export default function IndexPage({ audits, filters, summaryData, states, compli
                         {activeTab === 'forms' && <SubmittedFormsSection onReviewForm={handleFormReview} />}
                         {activeTab === 'reports' && <AuditReportingSection states={states} complianceCategories={complianceCategories} outlets={outlets} managers={managers} />}
                         {activeTab === 'history' && (
-                            <div className="px-6 py-6">
-                                <h3 className="text-lg font-semibold text-gray-800">Audit History</h3>
-                                <p className="text-gray-600">This is a placeholder for the Audit History tab content.</p>
-                            </div>
+                            <AuditHistorySection auditHistory={auditHistory} statuses={statuses} />
                         )}
                     </div>
                 </div>

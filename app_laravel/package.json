@@ -29,6 +29,7 @@
         "jspdf-autotable": "^3.5.31",
         "react-beautiful-dnd": "^13.1.1",
         "react-tooltip": "^5.28.1",
+        "recharts": "^2.15.4",
         "uuid": "^11.1.0"
     }
 }
