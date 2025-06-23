@@ -21,7 +21,22 @@ class AuditController extends Controller
      */
     public function index(Request $request)
     {
-        // Get all audits with related data
+        // Get latest version IDs for versioned audits
+        $latestVersionSubquery = DB::table('audit_version as av1')
+            ->select('av1.first_audit_id', DB::raw('MAX(av1.audit_version) as latest_version'))
+            ->groupBy('av1.first_audit_id');
+
+        $latestAuditIds = DB::table('audit_version as av2')
+            ->joinSub($latestVersionSubquery, 'latest', function ($join) {
+                $join->on('av2.first_audit_id', '=', 'latest.first_audit_id')
+                    ->on('av2.audit_version', '=', 'latest.latest_version');
+            })
+            ->pluck('av2.audit_id');
+
+        // Find all audit IDs that are in the audit_version table (any version)
+        $versionedAuditIds = DB::table('audit_version')->pluck('audit_id');
+
+        // Get all audits with related data, but only latest version or not versioned
         $query = Audit::with([
             'outlet',
             'user',
@@ -46,6 +61,10 @@ class AuditController extends Controller
                         $q->whereYear('start_time', $now->year);
                         break;
                 }
+            })
+            ->where(function($query) use ($latestAuditIds, $versionedAuditIds) {
+                $query->whereIn('id', $latestAuditIds)
+                    ->orWhereNotIn('id', $versionedAuditIds);
             });
 
         // Calculate summary data
@@ -69,6 +88,23 @@ class AuditController extends Controller
         }
 
         $audits = $query->orderBy('start_time', 'desc')->get();
+
+        // Set versionNumber for each audit
+        foreach ($audits as $audit) {
+            // Add version information if available
+            $versionInfo = DB::table('audit_version')
+                ->where('audit_id', $audit->id)
+                ->first();
+                
+            if ($versionInfo) {
+                $audit->isVersioned = true;
+                $audit->versionNumber = $versionInfo->audit_version;
+                $audit->firstAuditId = $versionInfo->first_audit_id;
+            } else {
+                $audit->isVersioned = false;
+                $audit->versionNumber = 1;
+            }
+        }
 
         // Transform the audits to include the compliance requirement title
         $audits->transform(function ($audit) {
@@ -569,6 +605,16 @@ class AuditController extends Controller
             'auditForms.status',
         ])->findOrFail($auditId);
 
+        // Add version info
+        $versionInfo = \DB::table('audit_version')->where('audit_id', $audit->id)->first();
+        if ($versionInfo) {
+            $versionNumber = $versionInfo->audit_version;
+            $isVersioned = true;
+        } else {
+            $versionNumber = 1;
+            $isVersioned = false;
+        }
+
         return response()->json([
             'audit' => [
                 'id' => $audit->id,
@@ -580,6 +626,8 @@ class AuditController extends Controller
                 'progress' => $audit->progress,
                 'formCount' => $audit->auditForms->count(),
                 'submittedBy' => $audit->user ? $audit->user->name : 'Unknown User',
+                'versionNumber' => $versionNumber,
+                'isVersioned' => $isVersioned,
                 'forms' => $audit->auditForms->map(function ($form) {
                     return [
                         'id' => $form->id,
