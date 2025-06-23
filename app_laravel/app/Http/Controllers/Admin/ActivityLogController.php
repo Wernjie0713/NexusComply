@@ -14,38 +14,18 @@ class ActivityLogController extends Controller
     public function index(Request $request)
     {
         try {
-            Log::info('ActivityLogController: Starting index method');
-
-            $query = ActivityLog::with('user')
-                ->latest('created_at')
-                ->latest('id');
-
-            // Apply filters if provided
-            if ($request->has('action_type') && $request->action_type) {
-                $query->where('action_type', $request->action_type);
-            }
-            if ($request->has('target_type') && $request->target_type) {
-                $query->where('target_type', $request->target_type);
-            }
-            if ($request->has('date_from') && $request->date_from) {
-                $query->whereDate('created_at', '>=', Carbon::parse($request->date_from));
-            }
-            if ($request->has('date_to') && $request->date_to) {
-                $query->whereDate('created_at', '<=', Carbon::parse($request->date_to));
-            }
-
-            Log::info('ActivityLogController: Query built', ['sql' => $query->toSql()]);
-
-            $activities = $query->paginate($request->input('per_page', 5))
-                ->withQueryString()
-                ->through(function ($activity) {
+            // Fetch all activity logs with user, sorted by created_at desc, id desc
+            $activities = ActivityLog::with('user')
+                ->orderByDesc('created_at')
+                ->orderByDesc('id')
+                ->get()
+                ->map(function ($activity) {
                     return [
                         'id' => $activity->id,
                         'action_type' => $activity->action_type,
                         'target_type' => $activity->target_type,
                         'details' => $activity->details,
-                        'created_at' => Carbon::parse($activity->created_at)->format('m/d/Y H:i:s'),
-                        'time_ago' => Carbon::parse($activity->created_at)->diffForHumans(),
+                        'created_at' => $activity->created_at ? $activity->created_at->format('Y-m-d H:i:s') : null,
                         'user' => $activity->user ? [
                             'name' => $activity->user->name,
                             'email' => $activity->user->email
@@ -53,44 +33,26 @@ class ActivityLogController extends Controller
                     ];
                 });
 
-            // Convert to array and fix null URLs in pagination
-            $activitiesArray = $activities->toArray();
-            $activitiesArray['links'] = array_map(function ($link) {
-                $link['url'] = $link['url'] ?? '';
-                return $link;
-            }, $activitiesArray['links']);
-
             // Get unique action types and target types for filters
             $actionTypes = ActivityLog::distinct()->pluck('action_type')->sort()->values()->toArray();
             $targetTypes = ActivityLog::distinct()->pluck('target_type')->sort()->values()->toArray();
 
-            Log::info('ActivityLogController: Filter types retrieved', [
-                'action_types_count' => count($actionTypes),
-                'target_types_count' => count($targetTypes)
-            ]);
-
-            $data = [
-                'activities' => $activitiesArray,
+            return Inertia::render('Admin/ActivityLog/IndexPage', [
+                'activities' => $activities,
                 'filters' => [
                     'action_types' => $actionTypes,
                     'target_types' => $targetTypes,
-                    'current' => $request->only(['action_type', 'target_type', 'date_from', 'date_to', 'per_page'])
+                    'current' => []
                 ]
-            ];
-
-
-            return Inertia::render('Admin/ActivityLog/IndexPage', $data);
+            ]);
         } catch (\Exception $e) {
-            Log::error('Activity Log Error: ' . $e->getMessage(), [
+            \Log::error('Activity Log Error: ' . $e->getMessage(), [
                 'exception' => $e,
                 'trace' => $e->getTraceAsString()
             ]);
 
             return Inertia::render('Admin/ActivityLog/IndexPage', [
-                'activities' => [
-                    'data' => [],
-                    'links' => []
-                ],
+                'activities' => [],
                 'filters' => [
                     'action_types' => [],
                     'target_types' => [],
@@ -103,14 +65,9 @@ class ActivityLogController extends Controller
     public function export(Request $request)
     {
         try {
-            Log::info('ActivityLogController: Starting export method', [
-                'format' => $request->format,
-                'filters' => $request->only(['action_type', 'target_type', 'date_from', 'date_to'])
-            ]);
-
             $query = ActivityLog::with('user')
-                ->latest('created_at')
-                ->latest('id');
+                ->orderByDesc('created_at')
+                ->orderByDesc('id');
 
             // Apply filters if provided
             if ($request->has('action_type') && $request->action_type) {
@@ -171,8 +128,8 @@ class ActivityLogController extends Controller
                 return response()->json([
                     'data' => $formattedData,
                     'dateRange' => [
-                        'start' => $request->date_from ? Carbon::parse($request->date_from)->format('Y-m-d') : Carbon::now()->subDays(30)->format('Y-m-d'),
-                        'end' => $request->date_to ? Carbon::parse($request->date_to)->format('Y-m-d') : Carbon::now()->format('Y-m-d')
+                        'start' => $activities->isNotEmpty() ? $activities->last()->created_at->format('Y-m-d') : Carbon::now()->subDays(30)->format('Y-m-d'),
+                        'end' => $activities->isNotEmpty() ? $activities->first()->created_at->format('Y-m-d') : Carbon::now()->format('Y-m-d')
                     ]
                 ]);
             }
