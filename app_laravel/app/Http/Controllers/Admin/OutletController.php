@@ -20,12 +20,10 @@ class OutletController extends Controller
      */
     public function index(Request $request)
     {
-        $perPage = $request->input('per_page', 5);
-
         $outlets = Outlet::with(['outletUser:id,name,email,role_id', 'manager:id,name,email,role_id'])
             ->orderBy('name')
-            ->paginate($perPage)
-            ->through(function ($outlet) {
+            ->get()
+            ->map(function ($outlet) {
                 return [
                     'id' => $outlet->id,
                     'name' => $outlet->name,
