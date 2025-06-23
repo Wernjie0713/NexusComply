@@ -78,6 +78,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             'update' => 'admin.form-templates.update',
             'destroy' => 'admin.form-templates.destroy',
         ]);
+    
+    // AI-powered Excel import route
+    Route::post('/admin/form-templates/import-from-excel', [FormTemplateController::class, 'importFromExcel'])
+        ->name('admin.form-templates.import');
 
     // Settings - Roles & Permissions page
     Route::get('/admin/settings/roles-permissions', function () {
@@ -119,7 +123,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/manager/audits', function () {
         return Inertia::render('Manager/Audits/IndexPage');
     })->name('manager.audits');
-    
+
     Route::get('/manager/audits-data', [ManagerAuditController::class, 'getManagerAudits']);
 
     Route::get('/manager/audits/{auditId}/forms', [ManagerAuditController::class, 'getAuditForms']);
@@ -152,6 +156,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/manager/reports', function () {
         return Inertia::render('Manager/ReportsPage');
     })->name('manager.reports');
+
+    // User Management API for Manager
+    Route::get('/manager/users/data', [\App\Http\Controllers\Manager\UserController::class, 'index']);
 
     // Admin routes
     Route::middleware(['auth', 'can:admin'])->prefix('admin')->name('admin.')->group(function () {

@@ -27,7 +27,9 @@
         "framer-motion": "^12.15.0",
         "jspdf": "^2.5.1",
         "jspdf-autotable": "^3.5.31",
+        "qrcode.react": "^4.2.0",
         "react-beautiful-dnd": "^13.1.1",
+        "react-datepicker": "^8.4.0",
         "react-tooltip": "^5.28.1",
         "recharts": "^2.15.4",
         "uuid": "^11.1.0"

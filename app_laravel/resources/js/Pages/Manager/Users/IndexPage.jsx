@@ -1,44 +1,66 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link } from '@inertiajs/react';
 import Modal from '@/Components/Modal';
+import ManagerDetailsModal from './Partials/ManagerDetailsModal';
 
 export default function IndexPage() {
     const [showDetailsModal, setShowDetailsModal] = useState(false);
     const [selectedManager, setSelectedManager] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('All');
+    const [outletUsers, setOutletUsers] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [perPage, setPerPage] = useState(5);
+    const [currentPage, setCurrentPage] = useState(1);
     
-    // Dummy data for demonstration
-    const outletUsers = [
-        { id: 1, name: 'David Lee', email: 'david.lee@nexuscomply.com', outlet: 'Central Shopping Mall', status: 'Active', lastLogin: '2023-06-15 08:12 AM', phone: '+1 (555) 123-4567', dateJoined: '2022-03-15' },
-        { id: 2, name: 'Jessica Taylor', email: 'jessica.taylor@nexuscomply.com', outlet: 'Downtown Plaza', status: 'Active', lastLogin: '2023-06-14 04:30 PM', phone: '+1 (555) 234-5678', dateJoined: '2022-04-20' },
-        { id: 3, name: 'Robert Chen', email: 'robert.chen@nexuscomply.com', outlet: 'Riverside Complex', status: 'Active', lastLogin: '2023-06-13 11:45 AM', phone: '+1 (555) 345-6789', dateJoined: '2022-05-10' },
-        { id: 4, name: 'Lisa Rodriguez', email: 'lisa.rodriguez@nexuscomply.com', outlet: 'Sunset Boulevard', status: 'Inactive', lastLogin: '2023-05-28 09:20 AM', phone: '+1 (555) 456-7890', dateJoined: '2022-01-05' },
-        { id: 5, name: 'Kevin Williams', email: 'kevin.williams@nexuscomply.com', outlet: 'Harbor Center', status: 'Needs Onboarding', lastLogin: 'Never', phone: '+1 (555) 567-8901', dateJoined: '2023-06-01' },
-    ];
+    useEffect(() => {
+        fetch('/manager/users/data')
+            .then(res => res.json())
+            .then(data => {
+                setOutletUsers(data.outletUsers || []);
+                setLoading(false);
+            })
+            .catch(() => setLoading(false));
+    }, []);
 
     // Filter users based on search query and status filter
-    const filteredUsers = outletUsers.filter(user => {
-        const matchesSearch = 
-            user.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-            user.outlet.toLowerCase().includes(searchQuery.toLowerCase());
-        
-        const matchesStatus = statusFilter === 'All' || user.status === statusFilter;
-        
-        return matchesSearch && matchesStatus;
-    });
+    const filteredUsers = useMemo(() => {
+        const query = searchQuery.toLowerCase();
+        return outletUsers.filter(user => {
+            const matchesSearch = 
+                user.name.toLowerCase().includes(query) || 
+                user.outlet.toLowerCase().includes(query) ||
+                user.email.toLowerCase().includes(query);
+            
+            const matchesStatus = statusFilter === 'All' || user.status === statusFilter;
+            
+            return matchesSearch && matchesStatus;
+        });
+    }, [outletUsers, searchQuery, statusFilter]);
 
+    // Pagination logic
+    const total = filteredUsers.length;
+    const totalPages = Math.ceil(total / perPage);
+    const paginatedUsers = useMemo(() => {
+        const start = (currentPage - 1) * perPage;
+        return filteredUsers.slice(start, start + perPage);
+    }, [filteredUsers, currentPage, perPage]);
+
+    // Reset to first page on search, status, or perPage change
+    useMemo(() => { setCurrentPage(1); }, [searchQuery, statusFilter, perPage]);
+
+    const handlePerPageChange = (e) => {
+        setPerPage(Number(e.target.value));
+    };
+
+    const handlePageChange = (page) => {
+        if (page >= 1 && page <= totalPages) setCurrentPage(page);
+    };
 
     const handleViewDetails = (user) => {
         setSelectedManager(user);
         setShowDetailsModal(true);
-    };
-
-    const handleStatusChange = (newStatus) => {
-        // In a real application, this would update the status in the backend
-        // For now, we'll just close the modal
-        setShowDetailsModal(false);
     };
 
     return (
@@ -57,38 +79,45 @@ export default function IndexPage() {
                     <div className="mb-8 overflow-hidden bg-white px-6 py-6 shadow-sm sm:rounded-lg">
                         <h3 className="mb-4 text-lg font-semibold text-gray-800">Outlet Users in Your Region</h3>
                         
-                        {/* Search and Filter */}
-                        <div className="mb-4 flex flex-col space-y-2 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
-                            <div className="relative">
-                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                    <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                        <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-                                    </svg>
-                                </div>
-                                <input
-                                    type="text"
-                                    className="block w-full rounded-md border-gray-300 pl-10 focus:border-green-500 focus:ring-green-500 sm:text-sm"
-                                    placeholder="Search by Name or Outlet..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                />
-                            </div>
-                            <div>
+                        {/* Search and Filter Controls */}
+                        <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+                            <div className="flex items-center space-x-2 text-sm text-gray-700">
+                                <span>Show</span>
                                 <select
-                                    className="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-green-500 focus:outline-none focus:ring-green-500 sm:text-sm"
-                                    value={statusFilter}
-                                    onChange={(e) => setStatusFilter(e.target.value)}
+                                    value={perPage}
+                                    onChange={handlePerPageChange}
+                                    className="rounded-md border-gray-300 text-sm shadow-sm focus:border-green-500 focus:ring-green-500"
                                 >
-                                    <option value="All">All Statuses</option>
-                                    <option value="Active">Active</option>
-                                    <option value="Inactive">Inactive</option>
-                                    <option value="Needs Onboarding">Needs Onboarding</option>
+                                    <option value="5">5</option>
+                                    <option value="10">10</option>
+                                    <option value="25">25</option>
                                 </select>
+                                <span>entries</span>
                             </div>
+                            <input
+                                type="text"
+                                className="ml-auto rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-green-500 focus:ring-green-500"
+                                placeholder="Search..."
+                                value={searchQuery}
+                                onChange={e => setSearchQuery(e.target.value)}
+                                style={{ minWidth: 180 }}
+                            />
+                            <select
+                                className="rounded-md border-gray-300 text-sm focus:border-green-500 focus:ring-green-500"
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                            >
+                                <option value="All">All Statuses</option>
+                                <option value="Active">Active</option>
+                                <option value="Needs Onboarding">Needs Onboarding</option>
+                            </select>
                         </div>
                         
                         {/* Table */}
                         <div className="overflow-x-auto">
+                            {loading ? (
+                                <div className="p-6 text-center text-gray-500">Loading...</div>
+                            ) : (
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-green-50">
                                     <tr>
@@ -113,119 +142,94 @@ export default function IndexPage() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200 bg-white">
-                                    {filteredUsers.map((user) => (
-                                        <tr key={user.id}>
-                                            <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
-                                                {user.name}
-                                            </td>
-                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                                                {user.email}
-                                            </td>
-                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                                                {user.outlet}
-                                            </td>
-                                            <td className="whitespace-nowrap px-6 py-4 text-sm">
-                                                <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${user.status === 'Active' ? 'bg-green-100 text-green-800' : user.status === 'Inactive' ? 'bg-gray-100 text-gray-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                                    {user.status}
-                                                </span>
-                                            </td>
-                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                                                {user.lastLogin}
-                                            </td>
-                                            <td className="whitespace-nowrap px-6 py-4 text-sm font-medium">
-                                                <button
-                                                    onClick={() => handleViewDetails(user)}
-                                                    className="mr-2 rounded bg-green-50 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-100"
-                                                >
-                                                    View Details
-                                                </button>
-                                                <Link
-                                                    href={route('manager.users.activity-log', user.id)}
-                                                    className="rounded bg-gray-50 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100"
-                                                >
-                                                    View Activity Log
-                                                </Link>
+                                    {paginatedUsers.length > 0 ? (
+                                        paginatedUsers.map((user) => (
+                                            <tr key={user.id}>
+                                                <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
+                                                    {user.name}
+                                                </td>
+                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+                                                    {user.email}
+                                                </td>
+                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+                                                    {user.outlet}
+                                                </td>
+                                                <td className="whitespace-nowrap px-6 py-4 text-sm">
+                                                    <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${user.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                        {user.status}
+                                                    </span>
+                                                </td>
+                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+                                                    {user.lastLogin}
+                                                </td>
+                                                <td className="whitespace-nowrap px-6 py-4 text-sm font-medium">
+                                                    <button
+                                                        onClick={() => handleViewDetails(user)}
+                                                        className="mr-2 rounded bg-green-50 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-100"
+                                                    >
+                                                        View Details
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
+                                                No users found.
                                             </td>
                                         </tr>
-                                    ))}
+                                    )}
                                 </tbody>
                             </table>
+                            )}
                         </div>
+
+                        {/* Pagination controls */}
+                        {totalPages > 1 && (
+                            <div className="mt-4 flex items-center justify-between">
+                                <p className="text-sm text-gray-700">
+                                    Showing <span className="font-medium">{(currentPage - 1) * perPage + 1}</span> to{' '}
+                                    <span className="font-medium">{Math.min(currentPage * perPage, total)}</span> of{' '}
+                                    <span className="font-medium">{total}</span> results
+                                </p>
+                                <div className="flex flex-wrap justify-center space-x-1">
+                                    <button
+                                        onClick={() => handlePageChange(currentPage - 1)}
+                                        className={`rounded px-3 py-1 text-sm ${currentPage === 1 ? 'bg-gray-100 text-gray-700 opacity-50 cursor-not-allowed' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                                        disabled={currentPage === 1}
+                                    >
+                                        Previous
+                                    </button>
+                                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                                        <button
+                                            key={page}
+                                            onClick={() => handlePageChange(page)}
+                                            className={`rounded px-3 py-1 text-sm ${
+                                                page === currentPage ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                            }`}
+                                        >
+                                            {page}
+                                        </button>
+                                    ))}
+                                    <button
+                                        onClick={() => handlePageChange(currentPage + 1)}
+                                        className={`rounded px-3 py-1 text-sm ${currentPage === totalPages ? 'bg-gray-100 text-gray-700 opacity-50 cursor-not-allowed' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                                        disabled={currentPage === totalPages}
+                                    >
+                                        Next
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
 
             {/* User Details Modal */}
-            <Modal show={showDetailsModal} onClose={() => setShowDetailsModal(false)} maxWidth="md">
-                <div className="p-6">
-                    {selectedManager && (
-                        <>
-                            <h2 className="mb-4 text-lg font-semibold text-gray-800">
-                                Outlet User Details: {selectedManager.name}
-                            </h2>
-                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                <div>
-                                    <p className="text-sm font-medium text-gray-500">Name</p>
-                                    <p className="text-sm text-gray-900">{selectedManager.name}</p>
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-gray-500">Email</p>
-                                    <p className="text-sm text-gray-900">{selectedManager.email}</p>
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-gray-500">Role</p>
-                                    <p className="text-sm text-gray-900">Outlet User</p>
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-gray-500">Assigned Outlet</p>
-                                    <p className="text-sm text-gray-900">{selectedManager.outlet}</p>
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-gray-500">Contact Number</p>
-                                    <p className="text-sm text-gray-900">{selectedManager.phone}</p>
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-gray-500">Date Joined</p>
-                                    <p className="text-sm text-gray-900">{selectedManager.dateJoined}</p>
-                                </div>
-                                <div className="col-span-2">
-                                    <p className="text-sm font-medium text-gray-500">Status</p>
-                                    <div className="mt-1 flex items-center">
-                                        <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${selectedManager.status === 'Active' ? 'bg-green-100 text-green-800' : selectedManager.status === 'Inactive' ? 'bg-gray-100 text-gray-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                            {selectedManager.status}
-                                        </span>
-                                        <div className="ml-4">
-                                            <label className="relative inline-flex cursor-pointer items-center">
-                                                <input 
-                                                    type="checkbox" 
-                                                    className="peer sr-only" 
-                                                    checked={selectedManager.status === 'Active'}
-                                                    onChange={() => {}}
-                                                />
-                                                <div className="peer h-6 w-11 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-green-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300"></div>
-                                                <span className="ml-3 text-sm font-medium text-gray-900">{selectedManager.status === 'Active' ? 'Active' : 'Inactive'}</span>
-                                            </label>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="mt-6 flex justify-end space-x-3">
-                                <button
-                                    onClick={() => handleStatusChange(selectedManager.status === 'Active' ? 'Inactive' : 'Active')}
-                                    className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-                                >
-                                    Update Status
-                                </button>
-                                <button
-                                    onClick={() => setShowDetailsModal(false)}
-                                    className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-                                >
-                                    Close
-                                </button>
-                            </div>
-                        </>
-                    )}
-                </div>
+            <Modal show={showDetailsModal} onClose={() => setShowDetailsModal(false)} maxWidth="lg">
+                {selectedManager && (
+                    <ManagerDetailsModal manager={selectedManager} onClose={() => setShowDetailsModal(false)} />
+                )}
             </Modal>
         </AuthenticatedLayout>
     );
