@@ -440,6 +440,8 @@ useEffect(() => {
                 return 'bg-green-100 text-green-800';
             case 'pending':
                 return 'bg-yellow-100 text-yellow-800';
+            case 'revising':
+                return 'bg-orange-100 text-orange-800';
             case 'rejected':
                 return 'bg-orange-100 text-orange-800';
             default:
@@ -630,7 +632,7 @@ const toggleCorrectiveActions = async (issueId) => {
                             <span className="text-green-600">Form Review:</span> {formData?.form?.formName || 'Unnamed Form'}
                         </h2>
                         <div className="flex items-center space-x-3">
-                            <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${getStatusBadgeClass(formData?.status || '')}`}>
+                            <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${getStatusBadgeClass(formData?.form?.status || '')}`}>
                                 <span className="mr-1.5 h-2 w-2 rounded-full bg-current"></span>
                                 {formData?.form?.status || 'Pending Review'}
                             </span>
