@@ -55,10 +55,18 @@ export default function EditUserForm({ user, onClose, roles = [], loadingRoles =
         if (data.role) {
             params.append('for_role', data.role);
         }
+        // Add manager_id if editing a manager
+        if (data.role === 'manager' && user?.role_id) {
+            params.append('manager_id', user.role_id);
+        }
+        // Add current_outlet_id if editing an outlet user
+        if (data.role === 'outlet-user' && user?.assigned_outlet_id) {
+            params.append('current_outlet_id', user.assigned_outlet_id);
+        }
         axios.get(`${route('admin.available-outlets')}?${params.toString()}`)
             .then(res => setAvailableOutlets(res.data))
             .finally(() => setLoadingOutlets(false));
-    }, [data.role]);
+    }, [data.role, user]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
