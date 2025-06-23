@@ -80,7 +80,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             'update' => 'admin.form-templates.update',
             'destroy' => 'admin.form-templates.destroy',
         ]);
-    
+
     // AI-powered Excel import route
     Route::post('/admin/form-templates/import-from-excel', [FormTemplateController::class, 'importFromExcel'])
         ->name('admin.form-templates.import');
@@ -123,8 +123,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Manager Routes
     Route::get('/manager/dashboard', [App\Http\Controllers\Manager\DashboardController::class, 'index'])
-    ->middleware(['auth', 'verified'])
-    ->name('dashboard');
+        ->middleware(['auth', 'verified'])
+        ->name('dashboard');
     Route::get('/manager/audits', function () {
         return Inertia::render('Manager/Audits/IndexPage');
     })->name('manager.audits');
@@ -142,6 +142,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/manager/issues/{id}', [App\Http\Controllers\Manager\IssueController::class, 'deleteIssue']);
     Route::get('/manager/issues/{issueId}/corrective-actions', [App\Http\Controllers\Manager\IssueController::class, 'getIssueCorrectiveActions']);
     Route::get('/manager/issues/corrective-actions-count', [App\Http\Controllers\Manager\IssueController::class, 'getCorrectiveActionCounts']);
+    Route::get('/manager/audit-history', [ManagerAuditController::class, 'managerAuditHistory'])
+        ->name('manager.audit-history.index');
 
     // User Management Routes for Manager
     Route::get('/manager/users', function () {
@@ -159,7 +161,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     })->name('manager.reports');
 
     Route::get('/manager/audits/generate-report', [ManagerReportController::class, 'generateReport'])
-    ->name('manager.audits.generate-report');
+        ->name('manager.audits.generate-report');
 
     // User Management API for Manager
     Route::get('/manager/users/data', [\App\Http\Controllers\Manager\UserController::class, 'index']);
