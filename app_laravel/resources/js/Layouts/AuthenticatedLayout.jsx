@@ -42,8 +42,8 @@ export default function AuthenticatedLayout({ header, children }) {
                 </div>
             </nav>
 
-            {/* Main Content with Sidebar */}
-            <div className="flex min-h-screen bg-gray-100">
+            {/* Main Layout Container */}
+            <div className="flex">
                 {/* Mobile sidebar overlay */}
                 {sidebarOpen && (
                     <div 
@@ -52,26 +52,30 @@ export default function AuthenticatedLayout({ header, children }) {
                     />
                 )}
                 
-                {/* Sidebar */}
+                {/* Sidebar - Fixed on desktop, sliding on mobile */}
                 <div 
-                    className={`fixed inset-y-0 left-0 z-50 w-64 transform bg-gray-50 transition duration-300 ease-in-out md:static md:translate-x-0 ${
-                        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+                    className={`fixed inset-y-0 left-0 z-50 w-64 transform bg-gray-50 transition duration-300 ease-in-out md:fixed md:z-20 ${
+                        sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
                     }`}
                 >
-                    <Sidebar onClose={() => setSidebarOpen(false)} />
+                    <div className="h-screen overflow-y-auto">
+                        <Sidebar onClose={() => setSidebarOpen(false)} />
+                    </div>
                 </div>
 
-                {/* Main Content */}
-                <div className="flex-1">
+                {/* Main Content Area - with left margin to account for fixed sidebar */}
+                <div className="flex-1 md:ml-64">
+                    {/* Header */}
                     {header && (
-                        <header className="bg-white shadow">
+                        <header className="bg-white shadow sticky top-0 z-10">
                             <div className="mx-auto px-10 py-6 sm:px-6 lg:px-10">
                                 {header}
                             </div>
                         </header>
                     )}
 
-                    <main className="py-6 px-4 sm:px-6 lg:px-8">
+                    {/* Main scrollable content */}
+                    <main className="min-h-screen bg-gray-100 py-6 px-4 sm:px-6 lg:px-8">
                         {children}
                     </main>
                 </div>
