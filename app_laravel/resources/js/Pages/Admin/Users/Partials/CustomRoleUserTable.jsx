@@ -1,25 +1,45 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Tooltip } from 'react-tooltip';
 
 export default function CustomRoleUserTable({ users, onDelete, onEdit, canEditUsers, canDeleteUsers }) {
     const { auth } = usePage().props;
     const currentUserId = auth.user?.id;
-    const [perPage, setPerPage] = useState(users?.per_page || 5);
+    const [perPage, setPerPage] = useState(5);
+    const [search, setSearch] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+
+    // Filtered users
+    const filteredUsers = useMemo(() => {
+        const query = search.toLowerCase();
+        return users.filter(user =>
+            user.name.toLowerCase().includes(query) ||
+            user.email.toLowerCase().includes(query)
+        );
+    }, [users, search]);
+
+    // Pagination logic
+    const total = filteredUsers.length;
+    const totalPages = Math.ceil(total / perPage);
+    const paginatedUsers = useMemo(() => {
+        const start = (currentPage - 1) * perPage;
+        return filteredUsers.slice(start, start + perPage);
+    }, [filteredUsers, currentPage, perPage]);
+
+    // Reset to first page on search or perPage change
+    useMemo(() => { setCurrentPage(1); }, [search, perPage]);
 
     const handlePerPageChange = (e) => {
-        const newPerPage = e.target.value;
-        setPerPage(newPerPage);
-        router.get(
-            route('admin.users.index'),
-            { custom_role_users_per_page: newPerPage },
-            { preserveState: true, preserveScroll: true, replace: true }
-        );
+        setPerPage(Number(e.target.value));
+    };
+
+    const handlePageChange = (page) => {
+        if (page >= 1 && page <= totalPages) setCurrentPage(page);
     };
 
     return (
         <div>
-            {/* Per-page selection identical to ManagerTable */}
+            {/* Per-page selection and search */}
             <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center space-x-2 text-sm text-gray-700">
                     <span>Show</span>
@@ -34,6 +54,14 @@ export default function CustomRoleUserTable({ users, onDelete, onEdit, canEditUs
                     </select>
                     <span>entries</span>
                 </div>
+                <input
+                    type="text"
+                    className="ml-auto rounded-md border border-gray-300 px-3 py-1 text-sm focus:border-green-500 focus:ring-green-500"
+                    placeholder="Search..."
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    style={{ minWidth: 180 }}
+                />
             </div>
             <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
@@ -48,8 +76,8 @@ export default function CustomRoleUserTable({ users, onDelete, onEdit, canEditUs
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200 bg-white">
-                        {users?.data && users.data.length > 0 ? (
-                            users.data.map((user) => (
+                        {paginatedUsers.length > 0 ? (
+                            paginatedUsers.map((user) => (
                                 <tr key={user.id}>
                                     <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">{user.name}</td>
                                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">{user.email}</td>
@@ -116,51 +144,40 @@ export default function CustomRoleUserTable({ users, onDelete, onEdit, canEditUs
                     </tbody>
                 </table>
             </div>
-
-            {/* Pagination identical to ManagerTable */}
-            {users?.links && users.data.length > 0 && (
+            {/* Pagination controls */}
+            {totalPages > 1 && (
                 <div className="mt-4 flex items-center justify-between">
                     <p className="text-sm text-gray-700">
-                        Showing <span className="font-medium">{users.from}</span> to{' '}
-                        <span className="font-medium">{users.to}</span> of{' '}
-                        <span className="font-medium">{users.total}</span> results
+                        Showing <span className="font-medium">{(currentPage - 1) * perPage + 1}</span> to{' '}
+                        <span className="font-medium">{Math.min(currentPage * perPage, total)}</span> of{' '}
+                        <span className="font-medium">{total}</span> results
                     </p>
                     <div className="flex flex-wrap justify-center space-x-1">
-                        {users.links
-                            .filter(link => link.url !== null || (link.label.includes('Previous') || link.label.includes('Next')))
-                            .map((link, i) => (
-                                <button
-                                    key={i}
-                                    onClick={() => {
-                                        if (link.url) {
-                                            const url = new URL(link.url);
-                                            const customRoleUsersPage = url.searchParams.get('custom_role_users_page');
-                                            const currentUrl = new URL(window.location.href);
-                                            const managersPerPage = currentUrl.searchParams.get('managers_per_page') || 5;
-                                            const outletUsersPerPage = currentUrl.searchParams.get('outlet_users_per_page') || 5;
-                                            router.get(
-                                                route('admin.users.index'),
-                                                {
-                                                    custom_role_users_page: customRoleUsersPage,
-                                                    custom_role_users_per_page: perPage,
-                                                    managers_per_page: managersPerPage,
-                                                    outlet_users_per_page: outletUsersPerPage,
-                                                },
-                                                {
-                                                    preserveState: true,
-                                                    preserveScroll: true,
-                                                    replace: true,
-                                                }
-                                            );
-                                        }
-                                    }}
-                                    className={`rounded px-3 py-1 text-sm ${
-                                        link.active ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                    } ${!link.url ? 'cursor-not-allowed opacity-50' : ''}`}
-                                    disabled={!link.url}
-                                    dangerouslySetInnerHTML={{ __html: link.label }}
-                                />
-                            ))}
+                        <button
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            className={`rounded px-3 py-1 text-sm ${currentPage === 1 ? 'bg-gray-100 text-gray-700 opacity-50 cursor-not-allowed' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                            disabled={currentPage === 1}
+                        >
+                            Previous
+                        </button>
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                            <button
+                                key={page}
+                                onClick={() => handlePageChange(page)}
+                                className={`rounded px-3 py-1 text-sm ${
+                                    page === currentPage ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                }`}
+                            >
+                                {page}
+                            </button>
+                        ))}
+                        <button
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            className={`rounded px-3 py-1 text-sm ${currentPage === totalPages ? 'bg-gray-100 text-gray-700 opacity-50 cursor-not-allowed' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                            disabled={currentPage === totalPages}
+                        >
+                            Next
+                        </button>
                     </div>
                 </div>
             )}
