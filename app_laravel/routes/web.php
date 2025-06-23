@@ -78,6 +78,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             'update' => 'admin.form-templates.update',
             'destroy' => 'admin.form-templates.destroy',
         ]);
+    
+    // AI-powered Excel import route
+    Route::post('/admin/form-templates/import-from-excel', [FormTemplateController::class, 'importFromExcel'])
+        ->name('admin.form-templates.import');
 
     // Settings - Roles & Permissions page
     Route::get('/admin/settings/roles-permissions', function () {

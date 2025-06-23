@@ -3,6 +3,7 @@ import { Head, useForm, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
 import TextInput from '@/Components/TextInput';
+import Modal from '@/Components/Modal';
 import FormPreviewModal from '@/Components/FormPreviewModal';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { v4 as uuidv4 } from 'uuid';
@@ -22,6 +23,11 @@ export default function BuilderPage({ mode = 'create', formTemplate = null, from
     
     // State for preview modal
     const [previewModalOpen, setPreviewModalOpen] = useState(false);
+    
+    // State for AI import functionality
+    const [isImporting, setIsImporting] = useState(false);
+    const [importError, setImportError] = useState('');
+    const fileInputRef = React.useRef(null);
     
     // Field types available in the palette
     const fieldTypes = [
@@ -255,6 +261,69 @@ export default function BuilderPage({ mode = 'create', formTemplate = null, from
         setPreviewModalOpen(true);
     };
 
+    // Handle Excel import functionality
+    const handleImportFromExcel = () => {
+        setImportError('');
+        fileInputRef.current?.click();
+    };
+
+    const handleFileSelect = async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        // Validate file type
+        const validTypes = ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'];
+        if (!validTypes.includes(file.type)) {
+            setImportError('Please select a valid Excel file (.xlsx or .xls)');
+            return;
+        }
+
+        // Validate file size (10MB limit)
+        if (file.size > 10 * 1024 * 1024) {
+            setImportError('File size must be less than 10MB');
+            return;
+        }
+
+        setIsImporting(true);
+        setImportError('');
+
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const response = await fetch(route('admin.form-templates.import'), {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                },
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to import Excel file');
+            }
+
+            // Update the form structure with AI-generated fields
+            setData('structure', result.structure);
+            setSelectedFieldId(null); // Clear any selected field
+
+            // Show success message
+            alert('Excel file imported successfully! The AI has generated form fields based on your checklist.');
+
+        } catch (error) {
+            console.error('Import error:', error);
+            setImportError(error.message || 'Failed to import Excel file. Please try again.');
+        } finally {
+            setIsImporting(false);
+            // Clear the file input
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+        }
+    };
+
     // Get the currently selected field
     const selectedField = data.structure.find(field => field.id === selectedFieldId);
 
@@ -455,7 +524,7 @@ export default function BuilderPage({ mode = 'create', formTemplate = null, from
                                         </div>
                                     </div>
                                     
-                                    <div className="flex items-center">
+                                    {/* <div className="flex items-center">
                                         <input
                                             id="offlineSupport"
                                             type="checkbox"
@@ -467,7 +536,7 @@ export default function BuilderPage({ mode = 'create', formTemplate = null, from
                                         <label htmlFor="offlineSupport" className="ml-2 block text-sm text-gray-700">
                                             Enable Offline Support for Mobile App
                                         </label>
-                                    </div>
+                                    </div> */}
                                 </div>
                             </div>
                             
@@ -477,6 +546,52 @@ export default function BuilderPage({ mode = 'create', formTemplate = null, from
                                     <h3 className="text-sm font-medium text-gray-900">Add Form Fields</h3>
                                 </div>
                                 <div className="px-4 py-5">
+                                    {/* AI Import Button */}
+                                    {currentStatus !== 'revised' && (
+                                        <div className="mb-4">
+                                            <button
+                                                type="button"
+                                                className={`w-full flex items-center justify-center rounded-md border-2 border-dashed border-blue-300 bg-blue-50 p-3 text-sm font-medium text-blue-700 transition duration-150 ease-in-out hover:bg-blue-100 hover:border-blue-400 ${
+                                                    isImporting ? 'opacity-50 cursor-not-allowed' : ''
+                                                }`}
+                                                onClick={handleImportFromExcel}
+                                                disabled={isImporting}
+                                            >
+                                                {isImporting ? (
+                                                    <>
+                                                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-blue-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                        </svg>
+                                                        AI is analyzing your file...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                                                        </svg>
+                                                        🤖 Import from Excel (AI-Powered)
+                                                    </>
+                                                )}
+                                            </button>
+                                            <input
+                                                ref={fileInputRef}
+                                                type="file"
+                                                accept=".xlsx,.xls"
+                                                onChange={handleFileSelect}
+                                                className="hidden"
+                                            />
+                                            {importError && (
+                                                <div className="mt-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1">
+                                                    {importError}
+                                                </div>
+                                            )}
+                                            <p className="mt-2 text-xs text-gray-500">
+                                                Upload an Excel checklist and let AI generate form fields automatically
+                                            </p>
+                                        </div>
+                                    )}
+                                    
                                     <div className="grid grid-cols-2 gap-2">
                                         {fieldTypes.map((field) => (
                                             <button
