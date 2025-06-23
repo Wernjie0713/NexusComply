@@ -94,47 +94,6 @@ export default function IndexPage({ audits, filters, summaryData, states, compli
                     <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
                         {activeTab === 'progress' && (
                             <>
-                                {/* Filters Section (only for Audit Progress tab) */}
-                                <div className="mb-6 overflow-hidden bg-white px-6 py-4 shadow-sm sm:rounded-lg">
-                                    <div className="flex flex-wrap items-center justify-between gap-3">
-                                        <div className="flex flex-wrap items-center gap-4">
-                                            <div>
-                                                <label htmlFor="dateFilter" className="mr-2 text-sm font-medium text-gray-700">Date Range:</label>
-                                                <select
-                                                    id="dateFilter"
-                                                    value={dateFilter}
-                                                    onChange={(e) => setDateFilter(e.target.value)}
-                                                    className="rounded-md border-gray-300 text-sm shadow-sm focus:border-green-500 focus:ring-green-500"
-                                                >
-                                                    <option value="all">All Dates</option>
-                                                    <option value="last7">Last 7 Days</option>
-                                                    <option value="last30">Last 30 Days</option>
-                                                    <option value="last90">Last 90 Days</option>
-                                                    <option value="thisYear">This Year</option>
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label htmlFor="statusFilter" className="mr-2 text-sm font-medium text-gray-700">Status:</label>
-                                                <select
-                                                    id="statusFilter"
-                                                    value={statusFilter}
-                                                    onChange={(e) => setStatusFilter(e.target.value)}
-                                                    className="rounded-md border-gray-300 text-sm shadow-sm focus:border-green-500 focus:ring-green-500"
-                                                >
-                                                    <option value="all">All Status</option>
-                                                    <option value="draft">Draft</option>
-                                                    <option value="pending">Pending</option>
-                                                    <option value="approved">Approved</option>
-                                                    <option value="rejected">Rejected</option>
-                                                    <option value="revising">Revising</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <AdminPrimaryButton onClick={handleApplyFilters}>
-                                            Apply Filters
-                                        </AdminPrimaryButton>
-                                    </div>
-                                </div>
                                 <AuditProgressSection 
                                     audits={audits} 
                                     onReviewForm={handleFormReview} 
