@@ -4,6 +4,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
 import Modal from '@/Components/Modal';
 import OutletForm from './Partials/OutletForm';
+import DeleteOutletModal from './Partials/DeleteOutletModal';
 import { Tooltip } from 'react-tooltip';
 
 // Helper function to format operating hours for display
@@ -365,31 +366,11 @@ export default function IndexPage({ outlets }) {
             </div>
 
             {/* Delete Confirmation Modal */}
-            <Modal show={showDeleteModal} onClose={() => setShowDeleteModal(false)} maxWidth="md">
-                <div className="p-6">
-                    <h2 className="mb-4 text-lg font-semibold text-gray-800">Confirm Deletion</h2>
-                    <p className="mb-4 text-sm text-gray-600">
-                        Are you sure you want to delete the outlet "{currentOutlet?.name}"? This action cannot be undone.
-                    </p>
-                    <div className="flex justify-end space-x-2">
-                        <button
-                            type="button"
-                            className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-                            onClick={() => setShowDeleteModal(false)}
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="button"
-                            className="rounded-md border border-transparent bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-                            onClick={handleDeleteSubmit}
-                            disabled={processing}
-                        >
-                            Delete
-                        </button>
-                    </div>
-                </div>
-            </Modal>
+            <DeleteOutletModal
+                outlet={currentOutlet}
+                show={showDeleteModal}
+                onClose={() => setShowDeleteModal(false)}
+            />
         </AuthenticatedLayout>
     );
 }
