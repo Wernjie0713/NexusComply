@@ -127,15 +127,19 @@ export default function ActivityLogPage({ activities = [], filters = { action_ty
     return (
         <AuthenticatedLayout
             header={
-                <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                    <Link 
+                        href={route('admin.dashboard')}
+                        className="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-widest text-gray-700 transition duration-150 ease-in-out hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        Back
+                    </Link>
                     <h2 className="text-xl font-semibold leading-tight text-gray-800">
                         System Activity Log
                     </h2>
-                    <Link href="/admin/dashboard">
-                        <AdminPrimaryButton>
-                            Back to Dashboard
-                        </AdminPrimaryButton>
-                    </Link>
                 </div>
             }
         >
@@ -236,11 +240,7 @@ export default function ActivityLogPage({ activities = [], filters = { action_ty
                                         </div>
                                     </div>
 
-                                    <button
-                                        onClick={handleExport}
-                                        disabled={exporting}
-                                        className="flex items-center rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50"
-                                    >
+                                    <AdminPrimaryButton onClick={handleExport} disabled={exporting} className="flex items-center">
                                         {exporting ? (
                                             <>
                                                 <svg className="mr-2 h-4 w-4 animate-spin text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -254,10 +254,10 @@ export default function ActivityLogPage({ activities = [], filters = { action_ty
                                                 <svg className="mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                                 </svg>
-                                                Export
+                                                EXPORT
                                             </>
                                         )}
-                                    </button>
+                                    </AdminPrimaryButton>
                                 </div>
                             </div>
                         </div>
