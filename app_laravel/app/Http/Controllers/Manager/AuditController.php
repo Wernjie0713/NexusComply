@@ -1182,19 +1182,9 @@ Please provide a comprehensive analysis focusing on compliance adherence, potent
         // After building $auditHistory (before pagination)
         $auditHistory = $auditHistory->sortByDesc('last_action_date')->values();
 
-        // PAGINATE THE AUDIT HISTORY
-        $page = $request->input('page', 1);
-        $perPage = $request->input('per_page', 5);
-        $paginatedAuditHistory = new \Illuminate\Pagination\LengthAwarePaginator(
-            $auditHistory->forPage($page, $perPage)->values(),
-            $auditHistory->count(),
-            $perPage,
-            $page,
-            ['path' => $request->url(), 'query' => $request->query()]
-        );
-
+        // Instead of paginatedAuditHistory, send the full auditHistory as a flat array
         return response()->json([
-            'auditHistory' => $paginatedAuditHistory
+            'auditHistory' => $auditHistory->values() // flat array
         ]);
     }
 }
