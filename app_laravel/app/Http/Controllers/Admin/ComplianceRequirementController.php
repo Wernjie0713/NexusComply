@@ -30,12 +30,14 @@ class ComplianceRequirementController extends Controller
         // Get revised form templates using the direct ID
         $revisedFormTemplates = FormTemplate::where('status_id', $revisedStatusId)
             ->with(['creator', 'status'])
+            ->withCount('complianceRequirements')
             ->orderBy('updated_at', 'desc')
             ->get();
 
         // Get submitted form templates using the direct ID
         $submittedFormTemplates = FormTemplate::where('status_id', $submittedStatusId)
             ->with(['creator', 'status'])
+            ->withCount('complianceRequirements')
             ->orderBy('updated_at', 'desc')
             ->get();
 
