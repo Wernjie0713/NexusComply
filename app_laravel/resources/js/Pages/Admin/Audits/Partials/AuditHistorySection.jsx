@@ -17,16 +17,21 @@ export default function AuditHistorySection({ auditHistory = [], filters, status
     const [currentPage, setCurrentPage] = useState(1);
     const loggedIssuesRef = useRef(null);
 
+    // Sort the auditHistory array descending by last_action_date
+    const sortedAudits = useMemo(() => {
+        return [...auditHistory].sort((a, b) => new Date(b.last_action_date) - new Date(a.last_action_date));
+    }, [auditHistory]);
+
     // Client-side filtering and pagination
     const filteredAudits = useMemo(() => {
         const query = search.toLowerCase();
-        return auditHistory.filter(audit =>
+        return sortedAudits.filter(audit =>
             (audit.compliance_requirement || '').toLowerCase().includes(query) ||
             (audit.outlet_name || '').toLowerCase().includes(query) ||
             (audit.initiated_by || '').toLowerCase().includes(query) ||
             (audit.current_status || '').toLowerCase().includes(query)
         );
-    }, [auditHistory, search]);
+    }, [sortedAudits, search]);
 
     const total = filteredAudits.length;
     const totalPages = Math.ceil(total / perPage);
@@ -76,6 +81,28 @@ export default function AuditHistorySection({ auditHistory = [], filters, status
         }
     };
 
+    // Calculate the range for the current page
+    const startEntry = total === 0 ? 0 : (currentPage - 1) * perPage + 1;
+    const endEntry = total === 0 ? 0 : Math.min(currentPage * perPage, total);
+
+    // Function to determine badge color based on status (copied from manager)
+    const getStatusBadgeClass = (status) => {
+        switch ((status || '').toLowerCase()) {
+            case 'approved':
+                return 'bg-green-100 text-green-800';
+            case 'pending':
+                return 'bg-yellow-100 text-yellow-800';
+            case 'rejected':
+                return 'bg-red-100 text-orange-800';
+            case 'revising':
+                return 'bg-orange-100 text-orange-800';
+            case 'draft':
+                return 'bg-gray-100 text-gray-800';
+            default:
+                return 'bg-gray-100 text-gray-800';
+        }
+    };
+
     return (
         <div className="px-6 py-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Audit History</h3>
@@ -122,7 +149,7 @@ export default function AuditHistorySection({ auditHistory = [], filters, status
                     <tbody className="divide-y divide-gray-200 bg-white">
                         {paginatedAudits.length === 0 ? (
                             <tr>
-                                <td colSpan={10} className="px-4 py-6 text-center text-gray-500">
+                                <td colSpan={11} className="px-4 py-6 text-center text-gray-500">
                                     No audit history found.
                                 </td>
                             </tr>
@@ -130,8 +157,8 @@ export default function AuditHistorySection({ auditHistory = [], filters, status
                             paginatedAudits.map((audit) => (
                                 <React.Fragment key={audit.original_audit_id}>
                                     <tr>
-                                        <td className="px-2 py-2">
-                                            {audit.versions && audit.versions.length > 1 && (
+                                        <td className="px-2 py-2" style={{ width: 40 }}>
+                                            {audit.versions && audit.versions.length > 1 ? (
                                                 <button
                                                     onClick={() => toggleExpand(audit.original_audit_id)}
                                                     className={`flex items-center justify-center rounded-full border border-gray-200 bg-white p-1 transition-colors duration-150 ${
@@ -152,6 +179,8 @@ export default function AuditHistorySection({ auditHistory = [], filters, status
                                                         </svg>
                                                     )}
                                                 </button>
+                                            ) : (
+                                                <span style={{ display: 'inline-block', width: 24, height: 24 }}></span>
                                             )}
                                         </td>
                                         <td className="px-4 py-3 text-sm">{audit.original_audit_id}</td>
@@ -179,7 +208,11 @@ export default function AuditHistorySection({ auditHistory = [], filters, status
                                                 <span>-</span>
                                             )}
                                         </td>
-                                        <td className="px-4 py-3 text-sm">{audit.current_status}</td>
+                                        <td className="px-4 py-3 text-sm">
+                                            <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${getStatusBadgeClass(audit.current_status)}`}>
+                                                {audit.current_status}
+                                            </span>
+                                        </td>
                                         <td className="px-4 py-3 text-sm">
                                             {audit.versions && audit.versions.length > 0 && audit.versions[audit.versions.length - 1].action_date
                                                 ? new Date(audit.versions[audit.versions.length - 1].action_date).toLocaleString()
@@ -221,9 +254,9 @@ export default function AuditHistorySection({ auditHistory = [], filters, status
                                             )}
                                         </td>
                                     </tr>
-                                    {expandedRows.includes(audit.original_audit_id) && (
+                                    {expandedRows.includes(audit.original_audit_id) && audit.versions && audit.versions.length > 1 && (
                                         <tr>
-                                            <td colSpan={10} className="bg-gray-50 px-4 py-2 text-sm text-gray-600">
+                                            <td colSpan={11} className="bg-gray-50 px-4 py-2 text-sm text-gray-600">
                                                 <div className="ml-36">
                                                     <strong>Version History:</strong>
                                                     <table className="min-w-full divide-y divide-gray-200 mt-2">
@@ -299,8 +332,7 @@ export default function AuditHistorySection({ auditHistory = [], filters, status
             {/* Pagination Controls */}
             <div className="flex justify-between items-center mt-4">
                 <div className="text-sm text-gray-600">
-                    Showing {paginatedAudits.length > 0 ? paginatedAudits[0].from : 0}
-                    -{paginatedAudits.length > 0 ? paginatedAudits[paginatedAudits.length - 1].to : 0} of {total} entries
+                    Showing {startEntry} to {endEntry} of {total} entries
                 </div>
                 <div className="flex space-x-1">
                     <button

@@ -238,14 +238,14 @@ export default function DashboardPage({ statistics = {}, complianceData = {}, re
                                             Setup Compliance Frameworks
                                         </AdminPrimaryButton>
                                     </Link>
-                                    <Link href={route('settings.roles-permissions')}>
-                                        <AdminPrimaryButton className="w-full justify-center">
-                                            Manage Roles & Permissions
-                                        </AdminPrimaryButton>
-                                    </Link>
                                     <Link href={route('admin.form-templates.create')}>
                                         <AdminPrimaryButton className="w-full justify-center">
                                             Build New Form
+                                        </AdminPrimaryButton>
+                                    </Link>
+                                    <Link href={route('settings.roles-permissions')}>
+                                        <AdminPrimaryButton className="w-full justify-center">
+                                            Manage Roles & Permissions
                                         </AdminPrimaryButton>
                                     </Link>
                                 </div>

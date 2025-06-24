@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Head, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
@@ -9,13 +9,28 @@ import FormReviewModal from './Partials/FormReviewModal';
 import AuditReviewModal from './Partials/AuditReviewModal';
 import AuditHistorySection from './Partials/AuditHistorySection';
 
-export default function IndexPage({ audits, filters, summaryData, states, complianceCategories, outlets, managers, auditHistory, statuses }) {
+export default function IndexPage({ audits, filters, summaryData, states, complianceCategories, outlets, managers, statuses }) {
     const [activeTab, setActiveTab] = useState('progress');
     const [dateFilter, setDateFilter] = useState(filters.dateFilter || 'all');
     const [statusFilter, setStatusFilter] = useState(filters.statusFilter || 'all');
     const [showReviewModal, setShowReviewModal] = useState(false);
     const [selectedForm, setSelectedForm] = useState(null);
     const [modalSource, setModalSource] = useState(null);
+    const [auditHistory, setAuditHistory] = useState([]);
+    const [loadingHistory, setLoadingHistory] = useState(false);
+
+    useEffect(() => {
+        if (activeTab === 'history') {
+            setLoadingHistory(true);
+            fetch('/admin/audit-history')
+                .then(res => res.json())
+                .then(data => {
+                    setAuditHistory(data.auditHistory || []);
+                    // Optionally fetch statuses if needed
+                })
+                .finally(() => setLoadingHistory(false));
+        }
+    }, [activeTab]);
 
     const handleFormReview = (form) => {
         setSelectedForm(form);
@@ -105,7 +120,19 @@ export default function IndexPage({ audits, filters, summaryData, states, compli
                         )}
                         {activeTab === 'reports' && <AuditReportingSection states={states} complianceCategories={complianceCategories} outlets={outlets} managers={managers} />}
                         {activeTab === 'history' && (
-                            <AuditHistorySection auditHistory={auditHistory} statuses={statuses} />
+                            loadingHistory ? (
+                                <div className="flex justify-center py-12">
+                                    <div className="flex items-center text-gray-500">
+                                        <svg className="mr-2 h-5 w-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        <span>Loading audit history...</span>
+                                    </div>
+                                </div>
+                            ) : (
+                                <AuditHistorySection auditHistory={auditHistory} statuses={statuses} />
+                            )
                         )}
                     </div>
                 </div>

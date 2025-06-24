@@ -725,4 +725,179 @@ class AuditController extends Controller
             ]
         ]);
     }
+
+    /**
+     * Admin Audit History endpoint for client-side fetching
+     */
+    public function adminAuditHistory(Request $request)
+    {
+        // Get all audits
+        $allAuditsEloquent = \App\Models\Audit::with(['outlet', 'user', 'status', 'complianceRequirement'])
+            ->get()
+            ->keyBy('id');
+        $auditChains = \DB::table('audit_version')
+            ->select('first_audit_id', \DB::raw('COUNT(*) as num_versions'))
+            ->groupBy('first_audit_id')
+            ->get()
+            ->keyBy('first_audit_id');
+        $auditsWithVersions = $auditChains->keys()->all();
+
+        // Build history for audits with versions
+        $auditHistory = $auditChains->map(function ($chain, $firstAuditId) use ($allAuditsEloquent) {
+            $originalAudit = $allAuditsEloquent[$firstAuditId] ?? null;
+            if (!$originalAudit) return null;
+            $versionsMeta = \DB::table('audit_version')
+                ->where('first_audit_id', $firstAuditId)
+                ->orderBy('audit_version')
+                ->get()
+                ->keyBy('audit_id');
+            $versions = $versionsMeta->keys();
+            $versionAudits = \App\Models\Audit::with(['status', 'user'])
+                ->whereIn('id', $versions)
+                ->get()
+                ->sortBy(function ($audit) use ($versions) {
+                    return array_search($audit->id, $versions->toArray());
+                })
+                ->values();
+            $versionDetails = $versionAudits->map(function ($audit) use ($versionsMeta) {
+                $meta = $versionsMeta[$audit->id] ?? null;
+                $reviewLog = \App\Models\ActivityLog::where('target_type', 'audit')
+                    ->where('action_type', 'review')
+                    ->where('details', 'like', '%"audit_id":' . $audit->id . '%')
+                    ->orderByDesc('created_at')
+                    ->first();
+                $rejectionReason = null;
+                if ($audit->status && strtolower($audit->status->name) === 'rejected') {
+                    $auditFormIds = \DB::table('audit_audit_form')
+                        ->where('audit_id', $audit->id)
+                        ->pluck('audit_form_id');
+                    $rejectionReason = \DB::table('issue')
+                        ->whereIn('audit_form_id', $auditFormIds)
+                        ->value('description');
+                }
+                $issuesCount = 0;
+                $issuesArr = [];
+                if ($audit->status && strtolower($audit->status->name) === 'rejected') {
+                    $auditFormIds = \DB::table('audit_audit_form')
+                        ->where('audit_id', $audit->id)
+                        ->pluck('audit_form_id');
+                    $issuesArr = \DB::table('issue')
+                        ->whereIn('audit_form_id', $auditFormIds)
+                        ->select('id', 'description', 'severity', 'created_at', 'due_date', 'updated_at', 'status_id')
+                        ->get()
+                        ->map(function ($issue) {
+                            $correctiveActions = \DB::table('corrective_actions')
+                                ->where('issue_id', $issue->id)
+                                ->select('description', 'completion_date', 'verification_date', 'status_id', 'created_at')
+                                ->get();
+                            $issue->corrective_actions = $correctiveActions;
+                            return $issue;
+                        });
+                    $issuesCount = $issuesArr->count();
+                }
+                $auditFormIds = \DB::table('audit_audit_form')
+                    ->where('audit_id', $audit->id)
+                    ->pluck('audit_form_id');
+                $forms = \DB::table('audit_form')
+                    ->whereIn('id', $auditFormIds)
+                    ->get(['id', 'name', 'value', 'form_id']);
+                $forms = $forms->map(function ($form) {
+                    $structure = \DB::table('form_templates')
+                        ->where('id', $form->form_id)
+                        ->value('structure');
+                    return [
+                        'id' => $form->id,
+                        'name' => $form->name,
+                        'form_id' => $form->form_id,
+                        'value' => is_string($form->value) ? json_decode($form->value, true) : $form->value,
+                        'structure' => is_string($structure) ? json_decode($structure, true) : $structure,
+                    ];
+                });
+                return [
+                    'audit_version' => $meta->audit_version ?? null,
+                    'audit_id' => $audit->id,
+                    'submitted_by' => $audit->user ? $audit->user->name : (\App\Models\User::find($audit->user_id)->name ?? ''),
+                    'submission_date' => $audit->start_time ?? $audit->created_at,
+                    'status' => $audit->status->name ?? '',
+                    'reviewed_by' => $reviewLog ? optional($reviewLog->user)->name : null,
+                    'action_date' => $reviewLog ? $reviewLog->created_at : null,
+                    'rejection_reason' => $rejectionReason,
+                    'issues_count' => $issuesCount,
+                    'issues' => $issuesArr,
+                    'forms' => $forms,
+                ];
+            });
+            $latestAudit = $versionAudits->last();
+            return [
+                'original_audit_id' => $originalAudit->id,
+                'compliance_requirement' => $originalAudit->complianceRequirement->title ?? '',
+                'outlet_name' => $originalAudit->outlet->name ?? '',
+                'initiated_by' => $originalAudit->user ? $originalAudit->user->name : (\App\Models\User::find($originalAudit->user_id)->name ?? ''),
+                'initiated_date' => $originalAudit->start_time ?? $originalAudit->created_at,
+                'num_versions' => $chain->num_versions,
+                'current_status' => $latestAudit->status->name ?? '',
+                'last_action_date' => $latestAudit->updated_at ?? $latestAudit->created_at,
+                'versions' => $versionDetails,
+            ];
+        })->filter()->values();
+
+        // Standalone audits (not in any version chain)
+        $allVersionedAuditIds = \DB::table('audit_version')->pluck('audit_id')->all();
+        $standaloneAudits = $allAuditsEloquent->except($allVersionedAuditIds);
+        foreach ($standaloneAudits as $audit) {
+            $userName = $audit->user ? $audit->user->name : (\App\Models\User::find($audit->user_id)->name ?? '');
+            $outletName = $audit->outlet ? $audit->outlet->name : '';
+            $complianceTitle = $audit->complianceRequirement ? $audit->complianceRequirement->title : '';
+            $statusName = $audit->status ? $audit->status->name : '';
+            $auditFormIds = \DB::table('audit_audit_form')
+                ->where('audit_id', $audit->id)
+                ->pluck('audit_form_id');
+            $forms = \DB::table('audit_form')
+                ->whereIn('id', $auditFormIds)
+                ->get(['id', 'name', 'value', 'form_id']);
+            $forms = $forms->map(function ($form) {
+                $structure = \DB::table('form_templates')
+                    ->where('id', $form->form_id)
+                    ->value('structure');
+                return [
+                    'id' => $form->id,
+                    'name' => $form->name,
+                    'form_id' => $form->form_id,
+                    'value' => is_string($form->value) ? json_decode($form->value, true) : $form->value,
+                    'structure' => is_string($structure) ? json_decode($structure, true) : $structure,
+                ];
+            });
+            $auditHistory->push([
+                'original_audit_id' => $audit->id,
+                'compliance_requirement' => $complianceTitle,
+                'outlet_name' => $outletName,
+                'initiated_by' => $userName,
+                'initiated_date' => $audit->start_time ?? $audit->created_at,
+                'num_versions' => 1,
+                'current_status' => $statusName,
+                'last_action_date' => $audit->updated_at ?? $audit->created_at,
+                'versions' => [[
+                    'audit_version' => 1,
+                    'audit_id' => $audit->id,
+                    'submitted_by' => $userName,
+                    'submission_date' => $audit->start_time ?? $audit->created_at,
+                    'status' => $statusName,
+                    'reviewed_by' => null,
+                    'action_date' => null,
+                    'rejection_reason' => null,
+                    'issues_count' => 0,
+                    'issues' => [],
+                    'forms' => $forms,
+                ]],
+            ]);
+        }
+
+        // After building $auditHistory (before pagination)
+        $auditHistory = $auditHistory->sortByDesc('last_action_date')->values();
+
+        // Instead of paginatedAuditHistory, send the full auditHistory as a flat array
+        return response()->json([
+            'auditHistory' => $auditHistory->values() // flat array
+        ]);
+    }
 }

@@ -18,16 +18,21 @@ export default function AuditHistorySection({ auditHistory = [], filters, status
     const loggedIssuesRef = useRef(null);
     const [loading, setLoading] = useState(false);
 
+    // Sort the auditHistory array descending by last_action_date
+    const sortedAudits = useMemo(() => {
+        return [...auditHistory].sort((a, b) => new Date(b.last_action_date) - new Date(a.last_action_date));
+    }, [auditHistory]);
+
     // Client-side filtering and pagination
     const filteredAudits = useMemo(() => {
         const query = search.toLowerCase();
-        return auditHistory.filter(audit =>
+        return sortedAudits.filter(audit =>
             (audit.compliance_requirement || '').toLowerCase().includes(query) ||
             (audit.outlet_name || '').toLowerCase().includes(query) ||
             (audit.initiated_by || '').toLowerCase().includes(query) ||
             (audit.current_status || '').toLowerCase().includes(query)
         );
-    }, [auditHistory, search]);
+    }, [sortedAudits, search]);
 
     const total = filteredAudits.length;
     const totalPages = Math.ceil(total / perPage);
@@ -78,6 +83,24 @@ export default function AuditHistorySection({ auditHistory = [], filters, status
     // Calculate the range for the current page
     const startEntry = total === 0 ? 0 : (currentPage - 1) * perPage + 1;
     const endEntry = total === 0 ? 0 : Math.min(currentPage * perPage, total);
+
+    // Function to determine badge color based on status (copied from ReviewSubmissionsSection)
+    const getStatusBadgeClass = (status) => {
+        switch ((status || '').toLowerCase()) {
+            case 'approved':
+                return 'bg-green-100 text-green-800';
+            case 'pending':
+                return 'bg-yellow-100 text-yellow-800';
+            case 'rejected':
+                return 'bg-red-100 text-orange-800';
+            case 'revising':
+                return 'bg-orange-100 text-orange-800';
+            case 'draft':
+                return 'bg-gray-100 text-gray-800';
+            default:
+                return 'bg-gray-100 text-gray-800';
+        }
+    };
 
     return (
         <div className="px-6 py-6">
@@ -186,7 +209,11 @@ export default function AuditHistorySection({ auditHistory = [], filters, status
                                                 <span>-</span>
                                             )}
                                         </td>
-                                        <td className="px-4 py-3 text-sm">{audit.current_status}</td>
+                                        <td className="px-4 py-3 text-sm">
+                                            <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${getStatusBadgeClass(audit.current_status)}`}>
+                                                {audit.current_status}
+                                            </span>
+                                        </td>
                                         <td className="px-4 py-3 text-sm">{audit.versions && audit.versions.length > 0 && audit.versions[audit.versions.length - 1].action_date ? new Date(audit.versions[audit.versions.length - 1].action_date).toLocaleString() : (audit.versions && audit.versions.length > 0 && audit.versions[audit.versions.length - 1].submission_date ? new Date(audit.versions[audit.versions.length - 1].submission_date).toLocaleString() : '-')}</td>
                                         <td className="px-4 py-3 text-sm">
                                             {audit.versions && audit.versions.length > 0 && audit.versions[audit.versions.length - 1].status && audit.versions[audit.versions.length - 1].status.toLowerCase() === 'rejected' && audit.versions[audit.versions.length - 1].issues_count > 0 ? (
@@ -216,7 +243,7 @@ export default function AuditHistorySection({ auditHistory = [], filters, status
                                                     className="rounded bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
                                                     onClick={() => handleViewVersion(audit.versions[audit.versions.length - 1])}
                                                 >
-                                                    View Version Details
+                                                    View Latest Version
                                                 </button>
                                             )}
                                         </td>

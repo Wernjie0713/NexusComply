@@ -194,6 +194,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/admin/forms/{formId}/previous-issues', [App\Http\Controllers\Admin\IssueController::class, 'getPreviousFormIssue']);
     Route::get('/admin/issues/{issueId}/corrective-actions', [App\Http\Controllers\Admin\IssueController::class, 'getIssueCorrectiveActions']);
     Route::get('/admin/issues/corrective-actions-count', [App\Http\Controllers\Admin\IssueController::class, 'getCorrectiveActionCounts']);
+
+    // Add this route for admin audit history API
+    Route::get('/admin/audit-history', [App\Http\Controllers\Admin\AuditController::class, 'adminAuditHistory']);
 });
 
 Route::middleware('auth')->group(function () {
