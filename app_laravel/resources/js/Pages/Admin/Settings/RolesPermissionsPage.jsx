@@ -4,6 +4,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
 import TextInput from '@/Components/TextInput';
 import Modal from '@/Components/Modal';
+import DeleteRoleModal from './Partials/DeleteRoleModal';
 
 export default function RolesPermissionsPage() {
     const [showRoleModal, setShowRoleModal] = useState(false);
@@ -31,6 +32,10 @@ export default function RolesPermissionsPage() {
     // Add at the top, after other useState imports
     const [saving, setSaving] = useState(false);
     const [saveSuccess, setSaveSuccess] = useState(false);
+
+    const [showDeleteRoleModal, setShowDeleteRoleModal] = useState(false);
+    const [roleToDelete, setRoleToDelete] = useState(null);
+    const [showCannotDeleteRoleModal, setShowCannotDeleteRoleModal] = useState(false);
 
     // Fetch all abilities
     useEffect(() => {
@@ -235,36 +240,30 @@ export default function RolesPermissionsPage() {
         }
     };
 
-    const handleDeleteRole = async (roleId) => {
-        if (!confirm('Are you sure you want to delete this role? This action cannot be undone.')) {
-            return;
+    const handleDeleteRole = (roleId) => {
+        const role = roles.find(r => r.id === roleId);
+        setRoleToDelete(role);
+        if (role.user_count > 0) {
+            setShowCannotDeleteRoleModal(true);
+        } else {
+            setShowDeleteRoleModal(true);
         }
+    };
 
-        try {
-            const response = await fetch(`/admin/ajax/roles/${roleId}`, {
-                method: 'DELETE',
-                headers: {
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                },
-            });
+    const handleCloseDeleteRoleModal = () => {
+        setShowDeleteRoleModal(false);
+        setRoleToDelete(null);
+    };
 
-            if (response.ok) {
-                const responseData = await response.json();
-                setRoles(prevRoles => prevRoles.filter(role => role.id !== roleId));
-                if (selectedRoleId === roleId) {
-                    setSelectedRoleId(null);
-                }
-                console.log('Role deleted successfully!', responseData.message);
-                // Optionally, show a success message to the user
-            } else {
-                const errorData = await response.json();
-                console.error('Failed to delete role:', errorData);
-                alert(errorData.message || 'Failed to delete role. Please check the console for details.');
-            }
-        } catch (error) {
-            console.error('Network or other error:', error);
-            alert('An error occurred during deletion. Please try again.');
+    const handleCloseCannotDeleteRoleModal = () => {
+        setShowCannotDeleteRoleModal(false);
+        setRoleToDelete(null);
+    };
+
+    const handleRoleDeleteSuccess = (roleId) => {
+        setRoles(prevRoles => prevRoles.filter(role => role.id !== roleId));
+        if (selectedRoleId === roleId) {
+            setSelectedRoleId(null);
         }
     };
 
@@ -676,6 +675,34 @@ export default function RolesPermissionsPage() {
                     </div>
                 </div>
             </Modal>
+
+            {/* Cannot Delete Role Modal */}
+            <Modal show={showCannotDeleteRoleModal} onClose={handleCloseCannotDeleteRoleModal} maxWidth="md">
+                <div className="p-6">
+                    <h2 className="text-lg font-medium text-gray-900">Cannot Delete Role</h2>
+                    <div className="mt-4 text-sm text-gray-600">
+                        <p>This role cannot be deleted because it is currently assigned to one or more users.</p>
+                        <p className="mt-2">You must remove all users from this role before it can be deleted.</p>
+                    </div>
+                    <div className="mt-6 flex justify-end">
+                        <button
+                            type="button"
+                            className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                            onClick={handleCloseCannotDeleteRoleModal}
+                        >
+                            Okay
+                        </button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Delete Role Modal */}
+            <DeleteRoleModal
+                role={roleToDelete}
+                show={showDeleteRoleModal}
+                onClose={handleCloseDeleteRoleModal}
+                onDeleteSuccess={handleRoleDeleteSuccess}
+            />
         </AuthenticatedLayout>
     );
 }
