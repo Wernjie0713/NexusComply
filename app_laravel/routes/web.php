@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\ActivityLogController;
 use App\Http\Controllers\Admin\RolePermissionController;
 use App\Http\Controllers\AuditorController;
+use App\Http\Controllers\IssueController;
 use App\Http\Controllers\Manager\AuditController as ManagerAuditController;
 use App\Http\Controllers\Manager\ReportController as ManagerReportController;
 use App\Http\Controllers\Manager\AuditHistoryController as ManagerAuditHistoryController;
@@ -194,10 +195,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/admin/forms/{formId}/previous-issues', [App\Http\Controllers\Admin\IssueController::class, 'getPreviousFormIssue']);
     Route::get('/admin/issues/{issueId}/corrective-actions', [App\Http\Controllers\Admin\IssueController::class, 'getIssueCorrectiveActions']);
     Route::get('/admin/issues/corrective-actions-count', [App\Http\Controllers\Admin\IssueController::class, 'getCorrectiveActionCounts']);
-
-    // Add this route for admin audit history API
+// Add this route for admin audit history API
     Route::get('/admin/audit-history', [App\Http\Controllers\Admin\AuditController::class, 'adminAuditHistory']);
 });
+
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -222,7 +223,11 @@ Route::middleware('guest')->group(function () {
         ]);
     })->name('password.reset');
 });
-
+Route::get('/auditor/forms/{formId}/details', [AuditorController::class, 'getAuditFormDetails']);
+Route::get('/auditor/forms/{formId}/issues', [AuditorController::class, 'getFormIssues']);
+Route::get('/auditor/forms/{formId}/previous-issues', [AuditorController::class, 'getPreviousFormIssue']);
+Route::get('/auditor/issues/{issueId}/corrective-actions', [IssueController::class, 'getIssueCorrectiveActions']);
+    Route::get('/auditor/issues/corrective-actions-count', [IssueController::class, 'getCorrectiveActionCounts']);
 Route::get('/auditor/audits/view', [AuditorController::class, 'viewAudit'])
     ->name('auditor.audits.view');
 // Include standard auth routes (for POST handlers)
