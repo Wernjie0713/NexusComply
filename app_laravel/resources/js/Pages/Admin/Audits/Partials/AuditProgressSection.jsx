@@ -76,11 +76,9 @@ export default function AuditProgressSection({ audits: receivedAudits, onReviewF
             case 'pending':
                 return 'bg-yellow-100 text-yellow-800';
             case 'rejected':
-                return 'bg-red-100 text-red-800';
+                return 'bg-red-100 text-orange-800';
             case 'revising':
                 return 'bg-orange-100 text-orange-800';
-            case 'draft':
-                return 'bg-blue-100 text-blue-800';
             default:
                 return 'bg-gray-100 text-gray-800';
         }
@@ -222,6 +220,9 @@ export default function AuditProgressSection({ audits: receivedAudits, onReviewF
                 </div>
             </div>
 
+            {/* Add extra space between summary and review section */}
+            <div className="mb-10"></div>
+
             {/* Audits Table Heading */}
             <h3 className="mb-6 text-lg font-semibold text-gray-800">Review Form Submissions</h3>
 
@@ -263,7 +264,7 @@ export default function AuditProgressSection({ audits: receivedAudits, onReviewF
                         onClick={handleApplyFilters}
                         className="inline-flex items-center rounded-md border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
                     >
-                        Apply Filters
+                        APPLY FILTERS
                     </button>
                 </div>
             </div>
