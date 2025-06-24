@@ -1,32 +1,29 @@
-# render.yaml - Blueprint for deploying NexusComply on Render
+# render.yaml - CORRECTED BLUEPRINT FOR NEXUSCOMPLY
 
 services:
   # A Web Service for the Laravel Application using Docker
   - type: web
-    name: nexuscomply-app # You can change this name if you like
-    env: docker # This explicitly tells Render to use a Docker environment
+    name: nexuscomply-app # You can keep this name
+    env: docker # This correctly sets the environment to Docker
     
-    # Tells Render where to find your code
-    repo: https://github.com/Wernjie0713/NexusComply.git # Your GitHub repo URL
-    branch: main # Or master, whichever is your main branch
+    # Your repository details
+    repo: https://github.com/Wernjie0713/NexusComply.git # This should match your repo
+    branch: main # Or master
     
-    # Settings for your Docker build
-    rootDir: app_laravel # Crucial: all paths below are relative to this folder
-    dockerfilePath: ./Dockerfile # Path to your Dockerfile within the rootDir
+    # Docker build settings
+    rootDir: app_laravel
+    dockerfilePath: ./Dockerfile
     
-    # Health Check (optional but good practice)
-    healthCheckPath: /api/health # A simple route Render can ping to see if your app is live
+    # Health Check to know when the app is live
+    healthCheckPath: /api/health
 
     # Environment Variables
     envVars:
-      # Render will automatically provide this URL to your app
+      # --- FIX #1: Use generateValue for APP_URL ---
       - key: APP_URL
-        fromService:
-          type: web
-          name: nexuscomply-app # Must match the 'name' of this service above
-          property: url
-      
-      # Set non-secret variables here
+        generateValue: true # This tells Render to automatically assign its public URL
+
+      # --- Non-secret variables ---
       - key: APP_ENV
         value: production
       - key: APP_DEBUG
@@ -35,11 +32,20 @@ services:
         value: pgsql
       - key: LOG_CHANNEL
         value: stderr
+      # Use Redis for caching and sessions for better performance
       - key: CACHE_DRIVER
-        value: redis # Render provides a free Redis instance, good for caching
+        value: redis
       - key: SESSION_DRIVER
-        value: redis # Also good to use Redis for sessions
+        value: redis
+      # Tell Laravel how to connect to our Redis service (below)
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: nexuscomply-cache # Must match the name of the redis service
+          property: connectionString
 
-  # A free Redis instance for Caching and Sessions
+  # The free Redis instance for Caching and Sessions
   - type: redis
     name: nexuscomply-cache
+    # --- FIX #2: Add the required ipAllowList ---
+    ipAllowList: [] # An empty list securely allows access ONLY from your other Render services
