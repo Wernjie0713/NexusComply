@@ -333,6 +333,7 @@ export default function AuditReviewModal({ audit, onClose }) {
                                 </span>
                                 
                                 {/* QR Code Button - Only show for approved audits */}
+                                {/*
                                 {auditData?.status?.toLowerCase() === 'approved' && (
                                     <button
                                         onClick={() => setShowQrCode(!showQrCode)}
@@ -341,6 +342,7 @@ export default function AuditReviewModal({ audit, onClose }) {
                                         {showQrCode ? 'Hide QR Code' : 'View QR Code'}
                                     </button>
                                 )}
+                                */}
                             </div>
                         </div>
                     </div>
