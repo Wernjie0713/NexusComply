@@ -1,29 +1,28 @@
-# render.yaml - CORRECTED BLUEPRINT FOR NEXUSCOMPLY
+# render.yaml - FINAL BLUEPRINT WITH EXPLICIT FREE TIER
 
 services:
   # A Web Service for the Laravel Application using Docker
   - type: web
-    name: nexuscomply-app # You can keep this name
-    env: docker # This correctly sets the environment to Docker
-    
+    name: nexuscomply-app 
+    env: docker 
+    plan: free # <-- IMPORTANT: This guarantees the free web service plan
+
     # Your repository details
-    repo: https://github.com/Wernjie0713/NexusComply.git # This should match your repo
-    branch: main # Or master
+    repo: https://github.com/Wernjie0713/NexusComply.git
+    branch: main
     
     # Docker build settings
     rootDir: app_laravel
     dockerfilePath: ./Dockerfile
     
-    # Health Check to know when the app is live
+    # Health Check
     healthCheckPath: /api/health
 
     # Environment Variables
     envVars:
-      # --- FIX #1: Use generateValue for APP_URL ---
       - key: APP_URL
-        generateValue: true # This tells Render to automatically assign its public URL
+        generateValue: true
 
-      # --- Non-secret variables ---
       - key: APP_ENV
         value: production
       - key: APP_DEBUG
@@ -32,20 +31,19 @@ services:
         value: pgsql
       - key: LOG_CHANNEL
         value: stderr
-      # Use Redis for caching and sessions for better performance
       - key: CACHE_DRIVER
-        value: redis
+        value: redis 
       - key: SESSION_DRIVER
         value: redis
       # Tell Laravel how to connect to our Redis service (below)
       - key: REDIS_URL
         fromService:
           type: redis
-          name: nexuscomply-cache # Must match the name of the redis service
+          name: nexuscomply-cache
           property: connectionString
 
   # The free Redis instance for Caching and Sessions
   - type: redis
     name: nexuscomply-cache
-    # --- FIX #2: Add the required ipAllowList ---
-    ipAllowList: [] # An empty list securely allows access ONLY from your other Render services
+    plan: free # <-- IMPORTANT: This guarantees the free Redis plan
+    ipAllowList: [] # Allows access only from your other Render services
