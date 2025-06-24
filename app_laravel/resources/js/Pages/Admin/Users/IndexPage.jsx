@@ -9,6 +9,7 @@ import OutletUserTable from './Partials/OutletUserTable';
 import CustomRoleUserTable from './Partials/CustomRoleUserTable';
 import EditUserForm from './Partials/EditUserForm';
 import { useAuth } from '@/Hooks/useAuth';
+import DeleteUserModal from './Partials/DeleteUserModal';
 
 export default function IndexPage({ managers, outletUsers, customRoleUsers = [], adminUsers }) {
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -18,6 +19,8 @@ export default function IndexPage({ managers, outletUsers, customRoleUsers = [],
     const [loadingRoles, setLoadingRoles] = useState(true);
     const [editingUser, setEditingUser] = useState(null);
     const [showEditModal, setShowEditModal] = useState(false);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [userToDelete, setUserToDelete] = useState(null);
     
     // In IndexPage.jsx, modify the permission checks:
     const { can, isAdmin, isManager, hasOnlyCustomRoles } = useAuth();
@@ -55,19 +58,17 @@ export default function IndexPage({ managers, outletUsers, customRoleUsers = [],
     }, []);
 
     const handleDelete = (user) => {
-        // Check permission before deleting (only for custom roles)
         if (!canDeleteUsers) {
             alert('You do not have permission to delete users.');
             return;
         }
-        
-        if (confirm(`Are you sure you want to delete user '${user.name}'?`)) {
-            setDeletingUserId(user.id);
-            deleteUser(route('admin.users.destroy', user.id), {
-                onSuccess: () => setDeletingUserId(null),
-                onError: () => setDeletingUserId(null),
-            });
-        }
+        setUserToDelete(user);
+        setShowDeleteModal(true);
+    };
+
+    const handleCloseDeleteModal = () => {
+        setShowDeleteModal(false);
+        setUserToDelete(null);
     };
 
     const handleEdit = (user) => {
@@ -234,6 +235,15 @@ export default function IndexPage({ managers, outletUsers, customRoleUsers = [],
                         <EditUserForm user={editingUser} onClose={() => setShowEditModal(false)} roles={roles} loadingRoles={loadingRoles} />
                     </div>
                 </Modal>
+            )}
+
+            {/* Delete User Modal */}
+            {userToDelete && (
+                <DeleteUserModal
+                    user={userToDelete}
+                    show={showDeleteModal}
+                    onClose={handleCloseDeleteModal}
+                />
             )}
         </AuthenticatedLayout>
     );
