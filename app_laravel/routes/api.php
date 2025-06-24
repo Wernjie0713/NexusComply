@@ -21,6 +21,10 @@ use App\Http\Controllers\Admin\RolePermissionController;
 |
 */
 
+Route::get('/health', function () {
+    return response()->json(['status' => 'ok']);
+});
+
 // Authenticated user routes
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {

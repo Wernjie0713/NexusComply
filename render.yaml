@@ -1,0 +1,45 @@
+# render.yaml - Blueprint for deploying NexusComply on Render
+
+services:
+  # A Web Service for the Laravel Application using Docker
+  - type: web
+    name: nexuscomply-app # You can change this name if you like
+    env: docker # This explicitly tells Render to use a Docker environment
+    
+    # Tells Render where to find your code
+    repo: https://github.com/Wernjie0713/NexusComply.git # Your GitHub repo URL
+    branch: main # Or master, whichever is your main branch
+    
+    # Settings for your Docker build
+    rootDir: app_laravel # Crucial: all paths below are relative to this folder
+    dockerfilePath: ./Dockerfile # Path to your Dockerfile within the rootDir
+    
+    # Health Check (optional but good practice)
+    healthCheckPath: /api/health # A simple route Render can ping to see if your app is live
+
+    # Environment Variables
+    envVars:
+      # Render will automatically provide this URL to your app
+      - key: APP_URL
+        fromService:
+          type: web
+          name: nexuscomply-app # Must match the 'name' of this service above
+          property: url
+      
+      # Set non-secret variables here
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: CACHE_DRIVER
+        value: redis # Render provides a free Redis instance, good for caching
+      - key: SESSION_DRIVER
+        value: redis # Also good to use Redis for sessions
+
+  # A free Redis instance for Caching and Sessions
+  - type: redis
+    name: nexuscomply-cache
