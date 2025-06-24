@@ -102,7 +102,7 @@ export default function IndexPage() {
                                 onChange={e => setSearchQuery(e.target.value)}
                                 style={{ minWidth: 180 }}
                             />
-                            <select
+                            {/* <select
                                 className="rounded-md border-gray-300 text-sm focus:border-green-500 focus:ring-green-500"
                                 value={statusFilter}
                                 onChange={(e) => setStatusFilter(e.target.value)}
@@ -110,7 +110,7 @@ export default function IndexPage() {
                                 <option value="All">All Statuses</option>
                                 <option value="Active">Active</option>
                                 <option value="Needs Onboarding">Needs Onboarding</option>
-                            </select>
+                            </select> */}
                         </div>
                         
                         {/* Table */}
@@ -138,12 +138,12 @@ export default function IndexPage() {
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">
                                             Assigned Outlet
                                         </th>
-                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">
+                                        {/* <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">
                                             Status
                                         </th>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">
                                             Last Login
-                                        </th>
+                                        </th> */}
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">
                                             Actions
                                         </th>
@@ -162,14 +162,14 @@ export default function IndexPage() {
                                                 <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
                                                     {user.outlet}
                                                 </td>
-                                                <td className="whitespace-nowrap px-6 py-4 text-sm">
+                                                {/* <td className="whitespace-nowrap px-6 py-4 text-sm">
                                                     <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${user.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
                                                         {user.status}
                                                     </span>
                                                 </td>
                                                 <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
                                                     {user.lastLogin}
-                                                </td>
+                                                </td> */}
                                                 <td className="whitespace-nowrap px-6 py-4 text-sm font-medium">
                                                     <button
                                                         onClick={() => handleViewDetails(user)}
