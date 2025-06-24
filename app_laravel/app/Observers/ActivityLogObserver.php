@@ -55,6 +55,8 @@ class ActivityLogObserver
             $this->logComplianceRequirementUpdate($model);
         } elseif ($model instanceof AuditForm) {
             $this->logAuditFormUpdate($model);
+        } elseif ($model instanceof Audit) {
+            $this->logAuditUpdate($model);
         } elseif ($model instanceof Role) {
             $this->logActivity($model, 'updated');
         } else {
@@ -94,9 +96,19 @@ class ActivityLogObserver
             return;
         }
 
-        // Refresh the model to ensure we have the latest data
-        if ($model instanceof ComplianceRequirement) {
-            $model = $model->fresh();
+        // Only refresh for non-delete actions
+        if ($actionType !== 'deleted') {
+            if (
+                $model instanceof ComplianceRequirement ||
+                $model instanceof User ||
+                $model instanceof Outlet ||
+                $model instanceof Role
+            ) {
+                $freshModel = $model->fresh();
+                if ($freshModel) {
+                    $model = $freshModel;
+                }
+            }
         }
 
         $targetType = $this->getTargetType($model);
@@ -202,6 +214,8 @@ class ActivityLogObserver
             'restored' => 'Restoration',
             'force_deleted' => 'Deletion',
             'status_changed' => 'Status Change',
+            'approved' => 'Approved',
+            'rejected' => 'Rejected',
             'updated_attributes' => 'Update',
             'assign_manager' => 'Assignment',
             'unassign_manager' => 'Unassignment',
@@ -541,6 +555,22 @@ class ActivityLogObserver
             $oldValue = $model->getOriginal($attribute);
             $displayAttribute = $this->formatAttributeName($attribute);
 
+            // Special handling for operating_hours_info: decode JSON if needed
+            if ($attribute === 'operating_hours_info') {
+                if (is_string($oldValue)) {
+                    $decoded = json_decode($oldValue, true);
+                    if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                        $oldValue = $decoded;
+                    }
+                }
+                if (is_string($newValue)) {
+                    $decoded = json_decode($newValue, true);
+                    if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                        $newValue = $decoded;
+                    }
+                }
+            }
+
             // Format the values for display
             $oldValueDisplay = $this->formatAttributeValue($oldValue);
             $newValueDisplay = $this->formatAttributeValue($newValue);
@@ -707,5 +737,42 @@ class ActivityLogObserver
             $details,
             Auth::id()
         );
+    }
+
+    protected function logAuditUpdate(Audit $model): void
+    {
+        $dirtyAttributes = $model->getDirty();
+        if (isset($dirtyAttributes['status_id'])) {
+            $oldStatusId = $model->getOriginal('status_id');
+            $newStatusId = $model->status_id;
+            $oldStatus = Status::find($oldStatusId)?->name;
+            $newStatus = Status::find($newStatusId)?->name;
+            $actionType = null;
+            if ($newStatusId == 5) {
+                $actionType = 'approved';
+            } elseif ($newStatusId == 4) {
+                $actionType = 'rejected';
+            }
+            if ($actionType) {
+                if (
+                    $model->complianceRequirement && isset($model->complianceRequirement->title)
+                ) {
+                    $auditTitle = $model->complianceRequirement->title;
+                } else {
+                    $auditTitle = 'Audit #' . $model->id;
+                }
+                $details = "Audit \"{$auditTitle}\" was {$actionType} by " . (Auth::user()?->name ?? 'Unknown User') . ". Status changed from '{$oldStatus}' to '{$newStatus}'.";
+                $this->createLogEntry(
+                    'audit',
+                    $actionType,
+                    $details,
+                    Auth::id()
+                );
+            }
+            // Remove status_id so logOtherModelUpdates doesn't log a generic update for this
+            unset($dirtyAttributes['status_id']);
+        }
+        // Optionally, log other attribute changes as well
+        $this->logOtherModelUpdates($model, $dirtyAttributes, 'audit');
     }
 }
