@@ -220,7 +220,7 @@ export default function IndexPage({ outlets }) {
                             </div>
                             <input
                                 type="text"
-                                className="ml-auto rounded-md border border-gray-300 px-3 py-1 text-sm focus:border-green-500 focus:ring-green-500"
+                                className="ml-auto rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-green-500 focus:ring-green-500"
                                 placeholder="Search..."
                                 value={search}
                                 onChange={e => setSearch(e.target.value)}
