@@ -37,7 +37,7 @@ RUN apt-get update && apt-get install -y \
 COPY --from=vendor /app/vendor/ /var/www/html/vendor/
 
 # Copy frontend assets from the 'frontend' stage
-COPY --from=frontend /app/public/build /var_www_html/public/build
+COPY --from=frontend /app/public/build /var/www/html/public/build
 
 # Copy the rest of the application code
 COPY . .
@@ -46,19 +46,9 @@ COPY . .
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Expose port 80 for Apache
-EXPOSE 80
-
 # Configure Apache
 RUN a2enmod rewrite
 COPY 000-default.conf /etc/apache2/sites-available/000-default.conf
 
-# Copy the entrypoint script and make it executable
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
-
-# Set the entrypoint
-ENTRYPOINT ["entrypoint.sh"]
-
-# The CMD should start Apache. This will be executed by our entrypoint script.
-CMD ["apache2-foreground"]
+# Expose port 80 for Apache
+EXPOSE 80
