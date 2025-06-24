@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
 import Modal from '@/Components/Modal';
@@ -10,7 +10,10 @@ import AuditReviewModal from './Partials/AuditReviewModal';
 import AuditHistorySection from './Partials/AuditHistorySection';
 
 export default function IndexPage() {
-    const [activeTab, setActiveTab] = useState('submissions');
+    // Get the 'tab' query parameter from the URL
+    const tabParam = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('tab') : null;
+    const initialTab = tabParam === 'reports' ? 'reports' : (tabParam === 'history' ? 'history' : 'submissions');
+    const [activeTab, setActiveTab] = useState(initialTab);
     const [showReviewModal, setShowReviewModal] = useState(false);
     const [selectedForm, setSelectedForm] = useState(null);
     const [modalSource, setModalSource] = useState(null); // Track which section opened the modal
