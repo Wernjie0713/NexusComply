@@ -5,6 +5,8 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
 import TextInput from '@/Components/TextInput';
 import Modal from '@/Components/Modal';
+import DeleteComplianceRequirementModal from './Partials/DeleteComplianceRequirementModal';
+import DeleteFormTemplateModal, { CannotDeleteFormTemplateModal } from './Partials/DeleteFormTemplateModal';
 
 export default function SetupPage({ complianceRequirements = [], formTemplates = [], categories = [], submittedFormTemplates = [] }) {
     console.log(complianceRequirements);
@@ -47,6 +49,11 @@ export default function SetupPage({ complianceRequirements = [], formTemplates =
     const [modalMode, setModalMode] = useState('add'); // 'add' or 'edit'
     const [submissionType, setSubmissionType] = useState('document_upload_only');
     const [editingCategory, setEditingCategory] = useState(null);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [requirementToDelete, setRequirementToDelete] = useState(null);
+    const [showDeleteFormTemplateModal, setShowDeleteFormTemplateModal] = useState(false);
+    const [showCannotDeleteFormTemplateModal, setShowCannotDeleteFormTemplateModal] = useState(false);
+    const [formTemplateToDelete, setFormTemplateToDelete] = useState(null);
 
     // Form handling using Inertia's useForm
     const { data, setData, post, put, processing, errors, reset } = useForm({
@@ -148,10 +155,14 @@ export default function SetupPage({ complianceRequirements = [], formTemplates =
     };
 
     const handleDelete = (requirementId) => {
-        if (confirm('Are you sure you want to delete this compliance requirement?')) {
-            // Delete the compliance requirement
-            router.delete(route('admin.compliance-requirements.destroy', requirementId));
-        }
+        const req = complianceRequirements.find(r => r.id === requirementId);
+        setRequirementToDelete(req);
+        setShowDeleteModal(true);
+    };
+
+    const handleCloseDeleteModal = () => {
+        setShowDeleteModal(false);
+        setRequirementToDelete(null);
     };
 
     // Find a form template name by ID
@@ -163,9 +174,19 @@ export default function SetupPage({ complianceRequirements = [], formTemplates =
 
     // Handle deletion of a form template
     const handleDeleteFormTemplate = (templateId) => {
-        if (confirm('Are you sure you want to delete this form template?')) {
-            router.delete(route('admin.form-templates.destroy', templateId));
+        const template = formTemplates.find(t => t.id === templateId);
+        setFormTemplateToDelete(template);
+        if (template.compliance_requirements_count && template.compliance_requirements_count > 0) {
+            setShowCannotDeleteFormTemplateModal(true);
+        } else {
+            setShowDeleteFormTemplateModal(true);
         }
+    };
+
+    const handleCloseDeleteFormTemplateModal = () => {
+        setShowDeleteFormTemplateModal(false);
+        setShowCannotDeleteFormTemplateModal(false);
+        setFormTemplateToDelete(null);
     };
 
     const handleFormTemplateToggle = (templateId) => {
@@ -666,6 +687,27 @@ export default function SetupPage({ complianceRequirements = [], formTemplates =
                     </div>
                 </div>
             </Modal>
+            {showDeleteModal && requirementToDelete && (
+                <DeleteComplianceRequirementModal
+                    requirement={requirementToDelete}
+                    show={showDeleteModal}
+                    onClose={handleCloseDeleteModal}
+                />
+            )}
+            {showCannotDeleteFormTemplateModal && formTemplateToDelete && (
+                <CannotDeleteFormTemplateModal
+                    template={formTemplateToDelete}
+                    show={showCannotDeleteFormTemplateModal}
+                    onClose={handleCloseDeleteFormTemplateModal}
+                />
+            )}
+            {showDeleteFormTemplateModal && formTemplateToDelete && (
+                <DeleteFormTemplateModal
+                    template={formTemplateToDelete}
+                    show={showDeleteFormTemplateModal}
+                    onClose={handleCloseDeleteFormTemplateModal}
+                />
+            )}
         </AuthenticatedLayout>
     );
 } 
