@@ -462,7 +462,7 @@ export default function ReviewSubmissionsSection({ onReviewForm, onReviewAudit, 
                         </div>
                         <button
                             onClick={handleApplyFilters}
-                            className="inline-flex items-center rounded-md border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                            className="inline-flex items-center rounded-md border border-transparent bg-green-600 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
                         >
                             Apply Filters
                         </button>
@@ -487,7 +487,7 @@ export default function ReviewSubmissionsSection({ onReviewForm, onReviewAudit, 
                     </div>
                     <input
                         type="text"
-                        className="ml-auto rounded-md border border-gray-300 px-3 py-1 text-sm focus:border-green-500 focus:ring-green-500"
+                        className="ml-auto rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-green-500 focus:ring-green-500"
                         placeholder="Search..."
                         value={search}
                         onChange={e => setSearch(e.target.value)}
