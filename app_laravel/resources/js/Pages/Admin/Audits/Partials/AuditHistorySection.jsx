@@ -6,48 +6,45 @@ import Checkbox from '@/Components/Checkbox';
 import TextInput from '@/Components/TextInput';
 import { Link, router } from '@inertiajs/react';
 
-export default function AuditHistorySection({ auditHistory = {}, filters, statuses = [] }) {
+export default function AuditHistorySection({ auditHistory = [], filters, statuses = [] }) {
     const [expandedRows, setExpandedRows] = useState([]);
     const [selectedVersion, setSelectedVersion] = useState(null);
     const [showVersionModal, setShowVersionModal] = useState(false);
     const [showIssuesModal, setShowIssuesModal] = useState(false);
     const [issuesForVersion, setIssuesForVersion] = useState([]);
-    const [perPage, setPerPage] = useState(filters?.per_page || 5);
-    const [search, setSearch] = useState(filters?.search || '');
-    const [currentPage, setCurrentPage] = useState(auditHistory.current_page || 1);
-    const loggedIssuesRef = useRef(null); // Ref for scrolling
+    const [perPage, setPerPage] = useState(5);
+    const [search, setSearch] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const loggedIssuesRef = useRef(null);
 
-    const audits = auditHistory || { data: [], links: [] };
-
-    // When perPage or currentPage changes, fetch from backend
-    const handlePerPageChange = (e) => {
-        const newPerPage = Number(e.target.value);
-        setPerPage(newPerPage);
-        setCurrentPage(1);
-        router.get(
-            route('admin.audits.index'),
-            { per_page: newPerPage, page: 1, search },
-            { preserveState: true, preserveScroll: true, replace: true }
+    // Client-side filtering and pagination
+    const filteredAudits = useMemo(() => {
+        const query = search.toLowerCase();
+        return auditHistory.filter(audit =>
+            (audit.compliance_requirement || '').toLowerCase().includes(query) ||
+            (audit.outlet_name || '').toLowerCase().includes(query) ||
+            (audit.initiated_by || '').toLowerCase().includes(query) ||
+            (audit.current_status || '').toLowerCase().includes(query)
         );
+    }, [auditHistory, search]);
+
+    const total = filteredAudits.length;
+    const totalPages = Math.ceil(total / perPage);
+    const paginatedAudits = useMemo(() => {
+        const start = (currentPage - 1) * perPage;
+        return filteredAudits.slice(start, start + perPage);
+    }, [filteredAudits, currentPage, perPage]);
+
+    useMemo(() => { setCurrentPage(1); }, [search, perPage]);
+
+    const handlePerPageChange = (e) => {
+        setPerPage(Number(e.target.value));
     };
     const handlePageChange = (page) => {
-        if (page >= 1 && page <= auditHistory.last_page) {
-            setCurrentPage(page);
-            router.get(
-                route('admin.audits.index'),
-                { per_page: perPage, page, search },
-                { preserveState: true, preserveScroll: true, replace: true }
-            );
-        }
+        if (page >= 1 && page <= totalPages) setCurrentPage(page);
     };
     const handleSearchChange = (e) => {
         setSearch(e.target.value);
-        setCurrentPage(1);
-        router.get(
-            route('admin.audits.index'),
-            { per_page: perPage, page: 1, search: e.target.value },
-            { preserveState: true, preserveScroll: true, replace: true }
-        );
     };
 
     const toggleExpand = (id) => {
@@ -123,14 +120,14 @@ export default function AuditHistorySection({ auditHistory = {}, filters, status
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200 bg-white">
-                        {audits.data.length === 0 ? (
+                        {paginatedAudits.length === 0 ? (
                             <tr>
                                 <td colSpan={10} className="px-4 py-6 text-center text-gray-500">
                                     No audit history found.
                                 </td>
                             </tr>
                         ) : (
-                            audits.data.map((audit) => (
+                            paginatedAudits.map((audit) => (
                                 <React.Fragment key={audit.original_audit_id}>
                                     <tr>
                                         <td className="px-2 py-2">
@@ -302,21 +299,21 @@ export default function AuditHistorySection({ auditHistory = {}, filters, status
             {/* Pagination Controls */}
             <div className="flex justify-between items-center mt-4">
                 <div className="text-sm text-gray-600">
-                    Showing {audits.from || 0}
-                    -{audits.to || 0} of {audits.total || 0} entries
+                    Showing {paginatedAudits.length > 0 ? paginatedAudits[0].from : 0}
+                    -{paginatedAudits.length > 0 ? paginatedAudits[paginatedAudits.length - 1].to : 0} of {total} entries
                 </div>
                 <div className="flex space-x-1">
                     <button
                         className="px-2 py-1 rounded border text-sm disabled:opacity-50"
-                        onClick={() => handlePageChange((auditHistory.current_page || 1) - 1)}
-                        disabled={auditHistory.current_page === 1}
+                        onClick={() => handlePageChange((currentPage || 1) - 1)}
+                        disabled={currentPage === 1}
                     >
                         Prev
                     </button>
-                    {[...Array(auditHistory.last_page || 1)].map((_, idx) => (
+                    {[...Array(totalPages || 1)].map((_, idx) => (
                         <button
                             key={idx}
-                            className={`px-2 py-1 rounded border text-sm ${auditHistory.current_page === idx + 1 ? 'bg-green-100 border-green-400 font-bold' : ''}`}
+                            className={`px-2 py-1 rounded border text-sm ${currentPage === idx + 1 ? 'bg-green-100 border-green-400 font-bold' : ''}`}
                             onClick={() => handlePageChange(idx + 1)}
                         >
                             {idx + 1}
@@ -324,8 +321,8 @@ export default function AuditHistorySection({ auditHistory = {}, filters, status
                     ))}
                     <button
                         className="px-2 py-1 rounded border text-sm disabled:opacity-50"
-                        onClick={() => handlePageChange((auditHistory.current_page || 1) + 1)}
-                        disabled={auditHistory.current_page === auditHistory.last_page}
+                        onClick={() => handlePageChange((currentPage || 1) + 1)}
+                        disabled={currentPage === totalPages}
                     >
                         Next
                     </button>

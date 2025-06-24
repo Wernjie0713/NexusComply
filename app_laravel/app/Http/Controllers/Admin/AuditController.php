@@ -293,25 +293,7 @@ class AuditController extends Controller
         // After building $auditHistory (before pagination), sort by last_action_date DESC
         $auditHistory = $auditHistory->sortByDesc('last_action_date')->values();
 
-        // PAGINATE THE AUDIT HISTORY
-        $page = $request->input('page', 1);
-        $perPage = $request->input('per_page', 5);
-        $paginatedAuditHistory = new LengthAwarePaginator(
-            $auditHistory->forPage($page, $perPage)->values(),
-            $auditHistory->count(),
-            $perPage,
-            $page,
-            ['path' => $request->url(), 'query' => $request->query()]
-        );
-
-        // Debug log before pagination
-        \Log::info('AuditHistory count before pagination', [
-            'total_audits' => $auditHistory->count(),
-            'audit_ids' => $auditHistory->pluck('original_audit_id')->all(),
-            'perPage' => $perPage,
-            'page' => $page,
-        ]);
-
+        // Instead of paginatedAuditHistory, send the full auditHistory as a flat array
         return Inertia::render('Admin/Audits/IndexPage', [
             'audits' => $audits,
             'filters' => $request->only(['dateFilter', 'statusFilter', 'per_page', 'search']),
@@ -332,7 +314,7 @@ class AuditController extends Controller
                 ->select('id', 'name', 'email', 'role_id')
                 ->orderBy('name')
                 ->get(),
-            'auditHistory' => $paginatedAuditHistory,
+            'auditHistory' => $auditHistory->values(), // flat array
             'statuses' => \App\Models\Status::select('id', 'name')->get(),
         ]);
     }
