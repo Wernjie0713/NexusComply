@@ -55,6 +55,48 @@ export default function IndexPage({ audits, filters, summaryData, states, compli
         });
     };
 
+    // Compute unique states from audits' outlet.state, case-insensitive, and display in title case
+    function toTitleCase(str) {
+        return str.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+    }
+    const uniqueStatesMap = {};
+    (audits || []).forEach(audit => {
+        const outletState = audit.outlet && audit.outlet.state;
+        if (outletState) {
+            const lower = outletState.trim().toLowerCase();
+            if (!uniqueStatesMap[lower]) {
+                uniqueStatesMap[lower] = toTitleCase(outletState.trim());
+            }
+        }
+    });
+    const uniqueStates = Object.values(uniqueStatesMap);
+
+    // Compute unique outlets from audits' outlet.name, case-insensitive, and display in title case
+    const uniqueOutletsMap = {};
+    (audits || []).forEach(audit => {
+        const outletName = audit.outlet && audit.outlet.name;
+        if (outletName) {
+            const lower = outletName.trim().toLowerCase();
+            if (!uniqueOutletsMap[lower]) {
+                uniqueOutletsMap[lower] = toTitleCase(outletName.trim());
+            }
+        }
+    });
+    const uniqueOutlets = Object.values(uniqueOutletsMap);
+
+    // Compute unique compliance categories from audits' compliance_requirement.category.name, case-insensitive, and display in title case
+    const uniqueCategoriesMap = {};
+    (audits || []).forEach(audit => {
+        const categoryName = audit.compliance_requirement && audit.compliance_requirement.category && audit.compliance_requirement.category.name;
+        if (categoryName) {
+            const lower = categoryName.trim().toLowerCase();
+            if (!uniqueCategoriesMap[lower]) {
+                uniqueCategoriesMap[lower] = toTitleCase(categoryName.trim());
+            }
+        }
+    });
+    const uniqueCategories = Object.values(uniqueCategoriesMap);
+
     return (
         <AuthenticatedLayout
             header={
@@ -118,7 +160,7 @@ export default function IndexPage({ audits, filters, summaryData, states, compli
                                 />
                             </>
                         )}
-                        {activeTab === 'reports' && <AuditReportingSection states={states} complianceCategories={complianceCategories} outlets={outlets} managers={managers} />}
+                        {activeTab === 'reports' && <AuditReportingSection states={uniqueStates} complianceCategories={uniqueCategories} outlets={uniqueOutlets} managers={managers} />}
                         {activeTab === 'history' && (
                             loadingHistory ? (
                                 <div className="flex justify-center py-12">
