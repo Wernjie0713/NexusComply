@@ -41,7 +41,7 @@ class AuditController extends Controller
             'outlet',
             'user',
             'status',
-            'complianceRequirement',
+            'complianceRequirement.category',
             'auditForms.formTemplate',
             'auditForms.status',
         ])
