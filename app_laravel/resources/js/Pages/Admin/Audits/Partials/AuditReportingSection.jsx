@@ -235,11 +235,11 @@ export default function AuditReportingSection({ states = [], complianceCategorie
                                             {report.id === 2 && managers.map(manager => (
                                                 <option key={manager.id} value={manager.name}>{manager.name}</option>
                                             ))}
-                                            {report.id === 3 && outlets.map(outlet => (
-                                                <option key={outlet.id} value={outlet.name}>{outlet.name}</option>
+                                            {report.id === 3 && outlets.map(outletName => (
+                                                <option key={outletName} value={outletName}>{outletName}</option>
                                             ))}
-                                            {report.id === 4 && complianceCategories.map(category => (
-                                                <option key={category.id} value={category.name}>{category.name}</option>
+                                            {report.id === 4 && complianceCategories.map(categoryName => (
+                                                <option key={categoryName} value={categoryName}>{categoryName}</option>
                                             ))}
                                             {report.id === 1 && states.map(state => (
                                                 <option key={state} value={state}>{state}</option>
