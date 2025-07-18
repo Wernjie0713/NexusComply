@@ -9,10 +9,11 @@ use App\Models\Status;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         try {
             $user = Auth::user();
@@ -29,43 +30,50 @@ class DashboardController extends Controller
             $draftStatusId = $statuses['draft']->id ?? null;
             $pendingStatusId = $statuses['pending']->id ?? null;
             $approvedStatusId = $statuses['approved']->id ?? null;
+            $rejectedStatusId = $statuses['rejected']->id ?? null;
 
-            // Get start of current month
-            $startOfMonth = Carbon::now()->startOfMonth();
-
-            // Get all audits for these outlets created this month
-            $auditsThisMonth = $audits->filter(function ($audit) use ($startOfMonth) {
-                return $audit->created_at >= $startOfMonth;
-            });
-
-            // Pending submissions: audits with status 'draft' created this month
-            $pendingSubmissions = $auditsThisMonth->where('status_id', $draftStatusId)->count();
-
-            // Overdue audits: status 'draft' or 'pending', due_date < now, created this month
+            // Get period from request
+            $period = $request->input('period', 'this_month');
             $now = Carbon::now();
-            $overdueAudits = $auditsThisMonth->filter(function ($audit) use ($draftStatusId, $pendingStatusId, $now) {
+
+            if ($period === 'this_month') {
+                $start = $now->copy()->startOfMonth();
+                $end = $now->copy()->endOfMonth();
+            } elseif ($period === 'last_month') {
+                $start = $now->copy()->subMonth()->startOfMonth();
+                $end = $now->copy()->subMonth()->endOfMonth();
+            } else { // all_time
+                $start = null;
+                $end = null;
+            }
+
+            // Filter audits by period
+            $auditsFiltered = $audits;
+            if ($start && $end) {
+                $auditsFiltered = $audits->filter(function ($audit) use ($start, $end) {
+                    return $audit->created_at >= $start && $audit->created_at <= $end;
+                });
+            }
+
+            // Now use $auditsFiltered for all summary calculations
+            $pendingSubmissions = $auditsFiltered->where('status_id', $draftStatusId)->count();
+            $overdueAudits = $auditsFiltered->filter(function ($audit) use ($draftStatusId, $pendingStatusId, $now) {
                 return in_array($audit->status_id, [$draftStatusId, $pendingStatusId]) &&
                     $audit->due_date && Carbon::parse($audit->due_date)->lt($now);
             })->count();
+            $pendingReviews = $auditsFiltered->where('status_id', $pendingStatusId)->count();
 
-            // Compliance rate: percent of 'approved' audits this month
-            $approvedThisMonth = $auditsThisMonth->where('status_id', $approvedStatusId)->count();
-            $totalThisMonth = $auditsThisMonth->count();
-            $complianceRate = $totalThisMonth > 0 ? round(($approvedThisMonth / $totalThisMonth) * 100) : 0;
-
-            // Regional compliance summary (like admin, but filtered)
-            $rejectedStatusId = $statuses['rejected']->id ?? null;
             $complianceData = [
                 'fullyCompliant' => [
-                    'count' => $auditsThisMonth->where('status_id', $approvedStatusId)->count(),
+                    'count' => $auditsFiltered->where('status_id', $approvedStatusId)->count(),
                     'percentage' => 0
                 ],
                 'partiallyCompliant' => [
-                    'count' => $auditsThisMonth->whereIn('status_id', array_filter([$pendingStatusId, $rejectedStatusId]))->count(),
+                    'count' => $auditsFiltered->whereIn('status_id', array_filter([$pendingStatusId, $rejectedStatusId]))->count(),
                     'percentage' => 0
                 ],
                 'nonCompliant' => [
-                    'count' => $auditsThisMonth->where('status_id', $draftStatusId)->count(),
+                    'count' => $auditsFiltered->where('status_id', $draftStatusId)->count(),
                     'percentage' => 0
                 ]
             ];
@@ -76,28 +84,18 @@ class DashboardController extends Controller
                 $complianceData['nonCompliant']['percentage'] = round(($complianceData['nonCompliant']['count'] / $totalAudits) * 100);
             }
 
-            // Pending Reviews card: total audits in 'pending' status for these outlets, this month
-            $pendingReviews = $auditsThisMonth->where('status_id', $pendingStatusId)->count();
-
-            // Auditor Performance table
+            // Auditor Performance table (optionally filter by period)
             $outletStaffActivity = [];
-
-            // First get all outlets and their associated staff
             $outletWithStaff = Outlet::whereIn('id', $outlets)->with('outletUser')->get();
-
-            // Loop through each outlet
             foreach ($outletWithStaff as $outlet) {
                 $staff = $outlet->outletUser;
-
-                // Always add staff entry regardless of whether there's activity
                 if ($staff) {
-                    // Get audits for staff if they exist
                     $staffAudits = Audit::where('outlet_id', $outlet->id)
                         ->where('user_id', $staff->id)
-                        ->where('created_at', '>=', $startOfMonth)
+                        ->when($start && $end, function ($query) use ($start, $end) {
+                            $query->whereBetween('created_at', [$start, $end]);
+                        })
                         ->get();
-
-                    // Add entry with data or zeros
                     $outletStaffActivity[] = [
                         'id' => $staff->id,
                         'name' => $staff->name,
@@ -110,25 +108,13 @@ class DashboardController extends Controller
                         })->count(),
                         'rejectedAudits' => $staffAudits->where('status_id', $rejectedStatusId)->count(),
                     ];
-                } else {
-                    // Add entry for outlet without staff
-                    $outletStaffActivity[] = [
-                        'id' => null,
-                        'name' => 'No Staff Assigned',
-                        'outlet' => $outlet->name,
-                        'auditsCompleted' => 0,
-                        'pendingSubmissions' => 0,
-                        'overdueAudits' => 0,
-                        'rejectedAudits' => 0,
-                    ];
                 }
             }
 
-            // Stacked bar chart data: audits grouped by compliance category and compliance status
+            // Stacked bar chart data: audits grouped by compliance category and compliance status (filtered by period)
             $categories = \App\Models\ComplianceCategory::all();
-            $categoryBarData = $categories->map(function ($category) use ($audits, $approvedStatusId, $pendingStatusId, $rejectedStatusId, $draftStatusId) {
-                // Get audits for this category (via complianceRequirement)
-                $catAudits = $audits->filter(function ($audit) use ($category) {
+            $categoryBarData = $categories->map(function ($category) use ($auditsFiltered, $approvedStatusId, $pendingStatusId, $rejectedStatusId, $draftStatusId) {
+                $catAudits = $auditsFiltered->filter(function ($audit) use ($category) {
                     return $audit->complianceRequirement && $audit->complianceRequirement->category_id == $category->id;
                 });
                 return [
@@ -148,6 +134,7 @@ class DashboardController extends Controller
                 'outletStaffActivity' => $outletStaffActivity,
                 'userName' => $user->name,
                 'categoryComplianceBarData' => $categoryBarData,
+                'selectedPeriod' => $period,
             ]);
         } catch (\Exception $e) {
             return Inertia::render('Manager/DashboardPage', [
@@ -160,6 +147,7 @@ class DashboardController extends Controller
                 'error' => $e->getMessage(),
                 'userName' => null,
                 'categoryComplianceBarData' => [],
+                'selectedPeriod' => 'this_month', // Default to this_month on error
             ]);
         }
     }
