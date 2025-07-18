@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import AdminPrimaryButton from '@/Components/AdminPrimaryButton';
 
-export default function DashboardPage({ statistics = {}, complianceData = {}, recentActivities = [] }) {
+export default function DashboardPage({ statistics = {}, complianceData = {}, recentActivities = [], selectedPeriod = 'this_month' }) {
     // Default values for statistics
     const {
         totalOutlets = 0,
@@ -19,6 +19,17 @@ export default function DashboardPage({ statistics = {}, complianceData = {}, re
         nonCompliant = { count: 0, percentage: 0 }
     } = complianceData;
 
+    // Add state for period filter (default to prop from backend)
+    const [period, setPeriod] = useState(selectedPeriod);
+    useEffect(() => {
+        setPeriod(selectedPeriod);
+    }, [selectedPeriod]);
+    const handlePeriodChange = (e) => {
+        const newPeriod = e.target.value;
+        setPeriod(newPeriod);
+        router.get(route('admin.dashboard'), { period: newPeriod }, { preserveState: true, preserveScroll: true });
+    };
+
     const { auth } = usePage().props;
     const adminName = auth?.user?.name || 'Admin';
 
@@ -32,6 +43,20 @@ export default function DashboardPage({ statistics = {}, complianceData = {}, re
                     <div className="mb-6 overflow-hidden bg-white px-6 py-6 shadow-sm sm:rounded-lg">
                         <h1 className="text-2xl font-bold text-gray-900">Welcome back, {adminName}!</h1>
                         <p className="mt-1 text-gray-600">Here's an overview of your system's current status.</p>
+                    </div>
+
+                    {/* Summary Period Dropdown */}
+                    <div className="mb-6 w-full flex items-center">
+                        <select
+                            id="period-select"
+                            value={period}
+                            onChange={handlePeriodChange}
+                            className="rounded-md border-gray-300 text-sm shadow-sm focus:border-green-500 focus:ring-green-500"
+                        >
+                            <option value="this_month">This Month</option>
+                            <option value="last_month">Last Month</option>
+                            <option value="all_time">All Time</option>
+                        </select>
                     </div>
 
                     {/* Key Metric Cards */}
@@ -106,7 +131,7 @@ export default function DashboardPage({ statistics = {}, complianceData = {}, re
                         {/* Compliance Summary Section - Takes 2/3 of the space on large screens */}
                         <div className="lg:col-span-2">
                             <div className="overflow-hidden bg-white px-6 py-6 shadow-sm sm:rounded-lg">
-                                <h2 className="mb-4 text-lg font-semibold text-gray-800">Compliance Status This Month</h2>
+                                <h2 className="mb-4 text-lg font-semibold text-gray-800">Compliance Status</h2>
 
                                 {/* Compliance Bar Chart */}
                                 <div className="mb-6">
@@ -251,32 +276,6 @@ export default function DashboardPage({ statistics = {}, complianceData = {}, re
                                 </div>
                             </div>
 
-                            {/* System Health Section - Commented out as system monitoring is not implemented yet
-                            <div className="overflow-hidden bg-white px-6 py-6 shadow-sm sm:rounded-lg">
-                                <h2 className="mb-4 text-lg font-semibold text-gray-800">System Status</h2>
-                                <div className="space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm text-gray-600">Database Connection</span>
-                                        <span className="flex items-center text-sm font-medium text-green-600">
-                                            <span className="mr-1.5 h-2.5 w-2.5 rounded-full bg-green-600"></span>
-                                            Connected
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm text-gray-600">Last Backup</span>
-                                        <span className="text-sm font-medium text-gray-900">12 hours ago</span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm text-gray-600">System Load</span>
-                                        <span className="text-sm font-medium text-gray-900">Normal</span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm text-gray-600">Storage Usage</span>
-                                        <span className="text-sm font-medium text-gray-900">42%</span>
-                                    </div>
-                                </div>
-                            </div>
-                            */}
                         </div>
                     </div>
                 </div>
