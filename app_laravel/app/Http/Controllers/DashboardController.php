@@ -21,12 +21,12 @@ class DashboardController extends Controller
         
         // Check if user has admin role using Bouncer
         if (Bouncer::is($user)->an('admin')) {
-            return app(AdminDashboardController::class)->index();
+            return app(AdminDashboardController::class)->index(request());
         }
         
         // Check if user has manager role
         if (Bouncer::is($user)->a('manager')) {
-            return app(\App\Http\Controllers\Manager\DashboardController::class)->index();
+            return app(\App\Http\Controllers\Manager\DashboardController::class)->index(request());
         }
         
         // For all other roles (outlet_staff, or default user)
