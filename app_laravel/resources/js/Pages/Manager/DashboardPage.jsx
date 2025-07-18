@@ -16,6 +16,7 @@ export default function DashboardPage({
     complianceData = {},
     userName = '',
     categoryComplianceBarData = [],
+    selectedPeriod = 'this_month', // new prop from backend
 }) {
     // Destructure complianceData like admin dashboard
     const {
@@ -49,6 +50,14 @@ export default function DashboardPage({
         );
     };
 
+    const [period, setPeriod] = useState(selectedPeriod || 'this_month');
+
+    const handlePeriodChange = (e) => {
+        const newPeriod = e.target.value;
+        setPeriod(newPeriod);
+        router.get(route('manager.dashboard'), { period: newPeriod }, { preserveState: true, preserveScroll: true });
+    };
+
     return (
         <AuthenticatedLayout>
             <Head title="Manager Dashboard" />
@@ -60,6 +69,20 @@ export default function DashboardPage({
                         <h1 className="text-2xl font-bold text-gray-900">Welcome back, {userName}!</h1>
                         <p className="mt-1 text-gray-600">Here's the current status of outlets in your region.</p>
                         {error && <div className="mt-2 text-red-600">{error}</div>}
+                    </div>
+
+                    {/* Summary Period Dropdown */}
+                    <div className="mb-6 w-full flex items-center">
+                        <select
+                            id="period-select"
+                            value={period}
+                            onChange={handlePeriodChange}
+                            className="rounded-md border-gray-300 text-sm shadow-sm focus:border-green-500 focus:ring-green-500"
+                        >
+                            <option value="this_month">This Month</option>
+                            <option value="last_month">Last Month</option>
+                            <option value="all_time">All Time</option>
+                        </select>
                     </div>
 
                     {/* Key Metric Cards */}
